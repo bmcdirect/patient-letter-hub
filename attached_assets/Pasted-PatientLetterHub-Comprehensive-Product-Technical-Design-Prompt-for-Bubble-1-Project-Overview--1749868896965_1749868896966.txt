@@ -1,0 +1,326 @@
+PatientLetterHub – Comprehensive Product & Technical Design Prompt for Bubble
+
+1. Project Overview
+
+PatientLetterHub is a low‑friction SaaS platform that lets any outpatient healthcare practice (MD, DDS, DC, OT/PT, SLP, etc.) generate, print, and mail patient‑notification letters required for compliance or courtesy. The system offers:
+
+Guided templates for common legal/ethical events (departure, relocation, closure, HIPAA breach, FDA/CDC recall, annual privacy notice, etc.)
+
+Custom‑letter lane for fully user‑supplied content
+
+Built‑in address hygiene (CASS + NCOA), postage calculation, IMb tracking, certified‑mail upgrade, multi‑language support, recurring schedules, prepaid credit bundles, and regulatory-alert hooks. Orders flow automatically to MASS Communications for print/insert while users receive merged‑PDF proofs and USPS documentation.
+
+Brand Colors & UI Style
+
+Primary Blue: PMS 072 C — HEX #10069F (main headers, primary buttons, hyperlinks)
+
+Background: Pure White — HEX #FFFFFF (default page background for clean look)
+
+Dark Navy: HEX #08306B (body text, icons over light sections; WCAG‑AA contrast)
+
+Soft Grey: HEX #F3F6FA (section separators, table rows, disabled states)
+
+Teal Accent: HEX #009FAF (secondary buttons, info badges)
+
+Alert Orange: HEX #FF6A00 (warnings, error toasts, CTA hover)
+
+Usage ratio: Primary Blue ≈ 60 % of accent surfaces, Teal ≈ 20 %, Orange ≤ 10 %. Always pair colour elements with generous white space to avoid visual fatigue.
+
+2. Key Personas
+
+Persona
+
+Goals
+
+Pain Points
+
+Success Metric
+
+Practice Manager (primary)
+
+Notify all patients quickly, prove compliance, minimise effort
+
+Manual mail‑merge is tedious; uncertain legal wording; printers take days
+
+Letter approved & mailed same day with audit docs attached
+
+Compliance Officer / Risk Manager
+
+Demonstrate regulatory adherence (HIPAA, State Boards)
+
+Needs certified proof & delivery scans
+
+Downloadable affidavit + USPS IV report
+
+Solo Practitioner
+
+Low‑volume, cost‑sensitive; occasional events
+
+No in‑house mail equipment
+
+Under $2 per letter all‑in
+
+MASS Print Operator
+
+Receive clean print jobs & metadata
+
+Inconsistent file formats
+
+JSON payload matches press workflow
+
+3. Value Proposition & Differentiators
+
+Event‑driven wizard eliminates legal‑copy guesswork.
+
+On‑platform CASS/NCOA saves postage & reduces returns.
+
+Proof stack (PS 3600, IMb scans, certified receipts) in one archive.
+
+Admin‑friendly: no code, repeatable outreach pipeline.
+
+4. Core Functional Modules
+
+4.1 User On‑Boarding
+
+Email/password or SSO → Verify email
+
+"Create Practice" form: taxonomy dropdown, NPI (optional), address, logo, signature image, default sender name.
+
+Role assignment: Owner, Manager, Billing‑only.
+
+4.2 Template Management
+
+Bubble Data Type: Template with fields:
+
+name (text)
+
+discipline_list (list of Option Set Disciplines)
+
+event_type (Option Set Events)
+
+body_html (rich text with merge tokens like {{FirstName}})
+
+language (ISO 639‑1)
+
+required_fields (JSON)
+
+is_active (yes/no)
+
+Admin UI to edit, clone, version.
+
+4.3 Event Wizard (Guided Lane)
+
+Select Event → filtered by practice taxonomy + language.
+
+Form auto‑generates inputs per required_fields JSON (e.g., NewAddress, EffectiveDate).
+
+On "Continue": body is rendered in Rich‑Text Editor with tokens replaced; user may edit.
+
+Validations:
+
+Minimum 100 words for HIPAA breach.
+
+Prohibited marketing phrases check (regex list).
+
+4.4 Custom Letter Lane
+
+Choose Upload DOC/PDF or Write in Editor.
+
+Show merge token side‑panel.
+
+Detect missing tokens vs. uploaded CSV columns.
+
+Auto‑paginate preview.
+
+4.5 Data Upload & Hygiene
+
+Accept CSV/XLSX ≤ 50 MB.
+
+Bubble backend workflow:
+
+Parse rows → Address items linked to LetterJob.
+
+Send batch to Smarty Streets API; update is_valid, dpv_code.
+
+Send NCOA lookup (optional paid toggle).
+
+Generate "Bad Address" report (downloadable CSV).
+
+4.6 Cost & Postage Calculator
+
+Input: rows_valid, pages_per_letter, print_mode (simplex/duplex), certified (y/n), credit_bundle.
+
+Pricing formula stored in Option Set PricingTier.
+
+Show line‑item breakdown and GP margin for admin.
+
+4.7 Checkout & Payment
+
+Stripe v2025 + Apple Pay/Google Pay.
+
+Allow split pay: Credit balance first, remainder to card.
+
+Create Payment record with Stripe charge ID.
+
+4.8 Print Fulfilment Integration
+
+Generate per‑letter PDFs → combine with iText.
+
+Create print_manifest.json:
+
+{
+  "job_id": "{{LetterJobID}}",
+  "total_letters": 1820,
+  "pages": 1820,
+  "paper_stock": "Letterhead p1 / Blank p2+",
+  "certified": true,
+  "imb_base": "01234567",
+  "merge_file_url": "https://.../letters.pdf",
+  "mail_date": "2025‑07‑04"
+}
+
+POST to MASS internal API; listen for webhook status=ACCEPTED, PS3600_url, IV_tracking_csv.
+
+4.9 Tracking & Compliance Docs
+
+Poll IV API nightly until final scan.
+
+Dashboard widget: Delivered %, In‑Transit %, Return %.
+
+Store PS 3600 PDF, IV CSV, certified receipt PDFs in AWS S3 (HIPAA BAA).
+
+4.10 Recurring Jobs
+
+Data Type RecurringJob (cron spec, linked template/custom letter, data source).
+
+Monthly worker evaluates due jobs, clones LetterJob, notifies user.
+
+4.11 Credit Bundles
+
+SKU table: 1k, 5k, 10k credits.
+
+Deduct 1 credit per letter (add 4 extra for certified difference).
+
+Low‑balance email at 20 %.
+
+4.12 Multi‑Language Support
+
+Template language field; if practice toggle "Spanish", show ES versions first.
+
+Use Google Translate API for preview only; require certified human translation for final publish (admin workflow).
+
+4.13 Regulatory Alert Feed (road‑map)
+
+External sources: FDA RSS recalls, State Board changes.
+
+Cron fetch → filter by taxonomy → create in‑app Alert + optional email push.
+
+1‑click "Generate Letter" button pre‑loads appropriate template.
+
+4.14 Zapier / SFTP Intake
+
+Zapier action: New file in Dropbox → Bubble Data API create DraftJob.
+
+SFTP watch (AWS Transfer Family) triggers POST to Bubble API.
+
+5. Database Schema (Bubble Data Types)
+
+User: email, role, practice, stripe_cust_id, credit_balance
+
+Practice: name, taxonomy (Option Set), NPI, address, phone, logo
+
+Template (above)
+
+LetterJob: practice, template_type (template/custom), status (enum: Draft, Pending, Printing, Mailed, Complete), rows, cost, gp_margin, scheduled_datetime
+
+Letter: letter_job, address_id, page_count, imb_code, certified_tracking
+
+Address: first_name, last_name, line1, line2, city, state, zip5, zip4, ncoa_move_code, is_valid
+
+Payment: user, amount, stripe_charge_id, credits_used
+
+TrackingEvent: letter, event_code, event_dt, description
+
+CreditBundle: user, credits, purchase_dt, remaining
+
+Alert: taxonomy_list, title, body_html, source_url, published_dt
+
+6. Security & Compliance
+
+Bubble Dedicated or HIPAA‑ready hosting.
+
+Encrypt PHI at rest (AES‑256) via Bubble’s encrypted fields; encrypt S3 bucket.
+
+Signed BAAs with AWS, USPS, Smarty.
+
+Role‑based access; audit log of letter preview & approval actions.
+
+7. External API & Plugin Stack
+
+Need
+
+Service
+
+Bubble Plugin
+
+Payment
+
+Stripe
+
+Stripe v3 Extended
+
+Address Validate
+
+Smarty Streets
+
+Custom API connector
+
+NCOA
+
+Melissa Cloud
+
+API connector
+
+USPS IMb + IV
+
+USPS Web Tools + IV MTR
+
+API connector
+
+Certified eLabels
+
+Endicia or EasyPost
+
+EasyPost plugin
+
+PDF Merge
+
+PDF Conjurer or Zeroqode PDF
+
+
+
+Cron & Recurring
+
+Bubble Scheduled API Workflows
+
+
+
+Zapier hooks
+
+Bubble Data API
+
+Zapier Webhooks
+
+8. UX Wireframes (high‑level)
+
+Dashboard → Summary cards (Pending Approval, In‑Print, Delivered, Credits, Alerts)
+
+New Mailing modal → Choose Guided vs Custom
+
+Event Wizard (4‑step progress bar)
+
+Data Upload & Hygiene page → Table with colour‑coded rows (Bad/Updated)
+
+Cost Summary → Itemised table, credit toggle, CTA “Approve & Pay”
+
+Order Detail View → Timeline, PDF links, tracking chart.

@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatientLetterHub</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #FFFFFF;
+            min-height: 100vh;
+        }
+        
+        .container {
+            min-height: 100vh;
+            background-color: #FFFFFF;
+        }
+        
+        .header {
+            background-color: #10069F;
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .user-details {
+            text-align: right;
+        }
+        
+        .user-details p:first-child {
+            font-size: 0.9rem;
+        }
+        
+        .user-details p:last-child {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #009FAF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .nav {
+            background-color: #F3F6FA;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 2rem;
+            display: flex;
+        }
+        
+        .nav-item {
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .nav-item:hover {
+            background-color: rgba(16, 6, 159, 0.1);
+        }
+        
+        .nav-item.active {
+            border-bottom-color: #10069F;
+            color: #10069F;
+            font-weight: 600;
+        }
+        
+        .main {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+        }
+        
+        .stat-cards {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            flex: 1;
+            background-color: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .stat-info h3 {
+            color: #08306B;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-info .value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-info .subtitle {
+            font-size: 0.8rem;
+            color: #6b7280;
+        }
+        
+        .btn {
+            background-color: #10069F;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn:hover {
+            background-color: #0d0580;
+        }
+        
+        .btn-secondary {
+            background-color: #009FAF;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #008299;
+        }
+        
+        .btn-danger {
+            background-color: #FF6A00;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .btn-danger:hover {
+            background-color: #e55a00;
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .table th {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 2px solid #e5e7eb;
+            font-weight: 600;
+            color: #08306B;
+        }
+        
+        .table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .badge-delivered {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+        
+        .badge-printing {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .badge-pending {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        .badge-active {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+        
+        .badge-inactive {
+            background-color: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            background-color: white;
+        }
+        
+        .textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            min-height: 200px;
+            margin-bottom: 1rem;
+            font-family: inherit;
+            resize: vertical;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 8px;
+            padding: 2rem;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow: auto;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+        
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .flex {
+            display: flex;
+        }
+        
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .flex-center {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .upload-area {
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            background-color: #f9fafb;
+            margin-bottom: 2rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .upload-area:hover {
+            border-color: #10069F;
+            background-color: #f0f0ff;
+        }
+        
+        .progress-bar {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        
+        .step {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+        
+        .step-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+        
+        .step-active {
+            background-color: #10069F;
+            color: white;
+        }
+        
+        .step-completed {
+            background-color: #009FAF;
+            color: white;
+        }
+        
+        .step-pending {
+            background-color: #e5e7eb;
+            color: #6b7280;
+        }
+        
+        .step-line {
+            flex: 1;
+            height: 2px;
+            background-color: #e5e7eb;
+            margin: 0 1rem;
+        }
+        
+        .step-line.completed {
+            background-color: #009FAF;
+        }
+        
+        .event-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        
+        .event-card {
+            padding: 1.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .event-card:hover {
+            border-color: #10069F;
+        }
+        
+        .event-card.selected {
+            border: 2px solid #10069F;
+        }
+        
+        .event-card h4 {
+            color: #08306B;
+            margin: 0 0 0.5rem 0;
+        }
+        
+        .event-card p {
+            color: #6b7280;
+            margin: 0;
+            font-size: 0.9rem;
+        }
+        
+        .icon {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+        
+        .icon-lg {
+            width: 32px;
+            height: 32px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 300px;
+            background-color: #f9fafb;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>PatientLetterHub</h1>
+            <div class="user-info">
+                <div class="user-details">
+                    <p>Dr. Sarah Johnson</p>
+                    <p>Johnson Family Practice</p>
+                </div>
+                <div class="user-avatar">SJ</div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <div class="nav-item active" onclick="showTab('dashboard')">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14,2 14,8 20,8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10,9 9,9 8,9"></polyline></svg>
+                Dashboard
+            </div>
+            <div class="nav-item" onclick="showTab('templates')">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14,2 14,8 20,8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10,9 9,9 8,9"></polyline></svg>
+                Templates
+            </div>
+            <div class="nav-item" onclick="showTab('tracking')">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                Tracking
+            </div>
+            <div class="nav-item" onclick="showTab('settings')">
+                <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 -1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                Settings
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Dashboard Tab -->
+            <div id="dashboard-tab" class="tab-content active">
+                <div class="flex-between" style="margin-bottom: 2rem;">
+                    <h1 style="color: #08306B;">Dashboard</h1>
+                    <button class="btn" onclick="showNewMailing()">
+                        <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        New Mailing
+                    </button>
+                </div>
+
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3>Active Mailings</h3>
+                            <div class="value" style="color: #10069F;">3</div>
+                        </div>
+                        <svg class="icon-lg" style="color: #10069F;" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3>Letters Delivered</h3>
+                            <div class="value" style="color: #009FAF;">2,430</div>
+                            <div class="subtitle">This month</div>
+                        </div>
+                        <svg class="icon-lg" style="color: #009FAF;" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22,4 12,14.01 9,11.01"></polyline></svg>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3>Credit Balance</h3>
+                            <div class="value" style="color: #FF6A00;">5,000</div>
+                            <div class="subtitle">Credits remaining</div>
+                        </div>
+                        <svg class="icon-lg" style="color: #FF6A00;" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-info">
+                            <h3>Pending Alerts</h3>
+                            <div class="value" style="color: #FF6A00;">2</div>
+                            <div class="subtitle">Require attention</div>
+                        </div>
+                        <svg class="icon-lg" style="color: #FF6A00;" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 style="color: #08306B; margin-bottom: 1rem;">Recent Mailings</h2>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Mailing Name</th>
+                                <th>Status</th>
+                                <th>Letters</th>
+                                <th>Cost</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Provider Departure - Dr. Smith</td>
+                                <td><span class="badge badge-delivered">Delivered</span></td>
+                                <td>1,250</td>
+                                <td>$2,875</td>
+                                <td>2025-06-10</td>
+                                <td>
+                                    <button class="btn btn-secondary" style="padding: 0.5rem 1rem; margin-right: 0.5rem;" title="View Details">
+                                        <svg class="icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                    </button>
+                                    <button class="btn" style="padding: 0.5rem 1rem;" title="Download Report">
+                                        <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7,10 12,15 17,10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>HIPAA Breach Notice</td>
+                                <td><span class="badge badge-printing">Printing</span></td>
+                                <td>850</td>
+                                <td>$1,955</td>
+                                <td>2025-06-12</td>
+                                <td>
+                                    <button class="btn btn-secondary" style="padding: 0.5rem 1rem; margin-right: 0.5rem;" title="View Details">
+                                        <svg class="icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                    </button>
+                                    <button class="btn" style="padding: 0.5rem 1rem;" title="Download Report">
+                                        <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7,10 12,15 17,10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Annual Privacy Notice</td>
+                                <td><span class="badge badge-pending">Pending</span></td>
+                                <td>2,100</td>
+                                <td>$4,830</td>
+                                <td>2025-06-13</td>
+                                <td>
+                                    <button class="btn btn-secondary" style="padding: 0.5rem 1rem; margin-right: 0.5rem;" title="View Details">
+                                        <svg class="icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                                    </button>
+                                    <button class="btn" style="padding: 0.5rem 1rem;" title="Download Report">
+                                        <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7,10 12,15 17,10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Templates Tab -->
+            <div id="templates-tab" class="tab-content">
+                <div class="flex-between" style="margin-bottom: 2rem;">
+                    <h1 style="color: #08306B;">Template Management</h1>
+                    <button class="btn" onclick="showNewTemplate()">
+                        <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        New Template
+                    </button>
+                </div>
+
+                <div class="card">
+                    <div class="flex" style="gap: 1rem; margin-bottom: 1rem;">
+                        <input class="input" style="margin: 0; flex: 1;" placeholder="Search templates..." onkeyup="filterTemplates(this.value)">
+                        <select class="select" style="margin: 0; width: 200px;" onchange="filterByDiscipline(this.value)">
+                            <option value="">All Disciplines</option>
+                            <option value="General Practice">General Practice</option>
+                            <option value="Dental">Dental</option>
+                            <option value="Chiropractic">Chiropractic</option>
+                        </select>
+                    </div>
+
+                    <table class="table" id="templates-table">
+                        <thead>
+                            <tr>
+                                <th>Template Name</th>
+                                <th>Discipline</th>
+                                <th>Event Type</th>
+                                <th>Language</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Practice Closure Notice</td>
+                                <td>General Practice</td>
+                                <td>closure</td>
+                                <td>EN</td>
+                                <td><span class="badge badge-active">Active</span></td>
+                                <td>
+                                    <button class="btn btn-secondary" style="padding: 0.5rem 1rem; margin-right: 0.5rem;" title="Edit Template">
+                                        <svg class="icon" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                    </button>
+                                    <button class="btn btn-danger" title="Delete Template">
+                                        <svg class="icon" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Provider Departure</td>
+                                <td>Dental</td>
+                                <td>departure</td>
+                                <td>EN</td>
+                                <td><span class="badge badge-active">Active</span></td>
+                                <td>
+                                    <button class="btn btn-secondary" style="padding: 0.5rem 1rem; margin-right: 0.5rem;" title="Edit Template">
+                                        <svg class="icon" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                    </button>
+                                    <button class="btn btn-danger" title="Delete Template">
+                                        <svg class="icon" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"></polyline>
