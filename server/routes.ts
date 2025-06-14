@@ -280,8 +280,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Seed data for templates (this would normally be in a migration)
   const seedTemplates = async () => {
     try {
+      console.log("Checking for existing templates...");
       const existingTemplates = await storage.getTemplates();
+      console.log(`Found ${existingTemplates.length} existing templates`);
+      
       if (existingTemplates.length === 0) {
+        console.log("Seeding default templates...");
         const defaultTemplates = [
           {
             name: "Practice Relocation",
@@ -331,16 +335,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ];
 
         for (const template of defaultTemplates) {
-          await storage.createTemplate(template);
+          try {
+            await storage.createTemplate(template);
+            console.log(`Created template: ${template.name}`);
+          } catch (templateError) {
+            console.error(`Error creating template ${template.name}:`, templateError);
+          }
         }
+        console.log("Template seeding completed");
+      } else {
+        console.log("Templates already exist, skipping seeding");
       }
     } catch (error) {
-      console.error("Error seeding templates:", error);
+      console.error("Error during template seeding process:", error);
+      // Don't throw - allow the server to start even if template seeding fails
     }
   };
 
-  // Seed templates on startup
-  await seedTemplates();
+  // Seed templates on startup (but don't block server startup if it fails)
+  seedTemplates().catch(error => {
+    console.error("Template seeding failed, but server will continue:", error);
+  });
 
   const httpServer = createServer(app);
   return httpServer;
