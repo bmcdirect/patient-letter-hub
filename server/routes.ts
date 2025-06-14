@@ -13,7 +13,7 @@ import { z } from "zod";
 
 // Initialize Stripe
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2025-05-28.basil",
 }) : null;
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -23,7 +23,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -35,7 +35,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Practice routes
   app.post('/api/practices', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const practiceData = insertPracticeSchema.parse({ ...req.body, ownerId: userId });
       const practice = await storage.createPractice(practiceData);
       res.json(practice);
@@ -47,7 +47,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/practices', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const practices = await storage.getUserPractices(userId);
       res.json(practices);
     } catch (error) {
@@ -102,7 +102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Letter job routes
   app.post('/api/letter-jobs', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const jobData = insertLetterJobSchema.parse({ ...req.body, createdBy: userId });
       const job = await storage.createLetterJob(jobData);
       res.json(job);
@@ -229,7 +229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           currency: "usd",
           metadata: {
             credits: credits.toString(),
-            userId: req.user.claims.sub,
+            userId: req.user.id,
           },
         });
         res.json({ clientSecret: paymentIntent.client_secret });
@@ -241,7 +241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.post("/api/confirm-payment", isAuthenticated, async (req: any, res) => {
       try {
         const { paymentIntentId, credits } = req.body;
-        const userId = req.user.claims.sub;
+        const userId = req.user.id;
         
         const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
         
