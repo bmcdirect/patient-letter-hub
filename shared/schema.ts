@@ -33,9 +33,6 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  creditBalance: integer("credit_balance").default(0),
-  stripeCustomerId: varchar("stripe_customer_id"),
-  stripeSubscriptionId: varchar("stripe_subscription_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -93,9 +90,6 @@ export const letterJobs = pgTable("letter_jobs", {
   eventData: jsonb("event_data"), // Form data specific to event type
   totalRecipients: integer("total_recipients").default(0),
   validRecipients: integer("valid_recipients").default(0),
-  totalCost: decimal("total_cost", { precision: 10, scale: 2 }),
-  gpMargin: decimal("gp_margin", { precision: 10, scale: 2 }),
-  creditsUsed: integer("credits_used").default(0),
   scheduledDatetime: timestamp("scheduled_datetime"),
   mailedAt: timestamp("mailed_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -133,19 +127,6 @@ export const addresses = pgTable("addresses", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Payment records
-export const payments = pgTable("payments", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  letterJobId: integer("letter_job_id").references(() => letterJobs.id),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  stripeChargeId: varchar("stripe_charge_id"),
-  creditsUsed: integer("credits_used").default(0),
-  paymentType: varchar("payment_type").notNull(), // 'credit_purchase', 'letter_service'
-  status: varchar("status").default("pending"), // pending, completed, failed
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
 // Tracking events for letters
 export const trackingEvents = pgTable("tracking_events", {
   id: serial("id").primaryKey(),
@@ -155,16 +136,6 @@ export const trackingEvents = pgTable("tracking_events", {
   description: text("description"),
   location: varchar("location"),
   createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Credit bundles purchased by users
-export const creditBundles = pgTable("credit_bundles", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  credits: integer("credits").notNull(),
-  purchaseDate: timestamp("purchase_date").defaultNow(),
-  remaining: integer("remaining").notNull(),
-  paymentId: integer("payment_id").references(() => payments.id),
 });
 
 // Regulatory alerts
@@ -184,8 +155,6 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   ownedPractices: many(practices),
   practiceMembers: many(practiceMembers),
   letterJobs: many(letterJobs),
-  payments: many(payments),
-  creditBundles: many(creditBundles),
 }));
 
 export const practicesRelations = relations(practices, ({ one, many }) => ({
@@ -255,11 +224,6 @@ export const insertAddressSchema = createInsertSchema(addresses).omit({
   createdAt: true,
 });
 
-export const insertPaymentSchema = createInsertSchema(payments).omit({
-  id: true,
-  createdAt: true,
-});
-
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -271,9 +235,6 @@ export type InsertLetterJob = z.infer<typeof insertLetterJobSchema>;
 export type LetterJob = typeof letterJobs.$inferSelect;
 export type InsertAddress = z.infer<typeof insertAddressSchema>;
 export type Address = typeof addresses.$inferSelect;
-export type InsertPayment = z.infer<typeof insertPaymentSchema>;
-export type Payment = typeof payments.$inferSelect;
 export type Letter = typeof letters.$inferSelect;
 export type TrackingEvent = typeof trackingEvents.$inferSelect;
-export type CreditBundle = typeof creditBundles.$inferSelect;
 export type Alert = typeof alerts.$inferSelect;

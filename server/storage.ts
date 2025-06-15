@@ -5,9 +5,7 @@ import {
   letterJobs,
   addresses,
   letters,
-  payments,
   trackingEvents,
-  creditBundles,
   alerts,
   type User,
   type UpsertUser,
@@ -20,10 +18,7 @@ import {
   type Address,
   type InsertAddress,
   type Letter,
-  type Payment,
-  type InsertPayment,
   type TrackingEvent,
-  type CreditBundle,
   type Alert,
 } from "@shared/schema";
 import { db } from "./db";
