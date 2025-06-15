@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Clock, Printer, CheckCircle, Coins } from "lucide-react";
+import { Clock, Printer, CheckCircle } from "lucide-react";
 
 interface StatsCardsProps {
   stats?: {
@@ -13,8 +13,8 @@ interface StatsCardsProps {
 export default function StatsCards({ stats, loading }: StatsCardsProps) {
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        {[1, 2, 3].map((i) => (
           <Card key={i} className="animate-pulse">
             <CardContent className="p-6">
               <div className="h-20 bg-gray-200 rounded"></div>
@@ -53,7 +53,7 @@ export default function StatsCards({ stats, loading }: StatsCardsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
       {cards.map((card) => {
         const Icon = card.icon;
         return (

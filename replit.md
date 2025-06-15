@@ -36,28 +36,25 @@ PatientLetterHub is a healthcare communication SaaS platform that enables health
 - **User Management**: Automatic user provisioning on first login
 
 ### Database Schema
-- **Users**: Profile information, credit balance, Stripe customer data
+- **Users**: Profile information and authentication data
 - **Practices**: Healthcare practice information including NPI, address, taxonomy
 - **Templates**: Letter templates for different event types (relocation, closure, etc.)
 - **Letter Jobs**: Mailing job tracking and status
 - **Addresses**: Patient address management
 - **Letters**: Individual letter generation and tracking
-- **Payments**: Transaction history and credit purchases
 - **Alerts**: Compliance and system notifications
 
 ### Letter Generation Workflow
 1. **Template Selection**: Choose from pre-built templates or create custom
 2. **Data Upload**: CSV upload for patient addresses and data
 3. **Letter Generation**: Template variable substitution with patient data
-4. **Cost Calculation**: Credit-based pricing per letter
-5. **Payment Processing**: Stripe integration for credit purchases
-6. **Print & Mail**: Integration with postal services for delivery
+4. **Job Creation**: Submit letter jobs for processing
+5. **Print & Mail**: Integration with postal services for delivery
 
-### Credit System
-- **Credit-based Pricing**: Users purchase credits to send letters
-- **Stripe Integration**: Secure payment processing
-- **Usage Tracking**: Real-time credit balance updates
-- **Subscription Options**: Recurring credit purchases available
+### Simplified Architecture
+- **Direct Letter Generation**: Create and manage letters without payment barriers
+- **Focus on Core Features**: Template selection, data upload, and letter processing
+- **Streamlined Workflow**: Immediate access to all letter generation features
 
 ## Data Flow
 
@@ -111,6 +108,7 @@ PatientLetterHub is a healthcare communication SaaS platform that enables health
 ```
 Changelog:
 - June 14, 2025. Initial setup
+- June 15, 2025. Credit system completely removed - eliminated all payment functionality, Stripe integration, and credit-based pricing to focus on core letter generation features
 ```
 
 ## User Preferences
