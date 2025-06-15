@@ -7,7 +7,7 @@ import StatsCards from "@/components/dashboard/stats-cards";
 import RecentMailings from "@/components/dashboard/recent-mailings";
 import ComplianceAlerts from "@/components/dashboard/compliance-alerts";
 import QuickActions from "@/components/dashboard/quick-actions";
-import CreditPurchase from "@/components/dashboard/credit-purchase";
+
 import NewMailingModal from "@/components/modals/new-mailing-modal";
 import MailingWizardModal from "@/components/modals/mailing-wizard-modal";
 import { Button } from "@/components/ui/button";
@@ -158,7 +158,6 @@ export default function Dashboard() {
             <div className="space-y-6">
               <ComplianceAlerts practiceId={selectedPractice?.id} />
               <QuickActions onTemplateSelect={handleTemplateSelect} />
-              <CreditPurchase user={user} />
             </div>
           </div>
         </main>

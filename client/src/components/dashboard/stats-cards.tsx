@@ -6,7 +6,6 @@ interface StatsCardsProps {
     pendingApproval: number;
     inPrint: number;
     delivered: number;
-    creditsBalance: number;
   };
   loading?: boolean;
 }
@@ -50,14 +49,6 @@ export default function StatsCards({ stats, loading }: StatsCardsProps) {
       icon: CheckCircle,
       iconColor: "text-green-600",
       iconBg: "bg-green-100",
-    },
-    {
-      title: "Credits Balance",
-      value: stats?.creditsBalance || 0,
-      subtitle: "Available",
-      icon: Coins,
-      iconColor: "text-teal-accent",
-      iconBg: "bg-teal-100",
     },
   ];
 
