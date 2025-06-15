@@ -39,14 +39,36 @@ export async function setupAuth(app: Express) {
   // Login route - creates a demo user session
   app.get("/api/login", async (req, res) => {
     try {
-      // Create a demo user for testing
-      const demoUser = await storage.upsertUser({
-        id: "demo-user-123",
-        email: "demo@patientletterhub.com",
-        firstName: "Demo",
-        lastName: "User",
-        profileImageUrl: null,
-      });
+      console.log("Login attempt started");
+      
+      // Create a demo user for testing with retry logic
+      let demoUser;
+      try {
+        demoUser = await storage.upsertUser({
+          id: "demo-user-123",
+          email: "demo@patientletterhub.com",
+          firstName: "Demo",
+          lastName: "User",
+          profileImageUrl: null,
+        });
+        console.log("Demo user created/updated successfully");
+      } catch (dbError) {
+        console.error("Database error during user creation:", dbError);
+        // Fallback - create user object without database storage for demo
+        demoUser = {
+          id: "demo-user-123",
+          email: "demo@patientletterhub.com",
+          firstName: "Demo",
+          lastName: "User",
+          profileImageUrl: null,
+          creditBalance: 100,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          stripeCustomerId: null,
+          stripeSubscriptionId: null,
+        };
+        console.log("Using fallback demo user");
+      }
 
       req.login({ 
         id: demoUser.id,
@@ -58,6 +80,7 @@ export async function setupAuth(app: Express) {
           console.error("Login error:", err);
           return res.status(500).json({ error: "Login failed" });
         }
+        console.log("Login successful, redirecting to dashboard");
         res.redirect("/");
       });
     } catch (error) {

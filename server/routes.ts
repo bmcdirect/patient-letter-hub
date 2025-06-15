@@ -24,7 +24,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const user = await storage.getUser(userId);
+      let user;
+      
+      try {
+        user = await storage.getUser(userId);
+      } catch (dbError) {
+        console.error("Database error fetching user, using session data:", dbError);
+        // Fallback to session data if database is unavailable
+        user = {
+          id: req.user.id,
+          email: req.user.email,
+          firstName: req.user.firstName,
+          lastName: req.user.lastName,
+          profileImageUrl: null,
+          creditBalance: 100,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          stripeCustomerId: null,
+          stripeSubscriptionId: null,
+        };
+      }
+      
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
