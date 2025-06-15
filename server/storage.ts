@@ -28,7 +28,6 @@ export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
-  updateUserCredits(userId: string, credits: number): Promise<void>;
   
   // Practice operations
   createPractice(practice: InsertPractice): Promise<Practice>;
@@ -55,14 +54,6 @@ export interface IStorage {
   createLetters(letters: { letterJobId: number; addressId: number; pageCount?: number }[]): Promise<Letter[]>;
   getJobLetters(jobId: number): Promise<Letter[]>;
   
-  // Payment operations
-  createPayment(payment: InsertPayment): Promise<Payment>;
-  getUserPayments(userId: string): Promise<Payment[]>;
-  
-  // Credit bundle operations
-  createCreditBundle(bundle: { userId: string; credits: number; paymentId?: number }): Promise<CreditBundle>;
-  getUserCreditBundles(userId: string): Promise<CreditBundle[]>;
-  
   // Alert operations
   getActiveAlerts(taxonomy?: string): Promise<Alert[]>;
   
@@ -71,7 +62,6 @@ export interface IStorage {
     pendingApproval: number;
     inPrint: number;
     delivered: number;
-    creditsBalance: number;
   }>;
 }
 
@@ -96,12 +86,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUserCredits(userId: string, credits: number): Promise<void> {
-    await db
-      .update(users)
-      .set({ creditBalance: credits, updatedAt: new Date() })
-      .where(eq(users.id, userId));
-  }
+
 
   async createPractice(practice: InsertPractice): Promise<Practice> {
     const [newPractice] = await db.insert(practices).values(practice).returning();
@@ -118,13 +103,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTemplates(filters?: { eventType?: string; discipline?: string }): Promise<Template[]> {
-    let query = db.select().from(templates).where(eq(templates.isActive, true));
+    let conditions = [eq(templates.isActive, true)];
     
     if (filters?.eventType) {
-      query = query.where(eq(templates.eventType, filters.eventType));
+      conditions.push(eq(templates.eventType, filters.eventType));
     }
     
-    return await query.orderBy(templates.name);
+    return await db
+      .select()
+      .from(templates)
+      .where(and(...conditions))
+      .orderBy(templates.name);
   }
 
   async getTemplate(id: number): Promise<Template | undefined> {
@@ -186,53 +175,27 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(letters).where(eq(letters.letterJobId, jobId));
   }
 
-  async createPayment(payment: InsertPayment): Promise<Payment> {
-    const [newPayment] = await db.insert(payments).values(payment).returning();
-    return newPayment;
-  }
 
-  async getUserPayments(userId: string): Promise<Payment[]> {
-    return await db
-      .select()
-      .from(payments)
-      .where(eq(payments.userId, userId))
-      .orderBy(desc(payments.createdAt));
-  }
-
-  async createCreditBundle(bundle: { userId: string; credits: number; paymentId?: number }): Promise<CreditBundle> {
-    const [newBundle] = await db
-      .insert(creditBundles)
-      .values({
-        ...bundle,
-        remaining: bundle.credits,
-      })
-      .returning();
-    return newBundle;
-  }
-
-  async getUserCreditBundles(userId: string): Promise<CreditBundle[]> {
-    return await db
-      .select()
-      .from(creditBundles)
-      .where(eq(creditBundles.userId, userId))
-      .orderBy(desc(creditBundles.purchaseDate));
-  }
 
   async getActiveAlerts(taxonomy?: string): Promise<Alert[]> {
-    let query = db.select().from(alerts).where(eq(alerts.isActive, true));
+    let conditions = [eq(alerts.isActive, true)];
     
     if (taxonomy) {
-      query = query.where(sql`${alerts.taxonomyList} @> ${JSON.stringify([taxonomy])}`);
+      conditions.push(sql`${alerts.taxonomyList} @> ${JSON.stringify([taxonomy])}`);
     }
     
-    return await query.orderBy(desc(alerts.publishedDate)).limit(5);
+    return await db
+      .select()
+      .from(alerts)
+      .where(and(...conditions))
+      .orderBy(desc(alerts.publishedDate))
+      .limit(5);
   }
 
   async getDashboardStats(practiceId: number): Promise<{
     pendingApproval: number;
     inPrint: number;
     delivered: number;
-    creditsBalance: number;
   }> {
     const [pendingApproval] = await db
       .select({ count: sql<number>`count(*)` })
@@ -250,15 +213,10 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(letterJobs, eq(letters.letterJobId, letterJobs.id))
       .where(and(eq(letterJobs.practiceId, practiceId), eq(letters.status, 'delivered')));
 
-    // Get practice owner's credit balance
-    const [practice] = await db.select().from(practices).where(eq(practices.id, practiceId));
-    const [owner] = await db.select().from(users).where(eq(users.id, practice?.ownerId || ''));
-
     return {
       pendingApproval: pendingApproval?.count || 0,
       inPrint: inPrint?.count || 0,
       delivered: delivered?.count || 0,
-      creditsBalance: owner?.creditBalance || 0,
     };
   }
 }

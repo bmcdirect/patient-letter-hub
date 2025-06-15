@@ -1,6 +1,5 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import Stripe from "stripe";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import {
@@ -10,11 +9,6 @@ import {
   insertAddressSchema,
 } from "@shared/schema";
 import { z } from "zod";
-
-// Initialize Stripe
-const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-05-28.basil",
-}) : null;
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
@@ -239,63 +233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Stripe payment routes
-  if (stripe) {
-    app.post("/api/create-payment-intent", isAuthenticated, async (req: any, res) => {
-      try {
-        const { amount, credits } = req.body;
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: Math.round(amount * 100), // Convert to cents
-          currency: "usd",
-          metadata: {
-            credits: credits.toString(),
-            userId: req.user.id,
-          },
-        });
-        res.json({ clientSecret: paymentIntent.client_secret });
-      } catch (error: any) {
-        res.status(500).json({ message: "Error creating payment intent: " + error.message });
-      }
-    });
 
-    app.post("/api/confirm-payment", isAuthenticated, async (req: any, res) => {
-      try {
-        const { paymentIntentId, credits } = req.body;
-        const userId = req.user.id;
-        
-        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-        
-        if (paymentIntent.status === 'succeeded') {
-          // Create payment record
-          const payment = await storage.createPayment({
-            userId,
-            amount: (paymentIntent.amount / 100).toString(),
-            stripeChargeId: paymentIntent.id,
-            paymentType: 'credit_purchase',
-            status: 'completed',
-          });
-
-          // Create credit bundle
-          await storage.createCreditBundle({
-            userId,
-            credits,
-            paymentId: payment.id,
-          });
-
-          // Update user's credit balance
-          const user = await storage.getUser(userId);
-          const newBalance = (user?.creditBalance || 0) + credits;
-          await storage.updateUserCredits(userId, newBalance);
-
-          res.json({ success: true, newBalance });
-        } else {
-          res.status(400).json({ message: "Payment not successful" });
-        }
-      } catch (error: any) {
-        res.status(500).json({ message: "Error confirming payment: " + error.message });
-      }
-    });
-  }
 
   // Seed data for templates (this would normally be in a migration)
   const seedTemplates = async () => {
