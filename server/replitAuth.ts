@@ -17,24 +17,34 @@ export function getSession() {
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: true,
     cookie: {
       httpOnly: true,
-      secure: false, // Set to false for development
+      secure: false,
       maxAge: sessionTtl,
+      sameSite: 'lax',
     },
+    name: 'sessionId',
   });
 }
 
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
-  app.use(getSession());
+  
+  const sessionMiddleware = getSession();
+  app.use(sessionMiddleware);
   app.use(passport.initialize());
   app.use(passport.session());
 
   // Simple demo authentication - create a test user
-  passport.serializeUser((user: any, cb) => cb(null, user));
-  passport.deserializeUser((user: any, cb) => cb(null, user));
+  passport.serializeUser((user: any, cb) => {
+    console.log("Serializing user:", user.id);
+    cb(null, user);
+  });
+  passport.deserializeUser((user: any, cb) => {
+    console.log("Deserializing user:", user.id);
+    cb(null, user);
+  });
 
   // Login route - creates a demo user session
   app.get("/api/login", async (req, res) => {
@@ -80,8 +90,18 @@ export async function setupAuth(app: Express) {
           console.error("Login error:", err);
           return res.status(500).json({ error: "Login failed" });
         }
-        console.log("Login successful, redirecting to dashboard");
-        res.redirect("/");
+        console.log("Login successful, session ID:", req.sessionID);
+        console.log("Session data:", req.session);
+        
+        // Force session save before redirect
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("Session save error:", saveErr);
+            return res.status(500).json({ error: "Session save failed" });
+          }
+          console.log("Session saved, redirecting to dashboard");
+          res.redirect("/");
+        });
       });
     } catch (error) {
       console.error("Authentication error:", error);
@@ -100,8 +120,16 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  console.log("Auth check - Session ID:", req.sessionID);
+  console.log("Auth check - isAuthenticated():", req.isAuthenticated());
+  console.log("Auth check - User:", req.user);
+  console.log("Auth check - Session:", req.session);
+  
   if (!req.isAuthenticated() || !req.user) {
+    console.log("Authentication failed - no user or not authenticated");
     return res.status(401).json({ message: "Unauthorized" });
   }
+  
+  console.log("Authentication successful");
   return next();
 };
