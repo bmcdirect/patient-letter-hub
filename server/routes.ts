@@ -59,6 +59,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(path.resolve('client/src/order.html'));
   });
 
+  // Serve JavaScript file for order form
+  app.get('/submit_order.js', (req, res) => {
+    res.sendFile(path.resolve('client/src/submit_order.js'));
+  });
+
+  // Serve sample CSV file
+  app.get('/sample/recipients.csv', (req, res) => {
+    res.sendFile(path.resolve('client/src/sample/recipients.csv'));
+  });
+
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
