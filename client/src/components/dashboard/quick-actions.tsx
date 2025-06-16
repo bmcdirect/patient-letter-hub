@@ -32,12 +32,7 @@ export default function QuickActions({ onTemplateSelect }: QuickActionsProps) {
   ];
 
   const handleQuickAction = (eventType: string) => {
-    // Create a mock template for quick actions
-    const mockTemplate = {
-      eventType,
-      name: quickActions.find(a => a.eventType === eventType)?.title || eventType,
-    };
-    onTemplateSelect(mockTemplate);
+    window.location.href = '/order.html';
   };
 
   return (

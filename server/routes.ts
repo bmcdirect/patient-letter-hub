@@ -54,6 +54,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
   await setupAuth(app);
 
+  // Serve static order.html file
+  app.get('/order.html', (req, res) => {
+    res.sendFile(path.resolve('client/src/order.html'));
+  });
+
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {

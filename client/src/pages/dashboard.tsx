@@ -103,7 +103,7 @@ export default function Dashboard() {
   });
 
   const handleNewMailing = () => {
-    setNewMailingOpen(true);
+    window.location.href = '/order.html';
   };
 
   const handleTemplateSelect = (template: any) => {
