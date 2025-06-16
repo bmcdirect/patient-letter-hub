@@ -90,6 +90,13 @@ export const letterJobs = pgTable("letter_jobs", {
   eventData: jsonb("event_data"), // Form data specific to event type
   totalRecipients: integer("total_recipients").default(0),
   validRecipients: integer("valid_recipients").default(0),
+  // File upload paths
+  logoPath: varchar("logo_path"),
+  signaturePath: varchar("signature_path"),
+  extraPagesPath: varchar("extra_pages_path"),
+  recipientsPath: varchar("recipients_path"),
+  // Additional form fields
+  colorMode: varchar("color_mode"),
   scheduledDatetime: timestamp("scheduled_datetime"),
   mailedAt: timestamp("mailed_at"),
   createdAt: timestamp("created_at").defaultNow(),

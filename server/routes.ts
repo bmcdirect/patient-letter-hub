@@ -1,5 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import multer from "multer";
+import path from "path";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import {
@@ -9,6 +11,44 @@ import {
   insertAddressSchema,
 } from "@shared/schema";
 import { z } from "zod";
+
+// Configure Multer for file uploads
+const multerStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const extension = path.extname(file.originalname);
+    const basename = path.basename(file.originalname, extension);
+    cb(null, `${timestamp}-${basename}${extension}`);
+  }
+});
+
+const upload = multer({
+  storage: multerStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Validate file types
+    const allowedTypes = {
+      logo: /\.(jpg|jpeg|png|gif)$/i,
+      signature: /\.(jpg|jpeg|png|gif)$/i,
+      extraPages: /\.pdf$/i,
+      recipients: /\.csv$/i
+    };
+    
+    const fieldType = file.fieldname as keyof typeof allowedTypes;
+    const allowedExtensions = allowedTypes[fieldType];
+    
+    if (allowedExtensions && allowedExtensions.test(file.originalname)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Invalid file type for ${fieldType}. Expected: ${allowedExtensions}`));
+    }
+  }
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
@@ -233,7 +273,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-
+  // File upload order processing
+  app.post('/api/orders', isAuthenticated, upload.fields([
+    { name: 'logo', maxCount: 1 },
+    { name: 'signature', maxCount: 1 },
+    { name: 'extraPages', maxCount: 1 },
+    { name: 'recipients', maxCount: 1 }
+  ]), async (req: any, res) => {
+    try {
+      const { template, letterBody, colorMode } = req.body;
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      
+      // Extract file paths
+      const logoPath = files.logo?.[0]?.path;
+      const signaturePath = files.signature?.[0]?.path;
+      const extraPagesPath = files.extraPages?.[0]?.path;
+      const recipientsPath = files.recipients?.[0]?.path;
+      
+      // Create letter job entry
+      const letterJob = await storage.createLetterJob({
+        practiceId: 1, // Default practice ID for now
+        createdBy: req.user.id,
+        templateType: 'custom',
+        status: 'draft',
+        bodyHtml: letterBody,
+        logoPath,
+        signaturePath,
+        extraPagesPath,
+        recipientsPath,
+        colorMode,
+        eventData: { template }
+      });
+      
+      res.json({ job_id: letterJob.id });
+    } catch (error) {
+      console.error("Error processing order:", error);
+      res.status(500).json({ message: "Failed to process order" });
+    }
+  });
 
   // Seed data for templates (this would normally be in a migration)
   const seedTemplates = async () => {
