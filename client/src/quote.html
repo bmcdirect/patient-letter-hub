@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PatientLetterHub – Estimate Builder</title>
+  <script defer src="quote_calc.js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 2em auto; }
+    .section { margin-bottom: 2em; }
+    .total { font-size: 1.5em; font-weight: bold; margin-top: 1em; }
+    label { display: block; margin: 0.5em 0 0.2em; }
+  </style>
+</head>
+<body>
+  <h1>New Mailing Estimate</h1>
+  <form id="quoteForm">
+    <div class="section">
+      <label>1. How many recipients?</label>
+      <input type="number" name="recipientCount" id="recipientCount" required />
+    </div>
+
+    <div class="section">
+      <label>2. Include a separate enclosure?</label>
+      <label><input type="radio" name="enclosure" value="yes" /> Yes</label>
+      <label><input type="radio" name="enclosure" value="no" checked /> No</label>
+    </div>
+
+    <div class="section">
+      <label>3. Letter color:</label>
+      <label><input type="radio" name="letterColor" value="color" /> Full Color (+$0.09)</label>
+      <label><input type="radio" name="letterColor" value="bw" checked /> Black & White</label>
+    </div>
+
+    <div class="section">
+      <label>4. Envelope color:</label>
+      <label><input type="radio" name="envelopeColor" value="color" /> Full Color (+$0.10)</label>
+      <label><input type="radio" name="envelopeColor" value="bw" checked /> Black & White</label>
+    </div>
+
+    <div class="section">
+      <label>5. NCOA Address Hygiene?</label>
+      <label><input type="checkbox" name="ncoa" value="yes" /> Yes (+$45 flat)</label>
+    </div>
+
+    <div class="section">
+      <label>6. USPS Mail Rate:</label>
+      <select name="postageRate" id="postageRate">
+        <option value="meter">Metered First-Class ($0.69)</option>
+        <option value="certified">Certified Mail ($5.60 incl. processing)</option>
+        <option value="bulk">Standard Bulk Mail ($0.45)</option>
+      </select>
+    </div>
+
+    <div class="section">
+      <label>7. Delivery Confirmation?</label>
+      <label><input type="checkbox" name="confirmation" value="yes" /> Yes (+$0.50)</label>
+    </div>
+
+    <div class="section">
+      <label>8. Preferred Mail Date:</label>
+      <input type="date" name="mailDate" />
+    </div>
+
+    <div class="section">
+      <label>9. Practice Name</label>
+      <input type="text" name="practiceName" required />
+      <label>Email for Estimate</label>
+      <input type="email" name="email" required />
+    </div>
+
+    <div class="total" id="estimateTotal">Estimated Total: $0.00</div>
+
+    <button type="submit">Generate Estimate</button>
+  </form>
+</body>
+</html>

@@ -9,6 +9,7 @@ import {
   integer,
   boolean,
   decimal,
+  numeric,
   date,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -245,3 +246,18 @@ export type Address = typeof addresses.$inferSelect;
 export type Letter = typeof letters.$inferSelect;
 export type TrackingEvent = typeof trackingEvents.$inferSelect;
 export type Alert = typeof alerts.$inferSelect;
+export const letter_quotes = pgTable("letter_quotes", {
+  id: serial("id").primaryKey(),
+  practice_name: varchar("practice_name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  recipient_count: integer("recipient_count").notNull(),
+  enclosure: boolean("enclosure").notNull(),
+  letter_color: boolean("letter_color").notNull(),
+  envelope_color: boolean("envelope_color").notNull(),
+  ncoa: boolean("ncoa").notNull(),
+  postage_type: varchar("postage_type", { length: 50 }).notNull(), // meter, certified, bulk
+  confirmation: boolean("confirmation").notNull(),
+  mail_date: date("mail_date"),
+  quote_total: numeric("quote_total", { precision: 10, scale: 2 }).notNull(),
+  created_at: timestamp("created_at").defaultNow()
+});
