@@ -55,23 +55,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
   await setupAuth(app);
 
-  // Serve static files with explicit routes to bypass Vite middleware
+  // Priority static file routes - these must come before any other middleware
   app.get('/order.html', (req: Request, res: Response) => {
-    res.sendFile(path.resolve('client/src/order.html'));
+    const filePath = path.resolve(process.cwd(), 'client/src/order.html');
+    console.log(`Serving order.html from: ${filePath}`);
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        console.error('Error serving order.html:', err);
+        res.status(404).send('File not found');
+      }
+    });
   });
   
   app.get('/login.html', (req: Request, res: Response) => {
-    res.sendFile(path.resolve('client/src/login.html'));
+    const filePath = path.resolve(process.cwd(), 'client/src/login.html');
+    console.log(`Serving login.html from: ${filePath}`);
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        console.error('Error serving login.html:', err);
+        res.status(404).send('File not found');
+      }
+    });
   });
   
   app.get('/submit_order.js', (req: Request, res: Response) => {
+    const filePath = path.resolve(process.cwd(), 'client/src/submit_order.js');
+    console.log(`Serving submit_order.js from: ${filePath}`);
     res.type('application/javascript');
-    res.sendFile(path.resolve('client/src/submit_order.js'));
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        console.error('Error serving submit_order.js:', err);
+        res.status(404).send('File not found');
+      }
+    });
   });
   
   app.get('/sample/recipients.csv', (req: Request, res: Response) => {
+    const filePath = path.resolve(process.cwd(), 'client/src/sample/recipients.csv');
+    console.log(`Serving recipients.csv from: ${filePath}`);
     res.type('text/csv');
-    res.sendFile(path.resolve('client/src/sample/recipients.csv'));
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        console.error('Error serving recipients.csv:', err);
+        res.status(404).send('File not found');
+      }
+    });
   });
 
   // Auth routes
