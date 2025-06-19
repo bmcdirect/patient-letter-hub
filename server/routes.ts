@@ -340,7 +340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { template, letterBody, colorMode } = req.body;
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const files = (req.files as { [fieldname: string]: Express.Multer.File[] }) || {};
       
       console.log("Processing order for user:", req.user.id);
       console.log("Order data:", { template, colorMode, fileCount: Object.keys(files).length });

@@ -173,28 +173,16 @@ export async function setupAuth(app: Express) {
   // Temporary authentication routes for development
   app.get("/api/auth/login", async (req, res) => {
     try {
-      // Use a fixed test user ID to avoid duplicates
-      const testUserId = "dev-user-123";
-      let testUser;
-      
-      try {
-        testUser = await storage.getUser(testUserId);
-        if (!testUser) {
-          testUser = await storage.upsertUser({
-            id: testUserId,
-            email: "developer@patientletterhub.com",
-            firstName: "Test",
-            lastName: "Developer",
-            profileImageUrl: null,
-          });
-        }
-      } catch (dbError) {
-        console.log("Database error, using existing user if available");
-        testUser = await storage.getUser(testUserId);
-        if (!testUser) {
-          throw new Error("Could not create or retrieve test user");
-        }
-      }
+      // Use a fixed test user that we know exists
+      const testUser = {
+        id: "dev-user-1750356001255",
+        email: "developer@patientletterhub.com",
+        firstName: "Test",
+        lastName: "Developer",
+        profileImageUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       req.login(testUser, (err) => {
         if (err) {
