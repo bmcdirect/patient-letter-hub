@@ -222,3 +222,10 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+export async function updateLetterJobStatus(jobId: number, status: string) {
+  return sql`
+    UPDATE letter_jobs
+    SET status = ${status}, updated_at = NOW()
+    WHERE id = ${jobId}
+  `;
+}

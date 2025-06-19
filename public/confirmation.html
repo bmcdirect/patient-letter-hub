@@ -43,7 +43,8 @@
   <div id="confirmation" class="section">
     Loading confirmation details...
   </div>
-
+  <button id="submit-job">Submit for Fulfillment</button>
+  <div id="submit-status"></div>
   <script>
     const container = document.getElementById('confirmation');
     const jobId = new URLSearchParams(window.location.search).get("job_id");
@@ -73,9 +74,25 @@
         } else {
           container.innerHTML = `<p style="color:red">No job ID provided.</p>`;
         }
-      </script>
+      document.getElementById("submit-job").addEventListener("click", async () => {
+        try {
+          const res = await fetch(`/api/letter-jobs/${jobId}/submit`, {
+            method: "POST",
+            credentials: "include"
+          });
+          if (!res.ok) throw new Error("Submit failed");
+          document.getElementById("submit-status").innerHTML = "<p style='color:green'>✅ Submitted for fulfillment</p>";
+        } catch (err) {
+          document.getElementById("submit-status").innerHTML = `<p style='color:red'>❌ ${err.message}</p>`;
+        }
+      });
+
+  
+  
+  </script>
 
       <button onclick="window.location.href='/'">Back to Dashboard</button>
+      
 
     </body>
     </html>
