@@ -154,6 +154,17 @@ export async function setupAuth(app: Express) {
   });
   */
 
+  // Replit OpenID Connect authentication routes
+  app.get("/api/auth/login", passport.authenticate("oidc"));
+  
+  app.get("/api/auth/callback", 
+    passport.authenticate("oidc", { failureRedirect: "/" }),
+    (req, res) => {
+      console.log("Authentication callback successful for user:", req.user);
+      res.redirect("/");
+    }
+  );
+
   app.get("/api/logout", (req, res) => {
     req.logout((err) => {
       if (err) {

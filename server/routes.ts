@@ -323,16 +323,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // File upload order processing
-  app.post('/api/orders', isAuthenticated, upload.fields([
+  // File upload order processing - requires authentication
+  app.post('/api/orders', upload.fields([
     { name: 'logo', maxCount: 1 },
     { name: 'signature', maxCount: 1 },
     { name: 'extraPages', maxCount: 1 },
     { name: 'recipients', maxCount: 1 }
   ]), async (req: any, res) => {
     try {
+      // Check if user is authenticated
+      if (!req.isAuthenticated() || !req.user) {
+        return res.status(401).json({ 
+          message: "Authentication required", 
+          redirectTo: "/api/auth/login"
+        });
+      }
+
       const { template, letterBody, colorMode } = req.body;
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      
+      console.log("Processing order for user:", req.user.id);
+      console.log("Order data:", { template, colorMode, fileCount: Object.keys(files).length });
       
       // Extract file paths
       const logoPath = files.logo?.[0]?.path;
@@ -355,10 +366,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         eventData: { template }
       });
       
-      res.json({ job_id: letterJob.id });
+      console.log("Letter job created successfully:", letterJob.id);
+      res.json({ job_id: letterJob.id, message: "Order processed successfully" });
     } catch (error) {
       console.error("Error processing order:", error);
-      res.status(500).json({ message: "Failed to process order" });
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      if (error instanceof Error && error.stack) {
+        console.error("Stack trace:", error.stack);
+      }
+      res.status(500).json({ message: "Failed to process order", error: errorMessage });
     }
   });
 
