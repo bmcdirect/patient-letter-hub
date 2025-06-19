@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const result = await response.json();
       alert("Order submitted successfully! Job ID: " + result.job_id);
-      window.location.href = `/dashboard`;
+      window.location.href = `/`;
 
     } catch (err) {
       console.error("Submission failed", err);
