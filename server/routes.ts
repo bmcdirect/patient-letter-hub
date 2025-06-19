@@ -1,512 +1,560 @@
-import type { Express, Request, Response } from "express";
-import express from "express";
-import { createServer, type Server } from "http";
-import multer from "multer";
-import path from "path";
-import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
-import {
-  insertPracticeSchema,
-  insertTemplateSchema,
-  insertLetterJobSchema,
-  insertAddressSchema,
-} from "@shared/schema";
-import { z } from "zod";
+import express, { Express, Request, Response } from 'express';
+import { createServer, Server } from 'http';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { z } from 'zod';
+import { fromZodError } from 'zod-validation-error';
+import { insertLetterJobSchema, insertAddressSchema, insertTemplateSchema } from '../shared/schema';
+import { storage } from './storage';
+import { isAuthenticated } from './replitAuth';
 
-// Configure Multer for file uploads
-const multerStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    const timestamp = Date.now();
-    const extension = path.extname(file.originalname);
-    const basename = path.basename(file.originalname, extension);
-    cb(null, `${timestamp}-${basename}${extension}`);
-  }
-});
+// Configure multer for file uploads
+const uploadDir = './uploads';
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 const upload = multer({
-  storage: multerStorage,
+  dest: uploadDir,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
   fileFilter: (req, file, cb) => {
-    // Validate file types
-    const allowedTypes = {
-      logo: /\.(jpg|jpeg|png|gif)$/i,
-      signature: /\.(jpg|jpeg|png|gif)$/i,
-      extraPages: /\.pdf$/i,
-      recipients: /\.csv$/i
-    };
+    // Allow CSV files and common image formats
+    const allowedTypes = [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'image/jpeg',
+      'image/jpg', 
+      'image/png',
+      'image/gif',
+      'application/pdf'
+    ];
     
-    const fieldType = file.fieldname as keyof typeof allowedTypes;
-    const allowedExtensions = allowedTypes[fieldType];
-    
-    if (allowedExtensions && allowedExtensions.test(file.originalname)) {
+    if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error(`Invalid file type for ${fieldType}. Expected: ${allowedExtensions}`));
+      cb(new Error('Invalid file type'), false);
     }
   }
 });
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup authentication
-  await setupAuth(app);
-
-  // Static files are now served from server/index.ts before routes
-
-  // Priority static file routes - these must come before any other middleware
-  app.get('/order.html', (req: Request, res: Response) => {
-    const filePath = path.resolve(process.cwd(), 'client/src/order.html');
-    console.log(`Serving order.html from: ${filePath}`);
-    res.sendFile(filePath, (err) => {
-      if (err) {
-        console.error('Error serving order.html:', err);
-        res.status(404).send('File not found');
-      }
-    });
-  });
+// Template seeding function
+async function seedTemplates() {
+  console.log("Checking for existing templates...");
   
-  app.get('/login.html', (req: Request, res: Response) => {
-    const filePath = path.resolve(process.cwd(), 'client/src/login.html');
-    console.log(`Serving login.html from: ${filePath}`);
-    res.sendFile(filePath, (err) => {
-      if (err) {
-        console.error('Error serving login.html:', err);
-        res.status(404).send('File not found');
-      }
-    });
-  });
+  const existingTemplates = await storage.getTemplates();
   
-  app.get('/submit_order.js', (req: Request, res: Response) => {
-    const filePath = path.resolve(process.cwd(), 'client/src/submit_order.js');
-    console.log(`Serving submit_order.js from: ${filePath}`);
-    res.type('application/javascript');
-    res.sendFile(filePath, (err) => {
-      if (err) {
-        console.error('Error serving submit_order.js:', err);
-        res.status(404).send('File not found');
-      }
-    });
-  });
+  if (existingTemplates.length > 0) {
+    console.log(`Found ${existingTemplates.length} existing templates`);
+    console.log("Templates already exist, skipping seeding");
+    return;
+  }
   
-  app.get('/sample/recipients.csv', (req: Request, res: Response) => {
-    const filePath = path.resolve(process.cwd(), 'client/src/sample/recipients.csv');
-    console.log(`Serving recipients.csv from: ${filePath}`);
-    res.type('text/csv');
-    res.sendFile(filePath, (err) => {
-      if (err) {
-        console.error('Error serving recipients.csv:', err);
-        res.status(404).send('File not found');
-      }
-    });
-  });
+  const defaultTemplates = [
+    {
+      name: "Practice Closure Notification",
+      eventType: "practice_closure",
+      discipline: "General",
+      bodyHtml: `<p>Dear {{patient_name}},</p>
+      
+<p>We are writing to inform you that {{practice_name}} will be permanently closing on {{closure_date}}.</p>
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+<p>We want to ensure continuity of your medical care. Your medical records will be retained and available for transfer to your new healthcare provider.</p>
+
+<p>To request your medical records:</p>
+<ul>
+<li>Call us at {{practice_phone}}</li>
+<li>Visit our office at {{practice_address}}</li>
+<li>Complete our medical records request form</li>
+</ul>
+
+<p>Thank you for allowing us to serve your healthcare needs.</p>
+
+<p>Sincerely,<br>{{doctor_name}}<br>{{practice_name}}</p>`,
+      isDefault: true
+    },
+    {
+      name: "Doctor Retirement Notice",
+      eventType: "doctor_retirement", 
+      discipline: "General",
+      bodyHtml: `<p>Dear {{patient_name}},</p>
+
+<p>After many years of practicing medicine, I have decided to retire from active practice. My last day of seeing patients will be {{retirement_date}}.</p>
+
+<p>It has been an honor and privilege to serve as your physician. I want to ensure a smooth transition of your care.</p>
+
+<p>Your medical records will be transferred to:</p>
+<p><strong>{{new_doctor_name}}</strong><br>
+{{new_practice_name}}<br>
+{{new_practice_address}}<br>
+Phone: {{new_practice_phone}}</p>
+
+<p>If you prefer to choose a different physician, please contact our office to arrange for your records to be transferred.</p>
+
+<p>Thank you for your trust and confidence over the years.</p>
+
+<p>Warmest regards,<br>{{doctor_name}}</p>`,
+      isDefault: true
+    },
+    {
+      name: "Practice Location Change",
+      eventType: "practice_relocation",
+      discipline: "General", 
+      bodyHtml: `<p>Dear {{patient_name}},</p>
+
+<p>We are excited to announce that {{practice_name}} is moving to a new location to better serve you!</p>
+
+<p><strong>New Address:</strong><br>
+{{new_address}}</p>
+
+<p><strong>Effective Date:</strong> {{move_date}}</p>
+
+<p>Our phone number will remain the same: {{practice_phone}}</p>
+
+<p>The new facility will allow us to provide enhanced services and improved patient care. We look forward to seeing you at our new location.</p>
+
+<p>If you have any questions about this transition, please don't hesitate to contact us.</p>
+
+<p>Sincerely,<br>{{doctor_name}}<br>{{practice_name}}</p>`,
+      isDefault: true
+    }
+  ];
+
+  console.log("Seeding default templates...");
+  for (const template of defaultTemplates) {
     try {
-      const userId = req.user.id;
-      let user;
-      
-      try {
-        user = await storage.getUser(userId);
-      } catch (dbError) {
-        console.error("Database error fetching user, using session data:", dbError);
-        // Fallback to session data if database is unavailable
-        user = {
-          id: req.user.id,
-          email: req.user.email,
-          firstName: req.user.firstName,
-          lastName: req.user.lastName,
-          profileImageUrl: null,
-          creditBalance: 100,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          stripeCustomerId: null,
-          stripeSubscriptionId: null,
-        };
-      }
-      
-      res.json(user);
+      await storage.createTemplate(template);
+      console.log(`✓ Created template: ${template.name}`);
     } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+      console.error(`✗ Failed to create template ${template.name}:`, error);
+    }
+  }
+  
+  console.log("Template seeding completed");
+}
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ message: 'Not authenticated' });
+      }
+
+      // Get user's practices
+      const practices = await storage.getUserPractices(user.id);
+      
+      res.json({ 
+        user,
+        practices: practices || []
+      });
+    } catch (error) {
+      console.error('Get user error:', error);
+      res.status(500).json({ message: 'Internal server error' });
     }
   });
 
   // Practice routes
-  app.post('/api/practices', isAuthenticated, async (req: any, res) => {
+  app.post('/api/practices', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.id;
-      const practiceData = insertPracticeSchema.parse({ ...req.body, ownerId: userId });
-      const practice = await storage.createPractice(practiceData);
-      res.json(practice);
+      const practiceData = {
+        ...req.body,
+        ownerId: req.user?.id
+      };
+
+      const result = await storage.createPractice(practiceData);
+      res.json(result);
     } catch (error) {
-      console.error("Error creating practice:", error);
-      res.status(400).json({ message: "Invalid practice data" });
+      console.error('Create practice error:', error);
+      res.status(500).json({ message: 'Failed to create practice' });
     }
   });
 
-  app.get('/api/practices', isAuthenticated, async (req: any, res) => {
+  app.get('/api/practices', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.id;
-      const practices = await storage.getUserPractices(userId);
+      const practices = await storage.getUserPractices(req.user!.id);
       res.json(practices);
     } catch (error) {
-      console.error("Error fetching practices:", error);
-      res.status(500).json({ message: "Failed to fetch practices" });
-    }
-  });
-
-  app.get('/api/practices/:id', isAuthenticated, async (req: any, res) => {
-    try {
-      const practiceId = parseInt(req.params.id);
-      const practice = await storage.getPractice(practiceId);
-      if (!practice) {
-        return res.status(404).json({ message: "Practice not found" });
-      }
-      res.json(practice);
-    } catch (error) {
-      console.error("Error fetching practice:", error);
-      res.status(500).json({ message: "Failed to fetch practice" });
+      console.error('Get practices error:', error);
+      res.status(500).json({ message: 'Failed to fetch practices' });
     }
   });
 
   // Template routes
-  app.get('/api/templates', async (req, res) => {
+  app.get('/api/templates', async (req: Request, res: Response) => {
     try {
       const { eventType, discipline } = req.query;
-      const templates = await storage.getTemplates({
-        eventType: eventType as string,
-        discipline: discipline as string,
-      });
+      const filters: any = {};
+      
+      if (eventType && typeof eventType === 'string') {
+        filters.eventType = eventType;
+      }
+      if (discipline && typeof discipline === 'string') {
+        filters.discipline = discipline;
+      }
+
+      const templates = await storage.getTemplates(filters);
       res.json(templates);
     } catch (error) {
-      console.error("Error fetching templates:", error);
-      res.status(500).json({ message: "Failed to fetch templates" });
+      console.error('Get templates error:', error);
+      res.status(500).json({ message: 'Failed to fetch templates' });
     }
   });
 
-  app.get('/api/templates/:id', async (req, res) => {
+  app.get('/api/templates/:id', async (req: Request, res: Response) => {
     try {
-      const templateId = parseInt(req.params.id);
-      const template = await storage.getTemplate(templateId);
-      if (!template) {
-        return res.status(404).json({ message: "Template not found" });
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: 'Invalid template ID' });
       }
+
+      const template = await storage.getTemplate(id);
+      if (!template) {
+        return res.status(404).json({ message: 'Template not found' });
+      }
+
       res.json(template);
     } catch (error) {
-      console.error("Error fetching template:", error);
-      res.status(500).json({ message: "Failed to fetch template" });
+      console.error('Get template error:', error);
+      res.status(500).json({ message: 'Failed to fetch template' });
+    }
+  });
+
+  app.post('/api/templates', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const templateSchema = insertTemplateSchema;
+      const validatedData = templateSchema.parse(req.body);
+      
+      const template = await storage.createTemplate(validatedData);
+      res.json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      
+      console.error('Create template error:', error);
+      res.status(500).json({ message: 'Failed to create template' });
     }
   });
 
   // Letter job routes
-  app.post('/api/letter-jobs', isAuthenticated, async (req: any, res) => {
+  app.post('/api/letter-jobs', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = req.user.id;
-      const jobData = insertLetterJobSchema.parse({ ...req.body, createdBy: userId });
+      const jobData = {
+        ...req.body,
+        createdBy: req.user?.id,
+        status: 'draft'
+      };
+
       const job = await storage.createLetterJob(jobData);
       res.json(job);
     } catch (error) {
-      console.error("Error creating letter job:", error);
-      res.status(400).json({ message: "Invalid letter job data" });
+      console.error('Create letter job error:', error);
+      res.status(500).json({ message: 'Failed to create letter job' });
     }
   });
 
-  app.get('/api/letter-jobs/:id', isAuthenticated, async (req, res) => {
+  app.get('/api/letter-jobs/:id', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const jobId = parseInt(req.params.id);
-      const job = await storage.getLetterJob(jobId);
-      if (!job) {
-        return res.status(404).json({ message: "Letter job not found" });
+      const id = parseInt(req.params.id, 10);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: 'Invalid job ID' });
       }
+
+      const job = await storage.getLetterJob(id);
+      if (!job) {
+        return res.status(404).json({ message: 'Letter job not found' });
+      }
+
       res.json(job);
     } catch (error) {
-      console.error("Error fetching letter job:", error);
-      res.status(500).json({ message: "Failed to fetch letter job" });
+      console.error('Get letter job error:', error);
+      res.status(500).json({ message: 'Failed to fetch letter job' });
     }
   });
 
-  app.get('/api/practices/:practiceId/letter-jobs', isAuthenticated, async (req, res) => {
+  app.get('/api/practices/:id/letter-jobs', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const practiceId = parseInt(req.params.practiceId);
+      const practiceId = parseInt(req.params.id, 10);
+      if (isNaN(practiceId)) {
+        return res.status(400).json({ message: 'Invalid practice ID' });
+      }
+
       const jobs = await storage.getPracticeLetterJobs(practiceId);
       res.json(jobs);
     } catch (error) {
-      console.error("Error fetching practice letter jobs:", error);
-      res.status(500).json({ message: "Failed to fetch letter jobs" });
-    }
-  });
-
-  // Address upload and validation
-  app.post('/api/letter-jobs/:jobId/addresses', isAuthenticated, async (req, res) => {
-    try {
-      const jobId = parseInt(req.params.jobId);
-      const addressesData = z.array(insertAddressSchema).parse(
-        req.body.addresses.map((addr: any) => ({ ...addr, letterJobId: jobId }))
-      );
-      
-      const addresses = await storage.createAddresses(addressesData);
-      
-      // Simulate address validation (in real app, this would call USPS/Smarty Streets)
-      for (const address of addresses) {
-        const isValid = Math.random() > 0.1; // 90% validation rate
-        await storage.updateAddressValidation(address.id, isValid, isValid ? 'Y' : 'N');
-      }
-      
-      res.json({ addresses, validCount: addresses.filter(() => Math.random() > 0.1).length });
-    } catch (error) {
-      console.error("Error uploading addresses:", error);
-      res.status(400).json({ message: "Invalid address data" });
-    }
-  });
-
-  // Cost calculation
-  app.post('/api/letter-jobs/:jobId/calculate-cost', isAuthenticated, async (req, res) => {
-    try {
-      const jobId = parseInt(req.params.jobId);
-      const { certified = false, pages = 1 } = req.body;
-      
-      const addresses = await storage.getJobAddresses(jobId);
-      const validAddresses = addresses.filter(addr => addr.isValid);
-      
-      const baseCost = 0.68; // Base postage + printing
-      const certifiedCost = certified ? 4.10 : 0;
-      const pageCost = (pages - 1) * 0.05;
-      
-      const costPerLetter = baseCost + certifiedCost + pageCost;
-      const totalCost = validAddresses.length * costPerLetter;
-      const creditsNeeded = Math.ceil(totalCost);
-      
-      res.json({
-        validRecipients: validAddresses.length,
-        totalRecipients: addresses.length,
-        costPerLetter,
-        totalCost,
-        creditsNeeded,
-        breakdown: {
-          postage: baseCost,
-          certified: certifiedCost,
-          extraPages: pageCost,
-        }
-      });
-    } catch (error) {
-      console.error("Error calculating cost:", error);
-      res.status(500).json({ message: "Failed to calculate cost" });
+      console.error('Get practice letter jobs error:', error);
+      res.status(500).json({ message: 'Failed to fetch letter jobs' });
     }
   });
 
   // Dashboard stats
-  app.get('/api/practices/:practiceId/dashboard-stats', isAuthenticated, async (req, res) => {
+  app.get('/api/practices/:id/stats', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const practiceId = parseInt(req.params.practiceId);
+      const practiceId = parseInt(req.params.id, 10);
+      if (isNaN(practiceId)) {
+        return res.status(400).json({ message: 'Invalid practice ID' });
+      }
+
       const stats = await storage.getDashboardStats(practiceId);
       res.json(stats);
     } catch (error) {
-      console.error("Error fetching dashboard stats:", error);
-      res.status(500).json({ message: "Failed to fetch dashboard stats" });
+      console.error('Get dashboard stats error:', error);
+      res.status(500).json({ message: 'Failed to fetch dashboard stats' });
     }
   });
 
-  // Compliance alerts
-  app.get('/api/alerts', async (req, res) => {
+  // Alerts
+  app.get('/api/alerts', async (req: Request, res: Response) => {
     try {
       const { taxonomy } = req.query;
-      const alerts = await storage.getActiveAlerts(taxonomy as string);
+      const alerts = await storage.getActiveAlerts(
+        taxonomy && typeof taxonomy === 'string' ? taxonomy : undefined
+      );
       res.json(alerts);
     } catch (error) {
-      console.error("Error fetching alerts:", error);
-      res.status(500).json({ message: "Failed to fetch alerts" });
+      console.error('Get alerts error:', error);
+      res.status(500).json({ message: 'Failed to fetch alerts' });
     }
   });
 
-  // Get order details by job ID for confirmation pages
-  app.get('/api/orders/:jobId', isAuthenticated, async (req, res) => {
+  // File upload endpoints
+  app.post('/api/upload/recipients', upload.single('recipients'), (req: Request, res: Response) => {
     try {
-      const jobId = parseInt(req.params.jobId);
-      
-      // Get the letter job
-      const job = await storage.getLetterJob(jobId);
-      if (!job) {
-        return res.status(404).json({ message: "Order not found" });
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
       }
+
+      const filePath = req.file.path;
+      const originalName = req.file.originalname;
       
-      // Verify user owns this job
-      if (job.createdBy !== req.user.id) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
-      // Get related data
-      const addresses = await storage.getJobAddresses(jobId);
-      const validAddresses = addresses.filter(addr => addr.isValid);
-      
-      // Calculate basic cost info
-      const baseCost = 0.68;
-      const costPerLetter = baseCost;
-      const totalCost = validAddresses.length * costPerLetter;
-      
-      const orderDetails = {
-        jobId: job.id,
-        status: job.status,
-        templateType: job.templateType,
-        createdAt: job.createdAt,
-        updatedAt: job.updatedAt,
-        totalRecipients: addresses.length,
-        validRecipients: validAddresses.length,
-        invalidRecipients: addresses.length - validAddresses.length,
-        estimatedCost: totalCost,
-        costPerLetter,
-        files: {
-          logo: job.logoPath,
-          signature: job.signaturePath,
-          extraPages: job.extraPagesPath,
-          recipients: job.recipientsPath
-        },
-        eventData: job.eventData,
-        bodyHtml: job.bodyHtml,
-        colorMode: job.colorMode
-      };
-      
-      res.json(orderDetails);
+      res.json({
+        success: true,
+        filePath: filePath,
+        originalName: originalName,
+        size: req.file.size
+      });
     } catch (error) {
-      console.error("Error fetching order details:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      res.status(500).json({ message: "Failed to fetch order details", error: errorMessage });
+      console.error('Recipients upload error:', error);
+      res.status(500).json({ message: 'File upload failed' });
     }
   });
 
-  // File upload order processing - requires authentication
-  app.post('/api/orders', upload.fields([
-    { name: 'logo', maxCount: 1 },
-    { name: 'signature', maxCount: 1 },
-    { name: 'extraPages', maxCount: 1 },
-    { name: 'recipients', maxCount: 1 }
-  ]), async (req: any, res) => {
+  app.post('/api/upload/logo', upload.single('logo'), (req: Request, res: Response) => {
     try {
-      // Check if user is authenticated
-      if (!req.isAuthenticated() || !req.user) {
-        return res.status(401).json({ 
-          message: "Authentication required", 
-          redirectTo: "/api/auth/login"
-        });
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
       }
 
-      const { template, letterBody, colorMode } = req.body;
-      const files = (req.files as { [fieldname: string]: Express.Multer.File[] }) || {};
+      const filePath = req.file.path;
+      const originalName = req.file.originalname;
       
-      console.log("Processing order for user:", req.user.id);
-      console.log("Order data:", { template, colorMode, fileCount: Object.keys(files).length });
+      res.json({
+        success: true,
+        filePath: filePath,
+        originalName: originalName,
+        size: req.file.size
+      });
+    } catch (error) {
+      console.error('Logo upload error:', error);
+      res.status(500).json({ message: 'File upload failed' });
+    }
+  });
+
+  app.post('/api/upload/signature', upload.single('signature'), (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+
+      const filePath = req.file.path;
+      const originalName = req.file.originalname;
       
-      // Extract file paths
-      const logoPath = files.logo?.[0]?.path;
-      const signaturePath = files.signature?.[0]?.path;
-      const extraPagesPath = files.extraPages?.[0]?.path;
-      const recipientsPath = files.recipients?.[0]?.path;
+      res.json({
+        success: true,
+        filePath: filePath,
+        originalName: originalName,
+        size: req.file.size
+      });
+    } catch (error) {
+      console.error('Signature upload error:', error);
+      res.status(500).json({ message: 'File upload failed' });
+    }
+  });
+
+  app.post('/api/upload/extra-pages', upload.single('extraPages'), (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+
+      const filePath = req.file.path;
+      const originalName = req.file.originalname;
       
-      // Create letter job entry
-      const letterJob = await storage.createLetterJob({
-        practiceId: 1, // Default practice ID for now
-        createdBy: req.user.id,
-        templateType: 'custom',
-        status: 'draft',
-        bodyHtml: letterBody,
+      res.json({
+        success: true,
+        filePath: filePath,
+        originalName: originalName,
+        size: req.file.size
+      });
+    } catch (error) {
+      console.error('Extra pages upload error:', error);
+      res.status(500).json({ message: 'File upload failed' });
+    }
+  });
+
+  // Order submission route
+  app.post('/api/orders', async (req: Request, res: Response) => {
+    try {
+      const {
+        templateType,
+        subject,
+        bodyHtml,
+        totalRecipients,
+        validRecipients,
         logoPath,
         signaturePath,
         extraPagesPath,
         recipientsPath,
         colorMode,
-        eventData: { template }
-      });
+        eventType,
+        eventData
+      } = req.body;
+
+      // For now, we'll use practice ID 1 and a default user
+      // In production, this would come from authentication
+      const practiceId = 1;
+      const createdBy = 'dev-user-1750356001255';
+
+      const letterJobData = {
+        practiceId,
+        createdBy,
+        templateType: templateType || 'custom',
+        status: 'draft',
+        eventType: eventType || 'custom',
+        subject: subject || 'Patient Notification',
+        bodyHtml: bodyHtml || '<p>Default letter content</p>',
+        totalRecipients: parseInt(totalRecipients) || 0,
+        validRecipients: parseInt(validRecipients) || 0,
+        logoPath,
+        signaturePath,
+        extraPagesPath,
+        recipientsPath,
+        colorMode: colorMode || 'bw',
+        eventData: eventData ? JSON.stringify(eventData) : '{}',
+        scheduledDatetime: null,
+        mailedAt: null
+      };
+
+      const job = await storage.createLetterJob(letterJobData);
       
-      console.log("Letter job created successfully:", letterJob.id);
-      res.json({ job_id: letterJob.id, message: "Order processed successfully" });
+      res.json({
+        success: true,
+        jobId: job.id,
+        message: 'Order submitted successfully'
+      });
     } catch (error) {
-      console.error("Error processing order:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      if (error instanceof Error && error.stack) {
-        console.error("Stack trace:", error.stack);
-      }
-      res.status(500).json({ message: "Failed to process order", error: errorMessage });
+      console.error('Order submission error:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Failed to submit order' 
+      });
     }
   });
 
-  // Seed data for templates (this would normally be in a migration)
-  const seedTemplates = async () => {
+  // Get order details endpoint
+  app.get('/api/orders/:jobId', async (req: Request, res: Response) => {
     try {
-      console.log("Checking for existing templates...");
-      const existingTemplates = await storage.getTemplates();
-      console.log(`Found ${existingTemplates.length} existing templates`);
+      const jobId = parseInt(req.params.jobId, 10);
       
-      if (existingTemplates.length === 0) {
-        console.log("Seeding default templates...");
-        const defaultTemplates = [
-          {
-            name: "Practice Relocation",
-            disciplineList: ["Medical", "Dental"],
-            eventType: "relocation",
-            bodyHtml: `<p>Dear {{FirstName}},</p>
-              <p>We are writing to inform you that {{PracticeName}} will be relocating to a new facility.</p>
-              <p>Our new address will be:</p>
-              <p><strong>{{NewAddress}}</strong></p>
-              <p><strong>Phone: {{NewPhone}}</strong></p>
-              <p>This change will be effective on {{EffectiveDate}}. All appointments scheduled after this date will take place at our new location.</p>
-              <p>We look forward to continuing to provide you with excellent healthcare at our new facility.</p>
-              <p>Sincerely,<br>{{DoctorName}}<br>{{PracticeName}}</p>`,
-            language: "en",
-            requiredFields: ["NewAddress", "NewPhone", "EffectiveDate"],
-            isActive: true,
-          },
-          {
-            name: "Practice Closure",
-            disciplineList: ["Medical", "Dental", "Chiropractic"],
-            eventType: "closure",
-            bodyHtml: `<p>Dear {{FirstName}},</p>
-              <p>We regret to inform you that {{PracticeName}} will be permanently closing on {{ClosureDate}}.</p>
-              <p>Your medical records will be maintained for the legally required period. If you would like copies of your records or would like them transferred to another provider, please contact us at {{Phone}} by {{RecordDeadline}}.</p>
-              <p>We want to thank you for allowing us to provide your healthcare over the years.</p>
-              <p>Sincerely,<br>{{DoctorName}}<br>{{PracticeName}}</p>`,
-            language: "en",
-            requiredFields: ["ClosureDate", "RecordDeadline"],
-            isActive: true,
-          },
-          {
-            name: "HIPAA Breach Notification",
-            disciplineList: ["Medical", "Dental", "Chiropractic", "Physical Therapy"],
-            eventType: "hipaa_breach",
-            bodyHtml: `<p>Dear {{FirstName}},</p>
-              <p>We are writing to notify you of a breach of your protected health information that occurred at {{PracticeName}}.</p>
-              <p><strong>What Happened:</strong> {{BreachDescription}}</p>
-              <p><strong>Information Involved:</strong> {{InformationInvolved}}</p>
-              <p><strong>What We Are Doing:</strong> {{ResponseActions}}</p>
-              <p><strong>What You Can Do:</strong> {{RecommendedActions}}</p>
-              <p>If you have any questions, please contact us at {{Phone}}.</p>
-              <p>Sincerely,<br>{{DoctorName}}<br>{{PracticeName}}</p>`,
-            language: "en",
-            requiredFields: ["BreachDescription", "InformationInvolved", "ResponseActions", "RecommendedActions"],
-            isActive: true,
-          }
-        ];
-
-        for (const template of defaultTemplates) {
-          try {
-            await storage.createTemplate(template);
-            console.log(`Created template: ${template.name}`);
-          } catch (templateError) {
-            console.error(`Error creating template ${template.name}:`, templateError);
-          }
-        }
-        console.log("Template seeding completed");
-      } else {
-        console.log("Templates already exist, skipping seeding");
+      if (isNaN(jobId)) {
+        return res.status(400).json({ message: 'Invalid job ID' });
       }
+
+      const job = await storage.getLetterJob(jobId);
+      
+      if (!job) {
+        return res.status(404).json({ message: 'Order not found' });
+      }
+
+      // Get practice details
+      const practice = await storage.getPractice(job.practiceId);
+
+      // Calculate costs (simplified for now)
+      const baseCost = job.totalRecipients * 1.25; // $1.25 per letter
+      const colorSurcharge = job.colorMode === 'color' ? job.totalRecipients * 0.50 : 0;
+      const totalCost = baseCost + colorSurcharge;
+
+      const orderDetails = {
+        orderId: job.id,
+        status: job.status,
+        subject: job.subject,
+        eventType: job.eventType,
+        templateType: job.templateType,
+        colorMode: job.colorMode,
+        recipients: {
+          total: job.totalRecipients,
+          valid: job.validRecipients,
+          invalid: job.totalRecipients - job.validRecipients
+        },
+        costs: {
+          baseCost: baseCost.toFixed(2),
+          colorSurcharge: colorSurcharge.toFixed(2),
+          totalCost: totalCost.toFixed(2)
+        },
+        files: {
+          recipientsFile: job.recipientsPath,
+          logoFile: job.logoPath,
+          signatureFile: job.signaturePath,
+          extraPagesFile: job.extraPagesPath
+        },
+        practice: practice ? {
+          name: practice.name,
+          address: practice.address,
+          phone: practice.phone
+        } : null,
+        createdAt: job.createdAt,
+        scheduledDatetime: job.scheduledDatetime,
+        mailedAt: job.mailedAt
+      };
+
+      res.json(orderDetails);
     } catch (error) {
-      console.error("Error during template seeding process:", error);
-      // Don't throw - allow the server to start even if template seeding fails
+      console.error('Get order details error:', error);
+      res.status(500).json({ message: 'Failed to fetch order details' });
     }
-  };
+  });
+
+  // Static file routes for legacy HTML pages
+  app.get('/order.html', (req: Request, res: Response) => {
+    const filePath = path.join(process.cwd(), 'public', 'order.html');
+    res.sendFile(filePath);
+  });
+
+  app.get('/login.html', (req: Request, res: Response) => {
+    const filePath = path.join(process.cwd(), 'public', 'login.html');
+    res.sendFile(filePath);
+  });
+
+  app.get('/submit_order.js', (req: Request, res: Response) => {
+    const filePath = path.join(process.cwd(), 'public', 'submit_order.js');
+    res.sendFile(filePath);
+  });
+
+  app.get('/sample/recipients.csv', (req: Request, res: Response) => {
+    const csvContent = `First Name,Last Name,Address Line 1,Address Line 2,City,State,ZIP Code
+John,Doe,123 Main St,,Anytown,ST,12345
+Jane,Smith,456 Oak Ave,Apt 2B,Springfield,ST,67890
+Bob,Johnson,789 Pine Rd,,Hometown,ST,11111`;
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="sample_recipients.csv"');
+    res.send(csvContent);
+  });
 
   // Seed templates on startup (but don't block server startup if it fails)
   seedTemplates().catch(error => {
