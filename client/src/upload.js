@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const data = await res.json();
     if (data.job_id) {
       alert("✅ Job submitted successfully!");
-      window.location.href = `/dashboard.html`; // Or wherever you want
+      window.location.href = "/";
     } else {
       alert("⚠️ Job submission failed. Please try again.");
     }

@@ -2,30 +2,80 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Order Confirmation</title>
-  <link rel="stylesheet" href="/style.css" />
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0 auto;
+      padding: 2rem;
+      max-width: 800px;
+      line-height: 1.6;
+      background-color: #f9f9f9;
+      color: #333;
+    }
+
+    h2 {
+      color: #2a2a2a;
+      border-bottom: 2px solid #ccc;
+      padding-bottom: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .section {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .label {
+      font-weight: bold;
+      display: inline-block;
+      width: 160px;
+    }
+  </style>
 </head>
 <body>
-  <main>
-    <h1>📬 Order Submitted Successfully</h1>
-    <p>Your Job ID: <strong id="job-id">Loading...</strong></p>
-    <p>Submitted at: <span id="submitted-at">Loading...</span></p>
+  <h2>Order Confirmation</h2>
+  <div id="confirmation" class="section">
+    Loading confirmation details...
+  </div>
 
-    <div id="cost-summary">
-      <h3>Estimated Cost</h3>
-      <p><em>Coming soon: Full pricing breakdown</em></p>
-    </div>
+  <script>
+    const container = document.getElementById('confirmation');
+    const jobId = new URLSearchParams(window.location.search).get("job_id");
 
-    <div id="file-summary">
-      <h3>Uploaded Files</h3>
-      <ul id="file-list"></ul>
-    </div>
+    async function loadConfirmation(jobId) {
+      try {
+        const res = await fetch(`/api/orders/${jobId}`);
+        if (!res.ok) throw new Error("Order not found or unauthorized");
 
-    <p>
-      <a href="/" class="button">Return to Dashboard</a>
-    </p>
-  </main>
+        const data = await res.json();
+        container.innerHTML = `
+          <div><span class="label">Job ID:</span> ${data.jobId}</div>
+          <div><span class="label">Status:</span> ${data.status}</div>
+          <div><span class="label">Template Type:</span> ${data.templateType}</div>
+          <div><span class="label">Created At:</span> ${new Date(data.createdAt).toLocaleString()}</div>
+          <div><span class="label">Recipients:</span> ${data.totalRecipients} (${data.validRecipients} valid)</div>
+          <div><span class="label">Estimated Cost:</span> $${data.estimatedCost.toFixed(2)} @ $${data.costPerLetter.toFixed(2)} each</div>
+          <div><span class="label">Color Mode:</span> ${data.colorMode}</div>
+          <div style="margin-top: 2rem;">
+            <button onclick="window.location.href = '/'" style="background: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">Back to Dashboard</button>
+          </div>
+        `;
+      } catch (err) {
+        container.innerHTML = `<p style="color:red">❌ ${err.message}</p>`;
+      }
+    }
 
-  <script src="/confirmation.js"></script>
+    if (jobId) {
+      loadConfirmation(jobId);
+    } else {
+      container.innerHTML = `<p style="color:red">No job ID provided.</p>`;
+    }
+  </script>
 </body>
 </html>
