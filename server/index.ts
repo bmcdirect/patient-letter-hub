@@ -39,6 +39,15 @@ app.use((req, res, next) => {
 (async () => {
   try {
     console.log("Starting server initialization...");
+    
+    // Serve static files FIRST before any other middleware
+    console.log("Setting up static file serving...");
+    app.use(express.static('public', { 
+      maxAge: 0,
+      etag: false,
+      lastModified: false
+    }));
+    
     const server = await registerRoutes(app);
     console.log("Routes registered successfully");
 
