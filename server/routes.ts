@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
 import path from "path";
@@ -54,27 +55,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
   await setupAuth(app);
 
-  // Serve static files directly (must be before Vite middleware)
+  // Serve static files with explicit routes to bypass Vite middleware
   app.get('/order.html', (req: Request, res: Response) => {
-    const filePath = path.resolve('client/src/order.html');
-    res.sendFile(filePath);
+    res.sendFile(path.resolve('client/src/order.html'));
   });
   
   app.get('/login.html', (req: Request, res: Response) => {
-    const filePath = path.resolve('client/src/login.html');
-    res.sendFile(filePath);
+    res.sendFile(path.resolve('client/src/login.html'));
   });
   
   app.get('/submit_order.js', (req: Request, res: Response) => {
-    const filePath = path.resolve('client/src/submit_order.js');
     res.type('application/javascript');
-    res.sendFile(filePath);
+    res.sendFile(path.resolve('client/src/submit_order.js'));
   });
   
   app.get('/sample/recipients.csv', (req: Request, res: Response) => {
-    const filePath = path.resolve('client/src/sample/recipients.csv');
     res.type('text/csv');
-    res.sendFile(filePath);
+    res.sendFile(path.resolve('client/src/sample/recipients.csv'));
   });
 
   // Auth routes
