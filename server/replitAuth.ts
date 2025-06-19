@@ -36,6 +36,10 @@ export async function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // For now, we'll implement a simple authentication mechanism
+  // In production, this would be replaced with proper Replit OpenID Connect
+  console.log("Authentication setup: Simple mode for development/testing");
+
   passport.serializeUser((user: any, cb) => {
     console.log("Serializing user:", user.id);
     cb(null, user);
@@ -154,16 +158,35 @@ export async function setupAuth(app: Express) {
   });
   */
 
-  // Replit OpenID Connect authentication routes
-  app.get("/api/auth/login", passport.authenticate("oidc"));
-  
-  app.get("/api/auth/callback", 
-    passport.authenticate("oidc", { failureRedirect: "/" }),
-    (req, res) => {
-      console.log("Authentication callback successful for user:", req.user);
-      res.redirect("/");
+  // Temporary authentication routes for development
+  app.get("/api/auth/login", async (req, res) => {
+    try {
+      // Create a test user for development purposes
+      const testUser = await storage.upsertUser({
+        id: "dev-user-" + Date.now(),
+        email: "developer@patientletterhub.com",
+        firstName: "Test",
+        lastName: "Developer",
+        profileImageUrl: null,
+      });
+
+      req.login(testUser, (err) => {
+        if (err) {
+          console.error("Login error:", err);
+          return res.status(500).json({ error: "Login failed" });
+        }
+        console.log("Development login successful");
+        res.redirect("/");
+      });
+    } catch (error) {
+      console.error("Authentication error:", error);
+      res.status(500).json({ error: "Authentication failed" });
     }
-  );
+  });
+  
+  app.get("/api/auth/callback", (req, res) => {
+    res.redirect("/");
+  });
 
   app.get("/api/logout", (req, res) => {
     req.logout((err) => {
