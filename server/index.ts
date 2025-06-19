@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import path from "path";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -42,16 +43,20 @@ app.use((req, res, next) => {
     
     // Serve static files FIRST before any other middleware
     console.log("Setting up static file serving...");
-    app.use(express.static('public', { 
+    const staticOptions = { 
       maxAge: 0,
       etag: false,
       lastModified: false,
-      setHeaders: (res) => {
+      setHeaders: (res: any) => {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
       }
-    }));
+    };
+    
+    // Serve from both root public and server/public to ensure compatibility
+    app.use(express.static('public', staticOptions));
+    app.use(express.static(path.resolve('server/public'), staticOptions));
     
     const server = await registerRoutes(app);
     console.log("Routes registered successfully");
