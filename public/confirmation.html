@@ -62,20 +62,20 @@
           <div><span class="label">Recipients:</span> ${data.totalRecipients} (${data.validRecipients} valid)</div>
           <div><span class="label">Estimated Cost:</span> $${data.estimatedCost.toFixed(2)} @ $${data.costPerLetter.toFixed(2)} each</div>
           <div><span class="label">Color Mode:</span> ${data.colorMode}</div>
-          <div style="margin-top: 2rem;">
-            <button onclick="window.location.href = '/'" style="background: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">Back to Dashboard</button>
-          </div>
         `;
       } catch (err) {
         container.innerHTML = `<p style="color:red">❌ ${err.message}</p>`;
       }
     }
 
-    if (jobId) {
-      loadConfirmation(jobId);
-    } else {
-      container.innerHTML = `<p style="color:red">No job ID provided.</p>`;
-    }
-  </script>
-</body>
-</html>
+     if (jobId) {
+          loadConfirmation(jobId);
+        } else {
+          container.innerHTML = `<p style="color:red">No job ID provided.</p>`;
+        }
+      </script>
+
+      <button onclick="window.location.href='/'">Back to Dashboard</button>
+
+    </body>
+    </html>
