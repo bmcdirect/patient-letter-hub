@@ -46,45 +46,42 @@ export async function setupAuth(app: Express) {
     cb(null, user);
   });
 
-  // Login route - creates a demo user session
+  // Login form route
   app.get("/api/login", async (req, res) => {
     try {
       console.log("Login attempt started");
       
-      // Create a demo user for testing with retry logic
-      let demoUser;
+      // Create test user with specified credentials
+      let testUser;
       try {
-        demoUser = await storage.upsertUser({
-          id: "demo-user-123",
-          email: "demo@patientletterhub.com",
-          firstName: "Demo",
+        testUser = await storage.upsertUser({
+          id: "test123",
+          email: "test123@patientletterhub.com",
+          firstName: "Test",
           lastName: "User",
           profileImageUrl: null,
         });
-        console.log("Demo user created/updated successfully");
+        console.log("Test user created/updated successfully");
       } catch (dbError) {
         console.error("Database error during user creation:", dbError);
         // Fallback - create user object without database storage for demo
-        demoUser = {
-          id: "demo-user-123",
-          email: "demo@patientletterhub.com",
-          firstName: "Demo",
+        testUser = {
+          id: "test123",
+          email: "test123@patientletterhub.com",
+          firstName: "Test",
           lastName: "User",
           profileImageUrl: null,
-          creditBalance: 100,
           createdAt: new Date(),
           updatedAt: new Date(),
-          stripeCustomerId: null,
-          stripeSubscriptionId: null,
         };
-        console.log("Using fallback demo user");
+        console.log("Using fallback test user");
       }
 
       req.login({ 
-        id: demoUser.id,
-        email: demoUser.email,
-        firstName: demoUser.firstName,
-        lastName: demoUser.lastName 
+        id: testUser.id,
+        email: testUser.email,
+        firstName: testUser.firstName,
+        lastName: testUser.lastName 
       }, (err) => {
         if (err) {
           console.error("Login error:", err);
@@ -106,6 +103,55 @@ export async function setupAuth(app: Express) {
     } catch (error) {
       console.error("Authentication error:", error);
       res.status(500).json({ error: "Authentication failed" });
+    }
+  });
+
+  // POST login route for form authentication
+  app.post("/api/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      // Validate test user credentials
+      if (username === "test123" && password === "MCI123") {
+        let testUser;
+        try {
+          testUser = await storage.upsertUser({
+            id: "test123",
+            email: "test123@patientletterhub.com",
+            firstName: "Test",
+            lastName: "User",
+            profileImageUrl: null,
+          });
+        } catch (dbError) {
+          console.error("Database error during user creation:", dbError);
+          testUser = {
+            id: "test123",
+            email: "test123@patientletterhub.com",
+            firstName: "Test",
+            lastName: "User",
+            profileImageUrl: null,
+          };
+        }
+
+        req.login({ 
+          id: testUser.id,
+          email: testUser.email,
+          firstName: testUser.firstName,
+          lastName: testUser.lastName 
+        }, (err) => {
+          if (err) {
+            console.error("Login error:", err);
+            return res.status(500).json({ message: "Login failed" });
+          }
+          console.log("Test user login successful");
+          res.json({ success: true });
+        });
+      } else {
+        res.status(401).json({ message: "Invalid credentials" });
+      }
+    } catch (error) {
+      console.error("POST login failed:", error);
+      res.status(500).json({ message: "Login failed" });
     }
   });
 

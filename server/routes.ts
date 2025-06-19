@@ -60,6 +60,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(filePath);
   });
   
+  app.get('/login.html', (req: Request, res: Response) => {
+    const filePath = path.resolve('client/src/login.html');
+    res.sendFile(filePath);
+  });
+  
   app.get('/submit_order.js', (req: Request, res: Response) => {
     const filePath = path.resolve('client/src/submit_order.js');
     res.type('application/javascript');
