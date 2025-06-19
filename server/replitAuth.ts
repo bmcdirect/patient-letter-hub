@@ -30,13 +30,12 @@ export function getSession() {
 
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
-  
+
   const sessionMiddleware = getSession();
   app.use(sessionMiddleware);
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Simple demo authentication - create a test user
   passport.serializeUser((user: any, cb) => {
     console.log("Serializing user:", user.id);
     cb(null, user);
@@ -46,12 +45,12 @@ export async function setupAuth(app: Express) {
     cb(null, user);
   });
 
-  // Login form route
+  // ⚠️ Dev-only GET login route (disabled)
+  /*
   app.get("/api/login", async (req, res) => {
     try {
       console.log("Login attempt started");
-      
-      // Create test user with specified credentials
+
       let testUser;
       try {
         testUser = await storage.upsertUser({
@@ -64,7 +63,6 @@ export async function setupAuth(app: Express) {
         console.log("Test user created/updated successfully");
       } catch (dbError) {
         console.error("Database error during user creation:", dbError);
-        // Fallback - create user object without database storage for demo
         testUser = {
           id: "test123",
           email: "test123@patientletterhub.com",
@@ -77,11 +75,11 @@ export async function setupAuth(app: Express) {
         console.log("Using fallback test user");
       }
 
-      req.login({ 
+      req.login({
         id: testUser.id,
         email: testUser.email,
         firstName: testUser.firstName,
-        lastName: testUser.lastName 
+        lastName: testUser.lastName
       }, (err) => {
         if (err) {
           console.error("Login error:", err);
@@ -89,8 +87,7 @@ export async function setupAuth(app: Express) {
         }
         console.log("Login successful, session ID:", req.sessionID);
         console.log("Session data:", req.session);
-        
-        // Force session save before redirect
+
         req.session.save((saveErr) => {
           if (saveErr) {
             console.error("Session save error:", saveErr);
@@ -105,13 +102,13 @@ export async function setupAuth(app: Express) {
       res.status(500).json({ error: "Authentication failed" });
     }
   });
+  */
 
-  // POST login route for form authentication
+  // ✅ POST login route for form authentication
   app.post("/api/login", async (req, res) => {
     try {
       const { username, password } = req.body;
-      
-      // Validate test user credentials
+
       if (username === "test123" && password === "MCI123") {
         let testUser;
         try {
@@ -133,11 +130,11 @@ export async function setupAuth(app: Express) {
           };
         }
 
-        req.login({ 
+        req.login({
           id: testUser.id,
           email: testUser.email,
           firstName: testUser.firstName,
-          lastName: testUser.lastName 
+          lastName: testUser.lastName
         }, (err) => {
           if (err) {
             console.error("Login error:", err);
@@ -170,12 +167,12 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   console.log("Auth check - isAuthenticated():", req.isAuthenticated());
   console.log("Auth check - User:", req.user);
   console.log("Auth check - Session:", req.session);
-  
+
   if (!req.isAuthenticated() || !req.user) {
     console.log("Authentication failed - no user or not authenticated");
     return res.status(401).json({ message: "Unauthorized" });
   }
-  
+
   console.log("Authentication successful");
   return next();
 };
