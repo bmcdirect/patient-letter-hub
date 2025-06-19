@@ -323,6 +323,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get order details by job ID for confirmation pages
+  app.get('/api/orders/:jobId', isAuthenticated, async (req, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      
+      // Get the letter job
+      const job = await storage.getLetterJob(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Verify user owns this job
+      if (job.createdBy !== req.user.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Get related data
+      const addresses = await storage.getJobAddresses(jobId);
+      const validAddresses = addresses.filter(addr => addr.isValid);
+      
+      // Calculate basic cost info
+      const baseCost = 0.68;
+      const costPerLetter = baseCost;
+      const totalCost = validAddresses.length * costPerLetter;
+      
+      const orderDetails = {
+        jobId: job.id,
+        status: job.status,
+        templateType: job.templateType,
+        createdAt: job.createdAt,
+        updatedAt: job.updatedAt,
+        totalRecipients: addresses.length,
+        validRecipients: validAddresses.length,
+        invalidRecipients: addresses.length - validAddresses.length,
+        estimatedCost: totalCost,
+        costPerLetter,
+        files: {
+          logo: job.logoPath,
+          signature: job.signaturePath,
+          extraPages: job.extraPagesPath,
+          recipients: job.recipientsPath
+        },
+        eventData: job.eventData,
+        bodyHtml: job.bodyHtml,
+        colorMode: job.colorMode
+      };
+      
+      res.json(orderDetails);
+    } catch (error) {
+      console.error("Error fetching order details:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message: "Failed to fetch order details", error: errorMessage });
+    }
+  });
+
   // File upload order processing - requires authentication
   app.post('/api/orders', upload.fields([
     { name: 'logo', maxCount: 1 },
