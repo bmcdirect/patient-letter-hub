@@ -45,7 +45,12 @@ app.use((req, res, next) => {
     app.use(express.static('public', { 
       maxAge: 0,
       etag: false,
-      lastModified: false
+      lastModified: false,
+      setHeaders: (res) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      }
     }));
     
     const server = await registerRoutes(app);
