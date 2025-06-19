@@ -55,6 +55,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
   await setupAuth(app);
 
+  // Serve static files from public directory (standard Express approach)
+  app.use(express.static('public'));
+
   // Priority static file routes - these must come before any other middleware
   app.get('/order.html', (req: Request, res: Response) => {
     const filePath = path.resolve(process.cwd(), 'client/src/order.html');
