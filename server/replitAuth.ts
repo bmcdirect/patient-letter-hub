@@ -104,7 +104,8 @@ export async function setupAuth(app: Express) {
   });
   */
 
-  // ✅ POST login route for form authentication
+  // ⚠️ Dev login route disabled for live authentication testing
+  /*
   app.post("/api/login", async (req, res) => {
     try {
       const { username, password } = req.body;
@@ -151,6 +152,7 @@ export async function setupAuth(app: Express) {
       res.status(500).json({ message: "Login failed" });
     }
   });
+  */
 
   app.get("/api/logout", (req, res) => {
     req.logout((err) => {
