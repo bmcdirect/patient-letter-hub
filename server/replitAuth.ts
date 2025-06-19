@@ -42,11 +42,23 @@ export async function setupAuth(app: Express) {
 
   passport.serializeUser((user: any, cb) => {
     console.log("Serializing user:", user.id);
-    cb(null, user);
+    cb(null, user.id);
   });
-  passport.deserializeUser((user: any, cb) => {
-    console.log("Deserializing user:", user.id);
-    cb(null, user);
+  passport.deserializeUser(async (id: string, cb) => {
+    console.log("Deserializing user:", id);
+    try {
+      const user = await storage.getUser(id);
+      if (user) {
+        console.log("User found during deserialization:", user.id);
+        cb(null, user);
+      } else {
+        console.log("User not found during deserialization:", id);
+        cb(null, false);
+      }
+    } catch (error) {
+      console.error("Error during user deserialization:", error);
+      cb(error);
+    }
   });
 
   // ⚠️ Dev-only GET login route (disabled)
@@ -161,21 +173,35 @@ export async function setupAuth(app: Express) {
   // Temporary authentication routes for development
   app.get("/api/auth/login", async (req, res) => {
     try {
-      // Create a test user for development purposes
-      const testUser = await storage.upsertUser({
-        id: "dev-user-" + Date.now(),
-        email: "developer@patientletterhub.com",
-        firstName: "Test",
-        lastName: "Developer",
-        profileImageUrl: null,
-      });
+      // Use a fixed test user ID to avoid duplicates
+      const testUserId = "dev-user-123";
+      let testUser;
+      
+      try {
+        testUser = await storage.getUser(testUserId);
+        if (!testUser) {
+          testUser = await storage.upsertUser({
+            id: testUserId,
+            email: "developer@patientletterhub.com",
+            firstName: "Test",
+            lastName: "Developer",
+            profileImageUrl: null,
+          });
+        }
+      } catch (dbError) {
+        console.log("Database error, using existing user if available");
+        testUser = await storage.getUser(testUserId);
+        if (!testUser) {
+          throw new Error("Could not create or retrieve test user");
+        }
+      }
 
       req.login(testUser, (err) => {
         if (err) {
           console.error("Login error:", err);
           return res.status(500).json({ error: "Login failed" });
         }
-        console.log("Development login successful");
+        console.log("Development login successful for user:", testUser.id);
         res.redirect("/");
       });
     } catch (error) {
