@@ -408,22 +408,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Order submission route
-  app.post('/api/orders', async (req: Request, res: Response) => {
+  app.post('/api/orders', upload.fields([
+    { name: 'recipients', maxCount: 1 },
+    { name: 'logo', maxCount: 1 },
+    { name: 'signature', maxCount: 1 },
+    { name: 'extraPages', maxCount: 1 }
+  ]), async (req: Request, res: Response) => {
     try {
+      console.log('=== ORDER SUBMISSION DEBUG ===');
+      console.log('Request body:', JSON.stringify(req.body, null, 2));
+      console.log('Request files:', req.files);
+      console.log('Content-Type:', req.headers['content-type']);
+      
       const {
         templateType,
         subject,
         bodyHtml,
         totalRecipients,
         validRecipients,
-        logoPath,
-        signaturePath,
-        extraPagesPath,
-        recipientsPath,
         colorMode,
         eventType,
         eventData
       } = req.body;
+
+      // Extract file paths from uploaded files
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const logoPath = files.logo?.[0]?.path;
+      const signaturePath = files.signature?.[0]?.path;
+      const extraPagesPath = files.extraPages?.[0]?.path;
+      const recipientsPath = files.recipients?.[0]?.path;
+
+      console.log('Extracted file paths:', {
+        logoPath,
+        signaturePath,
+        extraPagesPath,
+        recipientsPath
+      });
 
       // For now, we'll use practice ID 1 and a default user
       // In production, this would come from authentication
@@ -450,15 +470,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         mailedAt: null
       };
 
-      const job = await storage.createLetterJob(letterJobData);
+      console.log('Letter job data to insert:', JSON.stringify(letterJobData, null, 2));
+      console.log('About to call storage.createLetterJob...');
+
+      // Add retry logic for database connection issues
+      let job;
+      let attempts = 0;
+      const maxAttempts = 3;
+      
+      while (attempts < maxAttempts) {
+        try {
+          attempts++;
+          console.log(`Database insert attempt ${attempts}/${maxAttempts}`);
+          job = await storage.createLetterJob(letterJobData);
+          break;
+        } catch (dbError: any) {
+          console.error(`Database attempt ${attempts} failed:`, dbError);
+          if (attempts === maxAttempts) {
+            throw dbError;
+          }
+          // Wait 1 second before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+      
+      if (!job) {
+        throw new Error('Failed to create job after all attempts');
+      }
+
+      console.log('Letter job created successfully:', job);
       
       res.json({
         success: true,
         jobId: job.id,
         message: 'Order submitted successfully'
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Order submission error:', error);
+      console.error('Error stack:', error.stack);
       res.status(500).json({ 
         success: false,
         message: 'Failed to submit order' 
