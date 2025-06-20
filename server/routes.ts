@@ -407,7 +407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Order submission route
+  // Order submission route with file uploads
   app.post('/api/orders', upload.fields([
     { name: 'recipients', maxCount: 1 },
     { name: 'logo', maxCount: 1 },
@@ -433,10 +433,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Extract file paths from uploaded files
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-      const logoPath = files.logo?.[0]?.path;
-      const signaturePath = files.signature?.[0]?.path;
-      const extraPagesPath = files.extraPages?.[0]?.path;
-      const recipientsPath = files.recipients?.[0]?.path;
+      const logoPath = files?.logo?.[0]?.path;
+      const signaturePath = files?.signature?.[0]?.path;
+      const extraPagesPath = files?.extraPages?.[0]?.path;
+      const recipientsPath = files?.recipients?.[0]?.path;
 
       console.log('Extracted file paths:', {
         logoPath,
