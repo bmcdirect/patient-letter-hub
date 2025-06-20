@@ -756,7 +756,9 @@ Bob,Johnson,789 Pine Rd,,Hometown,ST,11111`;
 
       res.set({
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="letter-job-${jobId}.pdf"`
+        'Content-Disposition': `inline; filename="letter-job-${jobId}.pdf"`,
+        'X-Content-Type-Options': 'nosniff',
+        'Cache-Control': 'no-cache'
       });
       res.send(pdfBuffer);
 

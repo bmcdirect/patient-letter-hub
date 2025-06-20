@@ -115,6 +115,7 @@ Changelog:
 - June 19, 2025. Added GET /api/orders/:jobId endpoint for order confirmation pages with comprehensive order details including recipients, costs, and file references. Updated confirmation page redirects to use root path (/) instead of /dashboard to prevent 404 errors
 - June 19, 2025. Fixed server crash issues by restoring routes.ts file and resolving authentication middleware errors. Removed req.isAuthenticated() calls and added null safety checks for recipient data. Server fully operational with test job ID 9999 available for confirmation page testing
 - June 20, 2025. Order submission system fully operational - fixed multer middleware configuration for file uploads, added database retry logic for connection stability, and confirmed complete workflow from form submission to job creation (Job IDs 18, 19 successfully created with proper file handling)
+- June 20, 2025. PDF generation system implemented - added /api/orders/:jobId/pdf endpoint with puppeteer integration, system chromium installation, database retry logic for connection timeouts, and professional healthcare letter formatting. Created /pdf-viewer.html for easy PDF viewing and testing
 ```
 
 ## User Preferences
