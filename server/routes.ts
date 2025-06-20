@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
+import puppeteer from 'puppeteer';
 import { insertLetterJobSchema, insertAddressSchema, insertTemplateSchema } from '../shared/schema';
 import { storage } from './storage';
 import { isAuthenticated } from './replitAuth';
@@ -605,6 +606,127 @@ Bob,Johnson,789 Pine Rd,,Hometown,ST,11111`;
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="sample_recipients.csv"');
     res.send(csvContent);
+  });
+
+  // PDF generation route
+  app.get('/api/orders/:jobId/pdf', async (req: Request, res: Response) => {
+    try {
+      const jobId = parseInt(req.params.jobId, 10);
+      
+      if (isNaN(jobId)) {
+        return res.status(400).json({ message: 'Invalid job ID' });
+      }
+
+      const job = await storage.getLetterJob(jobId);
+      
+      if (!job) {
+        return res.status(404).json({ message: 'Job not found' });
+      }
+
+      // Get practice details for letterhead
+      const practice = await storage.getPractice(job.practiceId);
+
+      const browser = await puppeteer.launch({ 
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+      const page = await browser.newPage();
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                padding: 2rem; 
+                line-height: 1.6;
+                color: #333;
+              }
+              .letterhead {
+                border-bottom: 2px solid #007bff;
+                margin-bottom: 2rem;
+                padding-bottom: 1rem;
+              }
+              .practice-name {
+                font-size: 1.5rem;
+                font-weight: bold;
+                color: #007bff;
+              }
+              .practice-info {
+                margin-top: 0.5rem;
+                color: #666;
+              }
+              .logo { 
+                max-width: 200px; 
+                margin-bottom: 1rem;
+              }
+              .letter-content {
+                margin: 2rem 0;
+              }
+              .signature { 
+                margin-top: 2rem; 
+                max-width: 150px; 
+              }
+              .footer {
+                margin-top: 3rem;
+                padding-top: 1rem;
+                border-top: 1px solid #ddd;
+                font-size: 0.9rem;
+                color: #666;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="letterhead">
+              ${job.logoPath ? `<img src="file://${path.resolve(job.logoPath)}" class="logo" alt="Practice Logo" />` : ''}
+              <div class="practice-name">${practice?.name || 'Healthcare Practice'}</div>
+              <div class="practice-info">
+                ${practice?.address || ''}<br>
+                ${practice?.phone || ''}<br>
+                NPI: ${practice?.npi || ''}
+              </div>
+            </div>
+            
+            <div class="letter-content">
+              <h2>${job.subject || 'Patient Communication'}</h2>
+              <div>${job.bodyHtml || '<p>Letter content not available</p>'}</div>
+            </div>
+            
+            ${job.signaturePath ? `<img src="file://${path.resolve(job.signaturePath)}" class="signature" alt="Signature" />` : ''}
+            
+            <div class="footer">
+              <p>Generated on ${new Date().toLocaleDateString()}</p>
+              <p>Job ID: ${jobId} | Event Type: ${job.eventType || 'N/A'}</p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      await page.setContent(htmlContent, { waitUntil: 'domcontentloaded' });
+      const pdfBuffer = await page.pdf({ 
+        format: 'A4',
+        margin: {
+          top: '1in',
+          bottom: '1in',
+          left: '0.75in',
+          right: '0.75in'
+        }
+      });
+
+      await browser.close();
+
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="letter-job-${jobId}.pdf"`
+      });
+      res.send(pdfBuffer);
+
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+      res.status(500).json({ message: 'PDF generation failed' });
+    }
   });
 
   // Seed templates on startup (but don't block server startup if it fails)
