@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const result = await response.json();
-      alert("Order submitted successfully! Job ID: " + result.job_id);
+      alert("Order submitted successfully! Job ID: " + result.jobId);
       window.location.href = `/`;
 
     } catch (err) {
