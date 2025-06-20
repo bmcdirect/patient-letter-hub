@@ -29,12 +29,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const result = await response.json();
-      alert("Order submitted successfully! Job ID: " + result.jobId);
-      window.location.href = `/`;
+        alert("Order submitted successfully! Job ID: " + result.jobId);
+        window.location.href = /confirmation.html?jobId=${result.jobId};
 
-    } catch (err) {
-      console.error("Submission failed", err);
-      alert("Something went wrong. Please try again.");
-    }
-  });
-});
+      } catch (err) {
+        console.error("Submission failed", err);
+        alert("Something went wrong. Please try again.");
+      }
+      });
+      });
