@@ -72,6 +72,18 @@
     </div>
   </form>
 
-  <script src="/submit_order.js"></script>
+  <script src="/submit_order.js">// Pre-fill template type if provided in URL
+document.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(window.location.search);
+  const templateType = params.get("template");
+
+  if (templateType) {
+    const templateField = document.querySelector('[name="template"]');
+    if (templateField) {
+      templateField.value = templateType;
+    }
+  }
+});</script>
+
 </body>
 </html>
