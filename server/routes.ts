@@ -485,8 +485,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const practice = await storage.getPractice(job.practiceId);
 
       // Calculate costs (simplified for now)
-      const baseCost = job.totalRecipients * 1.25; // $1.25 per letter
-      const colorSurcharge = job.colorMode === 'color' ? job.totalRecipients * 0.50 : 0;
+      const totalRecipients = job.totalRecipients || 0;
+      const validRecipients = job.validRecipients || 0;
+      const baseCost = totalRecipients * 1.25; // $1.25 per letter
+      const colorSurcharge = job.colorMode === 'color' ? totalRecipients * 0.50 : 0;
       const totalCost = baseCost + colorSurcharge;
 
       const orderDetails = {
@@ -497,9 +499,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         templateType: job.templateType,
         colorMode: job.colorMode,
         recipients: {
-          total: job.totalRecipients,
-          valid: job.validRecipients,
-          invalid: job.totalRecipients - job.validRecipients
+          total: totalRecipients,
+          valid: validRecipients,
+          invalid: totalRecipients - validRecipients
         },
         costs: {
           baseCost: baseCost.toFixed(2),
