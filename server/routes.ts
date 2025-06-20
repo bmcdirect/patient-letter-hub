@@ -35,7 +35,7 @@ const upload = multer({
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type'), false);
+      cb(null, false);
     }
   }
 });
@@ -145,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get user's practices
-      const practices = await storage.getUserPractices(user.id);
+      const practices = await storage.getUserPractices((user as any).id);
       
       res.json({ 
         user,
@@ -162,7 +162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const practiceData = {
         ...req.body,
-        ownerId: req.user?.id
+        ownerId: (req.user as any)?.id
       };
 
       const result = await storage.createPractice(practiceData);
@@ -175,7 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/practices', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const practices = await storage.getUserPractices(req.user!.id);
+      const practices = await storage.getUserPractices((req.user as any).id);
       res.json(practices);
     } catch (error) {
       console.error('Get practices error:', error);
@@ -246,7 +246,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const jobData = {
         ...req.body,
-        createdBy: req.user?.id,
+        createdBy: (req.user as any)?.id,
         status: 'draft'
       };
 
