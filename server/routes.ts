@@ -137,6 +137,29 @@ Phone: {{new_practice_phone}}</p>
   console.log("Template seeding completed");
 }
 
+// Authentication middleware
+const requireLogin = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.session?.user) {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Authentication required' 
+    });
+  }
+  req.user = req.session.user;
+  next();
+};
+
+const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.session?.user?.is_admin) {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Admin access required' 
+    });
+  }
+  req.user = req.session.user;
+  next();
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: Request, res: Response) => {
@@ -458,8 +481,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Orders table insert attempt ${attempts}/${maxAttempts}`);
           
           const queryResult = await pool.query(`
-            INSERT INTO orders (template_type, subject, body_html, total_recipients, valid_recipients, color_mode, status, production_start_date, production_end_date)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE, CURRENT_DATE + INTERVAL '3 days')
+            INSERT INTO orders (template_type, subject, body_html, total_recipients, valid_recipients, color_mode, status, production_start_date, production_end_date, user_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE, CURRENT_DATE + INTERVAL '3 days', $8)
             RETURNING id
           `, [
             templateType || 'custom',
@@ -468,7 +491,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             parseInt(totalRecipients) || 0,
             parseInt(validRecipients) || 0,
             colorMode || 'bw',
-            'Pending'
+            'Pending',
+            req.user.id
           ]);
           
           result = queryResult.rows[0];
@@ -510,15 +534,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get recent orders endpoint
-  app.get('/api/orders', async (req: Request, res: Response) => {
+  app.get('/api/orders', requireLogin, async (req: Request, res: Response) => {
     try {
-      const result = await pool.query(`
+      let query = `
         SELECT id as "jobId", subject, created_at as "createdAt", status,
                production_start_date as "productionStartDate", production_end_date as "productionEndDate"
         FROM orders
-        ORDER BY created_at DESC
-        LIMIT 20
-      `);
+      `;
+      let params = [];
+
+      // Filter orders by user unless admin
+      if (!req.user.is_admin) {
+        query += ` WHERE user_id = $1`;
+        params.push(req.user.id);
+      }
+
+      query += ` ORDER BY created_at DESC LIMIT 20`;
+
+      const result = await pool.query(query, params);
 
       res.json({
         success: true,
@@ -535,7 +568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get individual order details endpoint
-  app.get('/api/orders/:jobId', async (req: Request, res: Response) => {
+  app.get('/api/orders/:jobId', requireLogin, async (req: Request, res: Response) => {
     try {
       const jobId = parseInt(req.params.jobId, 10);
       
@@ -546,14 +579,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const result = await pool.query(
-        `SELECT id AS "jobId", subject, status, created_at AS "createdAt",
-                valid_recipients AS "validRecipients", color_mode AS "colorMode",
-                production_start_date AS "productionStartDate", production_end_date AS "productionEndDate"
-         FROM orders
-         WHERE id = $1`,
-        [jobId]
-      );
+      let query = `
+        SELECT id AS "jobId", subject, status, created_at AS "createdAt",
+               valid_recipients AS "validRecipients", color_mode AS "colorMode",
+               production_start_date AS "productionStartDate", production_end_date AS "productionEndDate"
+        FROM orders
+        WHERE id = $1
+      `;
+      let params = [jobId];
+
+      // Add user filter for non-admin users
+      if (!req.user.is_admin) {
+        query += ` AND user_id = $2`;
+        params.push(req.user.id);
+      }
+
+      const result = await pool.query(query, params);
 
       if (result.rows.length === 0) {
         return res.status(404).json({
@@ -577,7 +618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Submit order for fulfillment endpoint
-  app.post('/api/orders/:jobId/submit', async (req: Request, res: Response) => {
+  app.post('/api/orders/:jobId/submit', requireLogin, async (req: Request, res: Response) => {
     try {
       const jobId = parseInt(req.params.jobId, 10);
       
@@ -618,7 +659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update order status endpoint
-  app.post('/api/orders/:jobId/status', async (req: Request, res: Response) => {
+  app.post('/api/orders/:jobId/status', requireAdmin, async (req: Request, res: Response) => {
     try {
       const jobId = parseInt(req.params.jobId, 10);
       const { status } = req.body;
@@ -667,7 +708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin statistics endpoint
-  app.get('/admin/api/stats', async (req: Request, res: Response) => {
+  app.get('/admin/api/stats', requireAdmin, async (req: Request, res: Response) => {
     try {
       // Get order counts by status
       const statusCounts = await pool.query(`
@@ -727,7 +768,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin calendar endpoint
-  app.get('/admin/api/calendar', async (req: Request, res: Response) => {
+  app.get('/admin/api/calendar', requireAdmin, async (req: Request, res: Response) => {
     try {
       const result = await pool.query(`
         SELECT 
@@ -784,7 +825,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // CSV export endpoint for production schedule
-  app.get('/admin/api/export/schedule', async (req: Request, res: Response) => {
+  app.get('/admin/api/export/schedule', requireAdmin, async (req: Request, res: Response) => {
     try {
       const result = await pool.query(`
         SELECT 

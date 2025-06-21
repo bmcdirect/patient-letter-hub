@@ -1,0 +1,99 @@
+Replit Agent Instructions: Implement Basic User Auth System
+🧱 1. Create a users table
+Add a new table users with the following schema:
+
+sql
+Copy
+Edit
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  is_admin BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+Use bcrypt for hashing passwords when storing new users.
+
+📝 2. Add /api/auth/register endpoint (POST)
+Accept JSON { email, password }.
+
+Validate email and password are provided.
+
+Hash password with bcrypt.
+
+Insert new user into the users table.
+
+Return 201 Created with { success: true } or 409 Conflict if email already exists.
+
+🔑 3. Add /api/auth/login endpoint (POST)
+Accept JSON { email, password }.
+
+Look up user by email.
+
+Compare password with bcrypt.
+
+If valid, store req.session.user = { id, email, is_admin }.
+
+Return { success: true, user: { email, is_admin } }.
+
+Return 401 on invalid credentials.
+
+🚪 4. Add /api/auth/logout endpoint (POST)
+Clear the session.
+
+ts
+Copy
+Edit
+req.session.destroy(() => res.json({ success: true }));
+🔐 5. Middleware: requireLogin
+Create an Express middleware function requireLogin that:
+
+Checks if req.session.user exists
+
+Returns 401 if not logged in
+
+Attaches req.user = req.session.user if valid
+
+Use this on protected routes like /api/orders and /api/orders/:id/submit.
+
+🔗 6. Link Orders to Users
+Update the orders table to include a user_id foreign key:
+
+sql
+Copy
+Edit
+ALTER TABLE orders ADD COLUMN user_id INTEGER REFERENCES users(id);
+When a logged-in user submits an order, store their user_id.
+
+🔍 7. Filter Orders by User (optional but ready)
+Update GET /api/orders to:
+
+If req.user.is_admin, return all orders
+
+Otherwise, return only orders where user_id = req.user.id
+
+🖥️ 8. Add a simple login page: login.html
+Form with email, password, and a Login button.
+
+POST to /api/auth/login, then redirect:
+
+Admin users → /admin.html
+
+Regular users → /dashboard.html or confirmation page
+
+🧪 9. Add session-protected access
+Protect /admin.html by requiring an admin session.
+Optional: show a logout button and user email in the header.
+
+📦 Summary of What You’ll Build
+users table
+
+Register / Login / Logout API endpoints
+
+Session-based middleware for access control
+
+Orders linked to users via user_id
+
+Basic frontend login form
+
+Role-based visibility on /api/orders
