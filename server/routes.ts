@@ -509,6 +509,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get recent orders endpoint
+  app.get('/api/orders', async (req: Request, res: Response) => {
+    try {
+      const result = await pool.query(`
+        SELECT id as "jobId", subject, created_at as "createdAt", status
+        FROM orders
+        ORDER BY created_at DESC
+        LIMIT 20
+      `);
+
+      res.json({
+        success: true,
+        orders: result.rows
+      });
+    } catch (error: any) {
+      console.error('Failed to fetch orders:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch orders',
+        error: error.message
+      });
+    }
+  });
+
   // Get order details endpoint
   app.get('/api/orders/:jobId', async (req: Request, res: Response) => {
     try {
