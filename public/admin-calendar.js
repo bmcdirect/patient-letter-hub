@@ -2,9 +2,46 @@ let calendarData = {};
 let currentDate = new Date();
 
 document.addEventListener("DOMContentLoaded", async () => {
+  await checkAuth();
   await loadCalendarData();
   renderCalendar();
+  setupLogout();
 });
+
+// Check authentication and redirect if needed
+async function checkAuth() {
+  try {
+    const res = await fetch('/api/auth/user');
+    if (!res.ok) {
+      window.location.href = '/login.html';
+      return;
+    }
+    
+    const data = await res.json();
+    if (!data.success || !data.user.is_admin) {
+      window.location.href = '/login.html';
+      return;
+    }
+    
+    // Display user info
+    document.getElementById('user-info').textContent = `Logged in as: ${data.user.email}`;
+    
+  } catch (err) {
+    window.location.href = '/login.html';
+  }
+}
+
+// Setup logout functionality
+function setupLogout() {
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login.html';
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  });
+}
 
 // Load calendar data from API
 async function loadCalendarData() {

@@ -161,8 +161,166 @@ const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: Request, res: Response) => {
+  await seedTemplates();
+
+  // User Registration endpoint
+  app.post('/api/auth/register', async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email and password are required'
+        });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'Password must be at least 6 characters long'
+        });
+      }
+
+      // Check if user already exists
+      const existingUser = await pool.query(
+        'SELECT id FROM users WHERE email = $1',
+        [email.toLowerCase()]
+      );
+
+      if (existingUser.rows.length > 0) {
+        return res.status(409).json({
+          success: false,
+          message: 'Email already registered'
+        });
+      }
+
+      // Hash password
+      const saltRounds = 12;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
+
+      // Create user
+      const result = await pool.query(
+        'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email, is_admin',
+        [email.toLowerCase(), passwordHash]
+      );
+
+      const user = result.rows[0];
+
+      res.status(201).json({
+        success: true,
+        message: 'User registered successfully',
+        user: {
+          id: user.id,
+          email: user.email,
+          is_admin: user.is_admin
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error during registration'
+      });
+    }
+  });
+
+  // User Login endpoint
+  app.post('/api/auth/login', async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email and password are required'
+        });
+      }
+
+      // Find user by email
+      const result = await pool.query(
+        'SELECT id, email, password_hash, is_admin FROM users WHERE email = $1',
+        [email.toLowerCase()]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
+
+      const user = result.rows[0];
+
+      // Check password
+      const isValidPassword = await bcrypt.compare(password, user.password_hash);
+
+      if (!isValidPassword) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
+
+      // Store user in session
+      req.session.user = {
+        id: user.id,
+        email: user.email,
+        is_admin: user.is_admin
+      };
+
+      res.json({
+        success: true,
+        user: {
+          email: user.email,
+          is_admin: user.is_admin
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Login error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error during login'
+      });
+    }
+  });
+
+  // User Logout endpoint
+  app.post('/api/auth/logout', (req: Request, res: Response) => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('Logout error:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Server error during logout'
+        });
+      }
+      res.json({ success: true });
+    });
+  });
+
+  // Get current user endpoint
+  app.get('/api/auth/user', (req: Request, res: Response) => {
+    if (req.session?.user) {
+      res.json({
+        success: true,
+        user: {
+          email: req.session.user.email,
+          is_admin: req.session.user.is_admin
+        }
+      });
+    } else {
+      res.status(401).json({
+        success: false,
+        message: 'Not authenticated'
+      });
+    }
+  });
+
+  // Auth routes (legacy Replit auth)
+  app.get('/api/auth/user-legacy', isAuthenticated, async (req: Request, res: Response) => {
     try {
       const user = req.user;
       if (!user) {

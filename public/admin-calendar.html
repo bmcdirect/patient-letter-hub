@@ -232,10 +232,12 @@
 <body>
   <div class="header">
     <h1>Production Calendar</h1>
-    <div class="nav-links">
+    <div class="nav-links" style="align-items: center;">
+      <span id="user-info" style="color: #666; font-size: 0.9rem; margin-right: 1rem;"></span>
       <a href="/admin.html">Order Dashboard</a>
       <a href="/admin-calendar.html">Calendar View</a>
-      <a href="/admin/api/export/schedule" class="export-btn">📤 Export Schedule CSV</a>
+      <a href="/admin/api/export/schedule" class="export-btn">Export Schedule CSV</a>
+      <button id="logout-btn" style="background: #dc3545; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">Logout</button>
     </div>
   </div>
   
