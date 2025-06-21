@@ -573,6 +573,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Submit order for fulfillment endpoint
+  app.post('/api/orders/:jobId/submit', async (req: Request, res: Response) => {
+    try {
+      const jobId = parseInt(req.params.jobId, 10);
+      
+      if (isNaN(jobId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid order ID"
+        });
+      }
+
+      // Update order status to submitted
+      const result = await pool.query(
+        `UPDATE orders SET status = 'Submitted' WHERE id = $1 RETURNING id`,
+        [jobId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Order not found"
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Order submitted for fulfillment",
+        orderId: jobId,
+        status: "Submitted"
+      });
+
+    } catch (error: any) {
+      console.error('Failed to submit order:', error);
+      res.status(500).json({
+        success: false,
+        message: "Server error"
+      });
+    }
+  });
+
   // Get legacy order details endpoint (for letter_jobs compatibility)
   app.get('/api/letter-jobs/:jobId', async (req: Request, res: Response) => {
     try {

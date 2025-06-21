@@ -38,8 +38,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const result = await response.json();
-      alert("Order submitted successfully! Job ID: " + result.jobId);
-      window.location.href = `/confirmation.html?jobId=${result.jobId}`;
+      alert("Order submitted successfully! Order ID: " + result.orderId);
+      window.location.href = `/confirmation.html?jobId=${result.orderId}`;
 
     } catch (err) {
       console.error("Submission failed", err);

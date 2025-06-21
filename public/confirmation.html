@@ -36,6 +36,46 @@
       display: inline-block;
       width: 160px;
     }
+
+    .button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .button:hover {
+      background-color: #0056b3;
+    }
+
+    .button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .button-secondary {
+      background-color: #28a745;
+    }
+
+    .button-secondary:hover {
+      background-color: #218838;
+    }
+
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+
+    .success {
+      color: green;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -43,56 +83,105 @@
   <div id="confirmation" class="section">
     Loading confirmation details...
   </div>
-  <button id="submit-job">Submit for Fulfillment</button>
+  
+  <div id="actions" style="display: none;">
+    <a id="view-pdf" href="#" target="_blank" class="button button-secondary">View as PDF</a>
+    <button id="submit-job" class="button">Submit for Fulfillment</button>
+  </div>
+  
   <div id="submit-status"></div>
+  
+  <button onclick="window.location.href='/'" class="button" style="background-color: #6c757d;">Back to Dashboard</button>
+
   <script>
     const container = document.getElementById('confirmation');
-    const jobId = new URLSearchParams(window.location.search).get("job_id");
+    const actionsDiv = document.getElementById('actions');
+    const viewPdfBtn = document.getElementById('view-pdf');
+    const submitBtn = document.getElementById('submit-job');
+    const statusDiv = document.getElementById('submit-status');
+    
+    // Get jobId from URL parameter (supporting both 'jobId' and 'job_id')
+    const params = new URLSearchParams(window.location.search);
+    const jobId = params.get("jobId") || params.get("job_id");
 
     async function loadConfirmation(jobId) {
       try {
         const res = await fetch(`/api/orders/${jobId}`);
-        if (!res.ok) throw new Error("Order not found or unauthorized");
+        
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error("Order not found");
+          } else if (res.status === 400) {
+            throw new Error("Invalid order ID");
+          } else {
+            throw new Error("Server error");
+          }
+        }
 
         const data = await res.json();
+        
+        if (!data.success) {
+          throw new Error(data.message || "Failed to load order");
+        }
+
+        const order = data.order;
+        
         container.innerHTML = `
-          <div><span class="label">Job ID:</span> ${data.jobId}</div>
-          <div><span class="label">Status:</span> ${data.status}</div>
-          <div><span class="label">Template Type:</span> ${data.templateType}</div>
-          <div><span class="label">Created At:</span> ${new Date(data.createdAt).toLocaleString()}</div>
-          <div><span class="label">Recipients:</span> ${data.totalRecipients} (${data.validRecipients} valid)</div>
-          <div><span class="label">Estimated Cost:</span> $${data.estimatedCost.toFixed(2)} @ $${data.costPerLetter.toFixed(2)} each</div>
-          <div><span class="label">Color Mode:</span> ${data.colorMode}</div>
+          <div><span class="label">Order ID:</span> ${order.jobId}</div>
+          <div><span class="label">Subject:</span> ${order.subject || 'N/A'}</div>
+          <div><span class="label">Status:</span> ${order.status}</div>
+          <div><span class="label">Created At:</span> ${new Date(order.createdAt).toLocaleString()}</div>
         `;
+
+        // Set up PDF view link
+        viewPdfBtn.href = `/api/orders/${order.jobId}/pdf`;
+        
+        // Show action buttons
+        actionsDiv.style.display = 'block';
+        
       } catch (err) {
-        container.innerHTML = `<p style="color:red">❌ ${err.message}</p>`;
+        container.innerHTML = `<p class="error">❌ ${err.message}</p>`;
+        actionsDiv.style.display = 'none';
       }
     }
 
-     if (jobId) {
-          loadConfirmation(jobId);
-        } else {
-          container.innerHTML = `<p style="color:red">No job ID provided.</p>`;
-        }
-      document.getElementById("submit-job").addEventListener("click", async () => {
-        try {
-          const res = await fetch(`/api/letter-jobs/${jobId}/submit`, {
-            method: "POST",
-            credentials: "include"
-          });
-          if (!res.ok) throw new Error("Submit failed");
-          document.getElementById("submit-status").innerHTML = "<p style='color:green'>✅ Submitted for fulfillment</p>";
-        } catch (err) {
-          document.getElementById("submit-status").innerHTML = `<p style='color:red'>❌ ${err.message}</p>`;
-        }
-      });
+    // Load confirmation on page load
+    if (jobId) {
+      loadConfirmation(jobId);
+    } else {
+      container.innerHTML = `<p class="error">No order ID provided in URL.</p>`;
+    }
 
-  
-  
-  </script>
-
-      <button onclick="window.location.href='/'">Back to Dashboard</button>
+    // Submit for fulfillment handler
+    submitBtn.addEventListener("click", async () => {
+      if (!jobId) return;
       
-
-    </body>
-    </html>
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Submitting...";
+      
+      try {
+        const res = await fetch(`/api/orders/${jobId}/submit`, {
+          method: "POST",
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: "include"
+        });
+        
+        if (!res.ok) {
+          throw new Error("Submit failed");
+        }
+        
+        const result = await res.json();
+        statusDiv.innerHTML = "<p class='success'>✅ Successfully submitted for fulfillment</p>";
+        submitBtn.textContent = "Submitted";
+        
+      } catch (err) {
+        statusDiv.innerHTML = `<p class='error'>❌ ${err.message}</p>`;
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit for Fulfillment";
+      }
+    });
+  </script>
+</body>
+</html>
