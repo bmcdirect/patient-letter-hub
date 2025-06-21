@@ -140,24 +140,28 @@ Phone: {{new_practice_phone}}</p>
 
 // Authentication middleware
 const requireLogin = (req: Request, res: Response, next: NextFunction) => {
+  console.log('Auth check - Session:', req.session);
+  console.log('Auth check - Session user:', req.session?.user);
+  
   if (!req.session?.user) {
     return res.status(401).json({ 
       success: false, 
       message: 'Authentication required' 
     });
   }
-  req.user = req.session.user;
   next();
 };
 
 const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+  console.log('Admin check - Session:', req.session);
+  console.log('Admin check - Session user:', req.session?.user);
+  
   if (!req.session?.user?.is_admin) {
     return res.status(403).json({ 
       success: false, 
       message: 'Admin access required' 
     });
   }
-  req.user = req.session.user;
   next();
 };
 
@@ -265,11 +269,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Store user in session
+      if (!req.session) {
+        return res.status(500).json({
+          success: false,
+          message: 'Session not available'
+        });
+      }
+      
       req.session.user = {
         id: user.id,
         email: user.email,
         is_admin: user.is_admin
       };
+      
+      console.log('Session user set:', req.session.user);
 
       res.json({
         success: true,
