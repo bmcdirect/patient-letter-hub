@@ -171,7 +171,14 @@
   </style>
 </head>
 <body>
-  <h2>Admin Order Dashboard</h2>
+  <div class="header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #ccc;">
+    <h2 style="margin: 0; border: none; padding: 0;">Admin Order Dashboard</h2>
+    <div class="nav-links" style="display: flex; gap: 1rem;">
+      <a href="/admin.html" style="text-decoration: none; color: #007bff; padding: 0.5rem 1rem; border: 1px solid #007bff; border-radius: 4px; background: #007bff; color: white;">Order Dashboard</a>
+      <a href="/admin-calendar.html" style="text-decoration: none; color: #007bff; padding: 0.5rem 1rem; border: 1px solid #007bff; border-radius: 4px;">Calendar View</a>
+      <a href="/admin/api/export/schedule" style="background: #28a745; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 4px;">Export Schedule CSV</a>
+    </div>
+  </div>
   
   <!-- Stats Summary -->
   <div id="stats-container" class="stats-container">

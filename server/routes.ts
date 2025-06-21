@@ -458,8 +458,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Orders table insert attempt ${attempts}/${maxAttempts}`);
           
           const queryResult = await pool.query(`
-            INSERT INTO orders (template_type, subject, body_html, total_recipients, valid_recipients, color_mode, status)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO orders (template_type, subject, body_html, total_recipients, valid_recipients, color_mode, status, production_start_date, production_end_date)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE, CURRENT_DATE + INTERVAL '3 days')
             RETURNING id
           `, [
             templateType || 'custom',
