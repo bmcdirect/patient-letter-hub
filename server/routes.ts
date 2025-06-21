@@ -724,6 +724,189 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Invoice PDF generation endpoint
+  app.get('/api/orders/:jobId/invoice-pdf', requireLogin, async (req: Request, res: Response) => {
+    try {
+      const jobId = parseInt(req.params.jobId, 10);
+      
+      if (isNaN(jobId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid order ID"
+        });
+      }
+
+      let query = `
+        SELECT id AS "jobId", subject, status, created_at AS "createdAt",
+               valid_recipients AS "validRecipients", color_mode AS "colorMode",
+               production_start_date AS "productionStartDate", production_end_date AS "productionEndDate"
+        FROM orders
+        WHERE id = $1
+      `;
+      let params = [jobId];
+
+      // Add user filter for non-admin users
+      if (!req.user.is_admin) {
+        query += ` AND user_id = $2`;
+        params.push(req.user.id);
+      }
+
+      const result = await pool.query(query, params);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Order not found or access denied"
+        });
+      }
+
+      const order = result.rows[0];
+      
+      // Calculate costs
+      const validRecipients = parseInt(order.validRecipients) || 0;
+      const rate = order.colorMode === 'color' ? 0.65 : 0.50;
+      const estimatedCost = validRecipients * rate;
+      
+      // Generate invoice HTML
+      const invoiceHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Invoice ${order.jobId}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #333; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #007bff; padding-bottom: 20px; }
+            .company-name { color: #007bff; font-size: 28px; font-weight: bold; margin: 0; }
+            .invoice-title { color: #666; font-size: 24px; margin: 10px 0 0 0; }
+            .invoice-info { display: flex; justify-content: space-between; margin-bottom: 30px; }
+            .info-section { flex: 1; }
+            .info-section h3 { color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 15px; }
+            .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; padding: 3px 0; }
+            .info-label { font-weight: 600; }
+            .info-value { text-align: right; }
+            .status { padding: 4px 12px; border-radius: 15px; font-size: 12px; font-weight: 600; }
+            .status.Pending { background: #fff3cd; color: #856404; }
+            .status.Submitted { background: #d4edda; color: #155724; }
+            .status.Fulfilled { background: #cce7ff; color: #004085; }
+            .cost-section { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .cost-section h3 { margin-top: 0; color: #333; }
+            .cost-row { display: flex; justify-content: space-between; margin-bottom: 10px; padding: 5px 0; }
+            .cost-total { border-top: 2px solid #007bff; padding-top: 10px; margin-top: 15px; font-weight: bold; font-size: 18px; }
+            .footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1 class="company-name">PatientLetterHub</h1>
+            <h2 class="invoice-title">Invoice #${order.jobId}</h2>
+          </div>
+          
+          <div class="invoice-info">
+            <div class="info-section">
+              <h3>Order Information</h3>
+              <div class="info-row">
+                <span class="info-label">Order ID:</span>
+                <span class="info-value">${order.jobId}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Subject:</span>
+                <span class="info-value">${order.subject || 'N/A'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Created Date:</span>
+                <span class="info-value">${new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Status:</span>
+                <span class="info-value"><span class="status ${order.status}">${order.status}</span></span>
+              </div>
+            </div>
+            
+            <div class="info-section">
+              <h3>Customer Information</h3>
+              <div class="info-row">
+                <span class="info-label">Practice Name:</span>
+                <span class="info-value">N/A</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Customer Email:</span>
+                <span class="info-value">${req.user.email}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Valid Recipients:</span>
+                <span class="info-value">${validRecipients}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Color Mode:</span>
+                <span class="info-value">${order.colorMode === 'color' ? 'Color' : 'Black & White'}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="cost-section">
+            <h3>Cost Breakdown</h3>
+            <div class="cost-row">
+              <span>Letters (${validRecipients} recipients):</span>
+              <span>$${estimatedCost.toFixed(2)}</span>
+            </div>
+            <div class="cost-row">
+              <span>Cost per Letter:</span>
+              <span>$${rate.toFixed(2)}</span>
+            </div>
+            <div class="cost-row">
+              <span>Postage:</span>
+              <span style="color: #666; font-style: italic;">Calculated at time of mailing</span>
+            </div>
+            <div class="cost-row cost-total">
+              <span>Estimated Total Cost:</span>
+              <span>$${estimatedCost.toFixed(2)}</span>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>This is an estimated cost breakdown. Final costs may vary based on postage and processing fees.</p>
+            <p>Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Generate PDF using Puppeteer
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+      
+      const page = await browser.newPage();
+      await page.setContent(invoiceHtml, { waitUntil: 'networkidle0' });
+      
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '20px',
+          right: '20px',
+          bottom: '20px',
+          left: '20px'
+        }
+      });
+      
+      await browser.close();
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Invoice-${order.jobId}.pdf"`);
+      res.send(pdf);
+
+    } catch (error: any) {
+      console.error('Invoice PDF generation error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to generate invoice PDF'
+      });
+    }
+  });
+
   // Get individual order details endpoint
   app.get('/api/orders/:jobId', requireLogin, async (req: Request, res: Response) => {
     try {
