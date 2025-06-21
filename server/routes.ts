@@ -513,7 +513,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/orders', async (req: Request, res: Response) => {
     try {
       const result = await pool.query(`
-        SELECT id as "jobId", subject, created_at as "createdAt", status
+        SELECT id as "jobId", subject, created_at as "createdAt", status,
+               production_start_date as "productionStartDate", production_end_date as "productionEndDate"
         FROM orders
         ORDER BY created_at DESC
         LIMIT 20
@@ -547,7 +548,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const result = await pool.query(
         `SELECT id AS "jobId", subject, status, created_at AS "createdAt",
-                valid_recipients AS "validRecipients", color_mode AS "colorMode"
+                valid_recipients AS "validRecipients", color_mode AS "colorMode",
+                production_start_date AS "productionStartDate", production_end_date AS "productionEndDate"
          FROM orders
          WHERE id = $1`,
         [jobId]
@@ -717,6 +719,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error: any) {
       console.error('Failed to fetch admin stats:', error);
+      res.status(500).json({
+        success: false,
+        message: "Server error"
+      });
+    }
+  });
+
+  // Admin calendar endpoint
+  app.get('/admin/api/calendar', async (req: Request, res: Response) => {
+    try {
+      const result = await pool.query(`
+        SELECT 
+          production_end_date,
+          COUNT(*) as order_count,
+          COALESCE(SUM(valid_recipients), 0) as total_recipients,
+          COALESCE(SUM(
+            CASE 
+              WHEN color_mode = 'color' THEN valid_recipients * 0.65
+              ELSE valid_recipients * 0.50
+            END
+          ), 0) as total_cost,
+          ARRAY_AGG(
+            JSON_BUILD_OBJECT(
+              'id', id,
+              'subject', subject,
+              'status', status,
+              'recipients', valid_recipients,
+              'cost', CASE 
+                WHEN color_mode = 'color' THEN valid_recipients * 0.65
+                ELSE valid_recipients * 0.50
+              END
+            )
+          ) as orders
+        FROM orders 
+        GROUP BY production_end_date
+        ORDER BY production_end_date
+      `);
+
+      const calendarData = {};
+      
+      result.rows.forEach(row => {
+        const date = row.production_end_date.toISOString().split('T')[0];
+        calendarData[date] = {
+          orderCount: parseInt(row.order_count),
+          totalRecipients: parseInt(row.total_recipients),
+          totalCost: parseFloat(row.total_cost),
+          orders: row.orders
+        };
+      });
+
+      res.json({
+        success: true,
+        calendar: calendarData
+      });
+
+    } catch (error: any) {
+      console.error('Failed to fetch calendar data:', error);
+      res.status(500).json({
+        success: false,
+        message: "Server error"
+      });
+    }
+  });
+
+  // CSV export endpoint for production schedule
+  app.get('/admin/api/export/schedule', async (req: Request, res: Response) => {
+    try {
+      const result = await pool.query(`
+        SELECT 
+          id as "Order ID",
+          subject as "Subject",
+          status as "Status",
+          created_at as "Created Date",
+          production_end_date as "Production End Date",
+          valid_recipients as "Total Recipients",
+          CASE 
+            WHEN color_mode = 'color' THEN valid_recipients * 0.65
+            ELSE valid_recipients * 0.50
+          END as "Estimated Cost"
+        FROM orders
+        ORDER BY production_end_date, id
+      `);
+
+      // Generate CSV content
+      const headers = ['Order ID', 'Subject', 'Status', 'Created Date', 'Production End Date', 'Total Recipients', 'Estimated Cost'];
+      const csvContent = [
+        headers.join(','),
+        ...result.rows.map(row => [
+          row['Order ID'],
+          `"${(row['Subject'] || '').replace(/"/g, '""')}"`,
+          row['Status'],
+          new Date(row['Created Date']).toLocaleDateString(),
+          new Date(row['Production End Date']).toLocaleDateString(),
+          row['Total Recipients'] || 0,
+          `$${parseFloat(row['Estimated Cost']).toFixed(2)}`
+        ].join(','))
+      ].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="production_schedule.csv"');
+      res.send(csvContent);
+
+    } catch (error: any) {
+      console.error('Failed to export schedule:', error);
       res.status(500).json({
         success: false,
         message: "Server error"
