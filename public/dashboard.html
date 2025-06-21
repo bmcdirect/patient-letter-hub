@@ -123,17 +123,17 @@
     <div class="card-grid">
       <div class="card">
         <strong>Pending Approval</strong>
-        <p>0</p>
+        <p id="stat-pending">0</p>
         <small>Awaiting review</small>
       </div>
       <div class="card">
         <strong>In Print</strong>
-        <p>0</p>
+        <p id="stat-inprint">0</p>
         <small>Being processed</small>
       </div>
       <div class="card">
         <strong>Delivered</strong>
-        <p>0</p>
+        <p id="stat-delivered">0</p>
         <small>This month</small>
       </div>
     </div>
@@ -151,9 +151,7 @@
           </tr>
         </thead>
         <tbody id="mailings-table">
-          <tr>
-            <td colspan="5">No mailings found.</td>
-          </tr>
+          <tr><td colspan="5">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -172,7 +170,62 @@
       </div>
     </div>
   </div>
-  <script src="/dashboard.js"></script>
+
+  <script>
+    function startNewJob(templateType) {
+      window.location.href = `/order.html?template=${encodeURIComponent(templateType)}`;
+    }
+
+    async function loadDashboardData() {
+      try {
+        const res = await fetch("/api/orders");
+        const data = await res.json();
+        const table = document.getElementById("mailings-table");
+        table.innerHTML = "";
+
+        if (!Array.isArray(data) || data.length === 0) {
+          table.innerHTML = '<tr><td colspan="5">No mailings found.</td></tr>';
+          return;
+        }
+
+        let pending = 0, inPrint = 0, delivered = 0;
+
+        for (const job of data) {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${job.jobId}</td>
+            <td>${job.subject || 'Untitled'}</td>
+            <td>${job.status || 'Pending'}</td>
+            <td>${new Date(job.createdAt).toLocaleDateString()}</td>
+            <td>
+              <button class="action-button" onclick="duplicateJob(${job.jobId})">Duplicate</button>
+              <button class="action-button" onclick="window.open('/confirmation.html?jobId=${job.jobId}', '_blank')">View</button>
+            </td>
+          `;
+          table.appendChild(row);
+
+          if (job.status === "Pending") pending++;
+          else if (job.status === "In Print") inPrint++;
+          else if (job.status === "Delivered") delivered++;
+        }
+
+        document.getElementById("stat-pending").textContent = pending;
+        document.getElementById("stat-inprint").textContent = inPrint;
+        document.getElementById("stat-delivered").textContent = delivered;
+      } catch (err) {
+        console.error("Failed to load orders", err);
+        const table = document.getElementById("mailings-table");
+        table.innerHTML = '<tr><td colspan="5">Error loading data.</td></tr>';
+      }
+    }
+
+    function duplicateJob(jobId) {
+      alert("TODO: Duplicate job " + jobId);
+    }
+
+    document.addEventListener("DOMContentLoaded", loadDashboardData);
+  </script>
 
 </body>
 </html>
+
