@@ -615,6 +615,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update order status endpoint
+  app.post('/api/orders/:jobId/status', async (req: Request, res: Response) => {
+    try {
+      const jobId = parseInt(req.params.jobId, 10);
+      const { status } = req.body;
+      
+      if (isNaN(jobId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid order ID"
+        });
+      }
+
+      if (!status || !['Pending', 'Submitted', 'Fulfilled'].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid status. Must be one of: Pending, Submitted, Fulfilled"
+        });
+      }
+
+      // Update order status
+      const result = await pool.query(
+        `UPDATE orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id`,
+        [status, jobId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Order not found"
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Order status updated successfully",
+        orderId: jobId,
+        status: status
+      });
+
+    } catch (error: any) {
+      console.error('Failed to update order status:', error);
+      res.status(500).json({
+        success: false,
+        message: "Server error"
+      });
+    }
+  });
+
+  // Admin statistics endpoint
+  app.get('/admin/api/stats', async (req: Request, res: Response) => {
+    try {
+      // Get order counts by status
+      const statusCounts = await pool.query(`
+        SELECT status, COUNT(*) as count
+        FROM orders 
+        GROUP BY status
+      `);
+
+      // Get total recipients and calculate estimated costs
+      const totals = await pool.query(`
+        SELECT 
+          COUNT(*) as total_orders,
+          COALESCE(SUM(valid_recipients), 0) as total_recipients,
+          COALESCE(SUM(
+            CASE 
+              WHEN color_mode = 'color' THEN valid_recipients * 0.65
+              ELSE valid_recipients * 0.50
+            END
+          ), 0) as estimated_cost
+        FROM orders
+      `);
+
+      // Process status counts
+      const statusMap = {
+        Pending: 0,
+        Submitted: 0,
+        Fulfilled: 0
+      };
+
+      statusCounts.rows.forEach(row => {
+        if (statusMap.hasOwnProperty(row.status)) {
+          statusMap[row.status] = parseInt(row.count);
+        }
+      });
+
+      const totalRow = totals.rows[0];
+
+      res.json({
+        success: true,
+        stats: {
+          totalOrders: parseInt(totalRow.total_orders),
+          totalRecipients: parseInt(totalRow.total_recipients),
+          pending: statusMap.Pending,
+          submitted: statusMap.Submitted,
+          fulfilled: statusMap.Fulfilled,
+          estimatedCost: parseFloat(totalRow.estimated_cost)
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Failed to fetch admin stats:', error);
+      res.status(500).json({
+        success: false,
+        message: "Server error"
+      });
+    }
+  });
+
   // Get legacy order details endpoint (for letter_jobs compatibility)
   app.get('/api/letter-jobs/:jobId', async (req: Request, res: Response) => {
     try {
