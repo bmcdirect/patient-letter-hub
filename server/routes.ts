@@ -650,7 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             parseInt(validRecipients) || 0,
             colorMode || 'bw',
             'Pending',
-            req.user.id
+            req.session.user.id
           ]);
           
           result = queryResult.rows[0];
@@ -702,9 +702,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let params = [];
 
       // Filter orders by user unless admin
-      if (!req.user.is_admin) {
+      if (!req.session.user.is_admin) {
         query += ` WHERE user_id = $1`;
-        params.push(req.user.id);
+        params.push(req.session.user.id);
       }
 
       query += ` ORDER BY created_at DESC LIMIT 20`;
@@ -747,9 +747,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let params = [jobId];
 
       // Add user filter for non-admin users
-      if (!req.user.is_admin) {
+      if (!req.session.user.is_admin) {
         query += ` AND user_id = $2`;
-        params.push(req.user.id);
+        params.push(req.session.user.id);
       }
 
       const result = await pool.query(query, params);
