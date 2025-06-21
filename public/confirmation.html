@@ -127,14 +127,14 @@
         const order = data.order;
         
         container.innerHTML = `
-          <div><span class="label">Order ID:</span> ${order.jobId}</div>
+          <div><span class="label">Order ID:</span> ${order.jobId || order.id}</div>
           <div><span class="label">Subject:</span> ${order.subject || 'N/A'}</div>
           <div><span class="label">Status:</span> ${order.status}</div>
           <div><span class="label">Created At:</span> ${new Date(order.createdAt).toLocaleString()}</div>
         `;
 
         // Set up PDF view link
-        viewPdfBtn.href = `/api/orders/${order.jobId}/pdf`;
+        viewPdfBtn.href = `/api/orders/${order.jobId || order.id}/pdf`;
         
         // Show action buttons
         actionsDiv.style.display = 'block';
@@ -175,6 +175,8 @@
         const result = await res.json();
         statusDiv.innerHTML = "<p class='success'>✅ Successfully submitted for fulfillment</p>";
         submitBtn.textContent = "Submitted";
+        viewPdfBtn.style.pointerEvents = 'none';
+        viewPdfBtn.style.opacity = '0.5';
         
       } catch (err) {
         statusDiv.innerHTML = `<p class='error'>❌ ${err.message}</p>`;
