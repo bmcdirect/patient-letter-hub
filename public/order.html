@@ -51,6 +51,9 @@
         
         document.getElementById('user-info').textContent = `Logged in as: ${data.user.email}`;
         
+        // Load practices for dropdown
+        await loadPractices();
+        
         // Setup logout
         document.getElementById('logout-btn').addEventListener('click', async () => {
           try {
@@ -65,6 +68,34 @@
         window.location.href = '/login.html';
       }
     });
+
+    // Load practices for dropdown
+    async function loadPractices() {
+      try {
+        const res = await fetch('/api/practices');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            const practiceSelect = document.getElementById('practiceSelect');
+            
+            // Clear existing options except the first one
+            while (practiceSelect.children.length > 1) {
+              practiceSelect.removeChild(practiceSelect.lastChild);
+            }
+            
+            // Add practice options
+            data.practices.forEach(practice => {
+              const option = document.createElement('option');
+              option.value = practice.id;
+              option.textContent = practice.name;
+              practiceSelect.appendChild(option);
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load practices:', err);
+      }
+    }
   </script>
 
   <form id="orderForm" enctype="multipart/form-data">

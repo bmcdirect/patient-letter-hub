@@ -318,6 +318,172 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Practice management endpoints
+  app.post('/api/practices', requireLogin, async (req: Request, res: Response) => {
+    try {
+      const { name, contact_email, phone, address_line1, address_line2, city, state, zip } = req.body;
+
+      if (!name) {
+        return res.status(400).json({
+          success: false,
+          message: 'Practice name is required'
+        });
+      }
+
+      const result = await pool.query(`
+        INSERT INTO practices (name, contact_email, phone, address_line1, address_line2, city, state, zip)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id, name, contact_email, phone, address_line1, address_line2, city, state, zip, created_at
+      `, [name, contact_email || null, phone || null, address_line1 || null, address_line2 || null, city || null, state || null, zip || null]);
+
+      const practice = result.rows[0];
+
+      res.status(201).json({
+        success: true,
+        message: 'Practice created successfully',
+        practice: practice
+      });
+
+    } catch (error: any) {
+      console.error('Practice creation error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to create practice'
+      });
+    }
+  });
+
+  app.get('/api/practices', requireLogin, async (req: Request, res: Response) => {
+    try {
+      const result = await pool.query(`
+        SELECT id, name, contact_email, phone, address_line1, address_line2, city, state, zip, created_at
+        FROM practices
+        ORDER BY name
+      `);
+
+      res.json({
+        success: true,
+        practices: result.rows
+      });
+
+    } catch (error: any) {
+      console.error('Failed to fetch practices:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch practices'
+      });
+    }
+  });
+
+  app.get('/api/practices/:id', requireLogin, async (req: Request, res: Response) => {
+    try {
+      const practiceId = parseInt(req.params.id, 10);
+
+      if (isNaN(practiceId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid practice ID'
+        });
+      }
+
+      const result = await pool.query(`
+        SELECT id, name, contact_email, phone, address_line1, address_line2, city, state, zip, created_at
+        FROM practices
+        WHERE id = $1
+      `, [practiceId]);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Practice not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        practice: result.rows[0]
+      });
+
+    } catch (error: any) {
+      console.error('Failed to fetch practice:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch practice details'
+      });
+    }
+  });
+
+  app.put('/api/orders/:id/practice', requireLogin, async (req: Request, res: Response) => {
+    try {
+      const orderId = parseInt(req.params.id, 10);
+      const { practice_id } = req.body;
+
+      if (isNaN(orderId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid order ID'
+        });
+      }
+
+      if (practice_id !== null && (isNaN(parseInt(practice_id)) || parseInt(practice_id) <= 0)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid practice ID'
+        });
+      }
+
+      // Check if order exists and user has access
+      let orderQuery = `
+        SELECT id FROM orders WHERE id = $1
+      `;
+      let orderParams = [orderId];
+
+      if (!req.user.is_admin) {
+        orderQuery += ` AND user_id = $2`;
+        orderParams.push(req.user.id);
+      }
+
+      const orderResult = await pool.query(orderQuery, orderParams);
+
+      if (orderResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Order not found or access denied'
+        });
+      }
+
+      // If practice_id is provided, verify it exists
+      if (practice_id !== null) {
+        const practiceResult = await pool.query('SELECT id FROM practices WHERE id = $1', [practice_id]);
+        if (practiceResult.rows.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: 'Practice not found'
+          });
+        }
+      }
+
+      // Update the order
+      await pool.query(`
+        UPDATE orders 
+        SET practice_id = $1 
+        WHERE id = $2
+      `, [practice_id, orderId]);
+
+      res.json({
+        success: true,
+        message: 'Practice assignment updated successfully'
+      });
+
+    } catch (error: any) {
+      console.error('Failed to assign practice to order:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to assign practice to order'
+      });
+    }
+  });
+
   // Auth routes (legacy Replit auth)
   app.get('/api/auth/user-legacy', isAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -638,8 +804,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Orders table insert attempt ${attempts}/${maxAttempts}`);
           
           const queryResult = await pool.query(`
-            INSERT INTO orders (template_type, subject, body_html, total_recipients, valid_recipients, color_mode, status, production_start_date, production_end_date, user_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE, CURRENT_DATE + INTERVAL '3 days', $8)
+            INSERT INTO orders (template_type, subject, body_html, total_recipients, valid_recipients, color_mode, status, production_start_date, production_end_date, user_id, practice_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE, CURRENT_DATE + INTERVAL '3 days', $8, $9)
             RETURNING id
           `, [
             templateType || 'custom',
@@ -649,7 +815,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             parseInt(validRecipients) || 0,
             colorMode || 'bw',
             'Pending',
-            req.user.id
+            req.user.id,
+            req.body.practice_id || null
           ]);
           
           result = queryResult.rows[0];
@@ -694,9 +861,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/orders', requireLogin, async (req: Request, res: Response) => {
     try {
       let query = `
-        SELECT id as "jobId", subject, created_at as "createdAt", status,
-               production_start_date as "productionStartDate", production_end_date as "productionEndDate"
-        FROM orders
+        SELECT o.id as "jobId", o.subject, o.created_at as "createdAt", o.status,
+               o.production_start_date as "productionStartDate", o.production_end_date as "productionEndDate",
+               p.name as "practiceName"
+        FROM orders o
+        LEFT JOIN practices p ON o.practice_id = p.id
       `;
       let params = [];
 
