@@ -1,0 +1,116 @@
+Replit Agent Instructions: Add Admin Dashboard Page (admin.html)
+Goal: Create a new admin dashboard page that shows recent orders with basic info and actions.
+
+📄 File: public/admin.html
+html
+Copy
+Edit
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 2rem auto;
+      max-width: 960px;
+      padding: 1rem;
+      background: #f9f9f9;
+    }
+    h2 {
+      border-bottom: 2px solid #ccc;
+      padding-bottom: 0.5rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      margin-top: 1rem;
+    }
+    th, td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background-color: #f0f0f0;
+    }
+    .actions a, .actions button {
+      margin-right: 8px;
+      padding: 6px 10px;
+      text-decoration: none;
+      border: none;
+      border-radius: 4px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    .actions button:hover, .actions a:hover {
+      background-color: #0056b3;
+    }
+    .tag {
+      font-size: 0.85em;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #ddd;
+    }
+    .tag.Pending { background: orange; color: white; }
+    .tag.Submitted { background: green; color: white; }
+  </style>
+</head>
+<body>
+  <h2>Admin Order Dashboard</h2>
+  <div id="orders">Loading orders...</div>
+  <script src="/admin.js"></script>
+</body>
+</html>
+📄 File: public/admin.js
+js
+Copy
+Edit
+document.addEventListener("DOMContentLoaded", async () => {
+  const container = document.getElementById("orders");
+
+  try {
+    const res = await fetch("/api/orders");
+    const data = await res.json();
+
+    if (!data.success || !Array.isArray(data.orders)) {
+      throw new Error("Invalid data format");
+    }
+
+    const table = document.createElement("table");
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Subject</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.orders.map(order => `
+          <tr>
+            <td>${order.jobId}</td>
+            <td>${order.subject || "N/A"}</td>
+            <td><span class="tag ${order.status}">${order.status}</span></td>
+            <td>${new Date(order.createdAt).toLocaleString()}</td>
+            <td class="actions">
+              <a href="/confirmation.html?jobId=${order.jobId}">View</a>
+              <a href="/api/orders/${order.jobId}/pdf" target="_blank">PDF</a>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    `;
+    container.innerHTML = "";
+    container.appendChild(table);
+
+  } catch (err) {
+    container.innerHTML = `<p style="color:red">❌ Failed to load orders: ${err.message}</p>`;
+  }
+});

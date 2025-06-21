@@ -119,6 +119,7 @@ Changelog:
 - June 21, 2025. Orders table implemented - created new orders table with Pending status workflow, updated /api/orders endpoint to use direct SQL INSERT with RETURNING id clause, maintains dual table support (orders + letter_jobs) for flexible order management
 - June 21, 2025. PDF generation updated for orders table - modified /api/orders/:jobId/pdf endpoint to fetch from orders table using SELECT subject, body_html, color_mode query instead of letter_jobs, maintains fallback content logic and generates PDFs successfully for Order IDs 1 and 2
 - June 21, 2025. Individual order details endpoint implemented - added GET /api/orders/:jobId with exact SQL query SELECT id AS "jobId", subject, status, created_at AS "createdAt" FROM orders WHERE id = $1, handles all error cases (400/404/500) with proper JSON responses for frontend confirmation pages
+- June 21, 2025. Admin dashboard implemented - created /admin.html with tabular view of all orders, includes ID, subject, status tags (Pending/Submitted), creation date, and action buttons for viewing confirmation pages and generating PDFs. Uses /api/orders endpoint for data fetching
 ```
 
 ## User Preferences
