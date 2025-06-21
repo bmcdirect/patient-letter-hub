@@ -118,6 +118,7 @@ Changelog:
 - June 20, 2025. PDF generation system implemented - added /api/orders/:jobId/pdf endpoint with puppeteer integration, system chromium installation, database retry logic for connection timeouts, and professional healthcare letter formatting. Created /pdf-viewer.html for easy PDF viewing and testing
 - June 21, 2025. Orders table implemented - created new orders table with Pending status workflow, updated /api/orders endpoint to use direct SQL INSERT with RETURNING id clause, maintains dual table support (orders + letter_jobs) for flexible order management
 - June 21, 2025. PDF generation updated for orders table - modified /api/orders/:jobId/pdf endpoint to fetch from orders table using SELECT subject, body_html, color_mode query instead of letter_jobs, maintains fallback content logic and generates PDFs successfully for Order IDs 1 and 2
+- June 21, 2025. Individual order details endpoint implemented - added GET /api/orders/:jobId with exact SQL query SELECT id AS "jobId", subject, status, created_at AS "createdAt" FROM orders WHERE id = $1, handles all error cases (400/404/500) with proper JSON responses for frontend confirmation pages
 ```
 
 ## User Preferences

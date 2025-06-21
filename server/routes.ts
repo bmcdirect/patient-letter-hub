@@ -533,8 +533,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get order details endpoint
+  // Get individual order details endpoint
   app.get('/api/orders/:jobId', async (req: Request, res: Response) => {
+    try {
+      const jobId = parseInt(req.params.jobId, 10);
+      
+      if (isNaN(jobId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid order ID"
+        });
+      }
+
+      const result = await pool.query(
+        `SELECT id AS "jobId", subject, status, created_at AS "createdAt"
+         FROM orders
+         WHERE id = $1`,
+        [jobId]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Order not found"
+        });
+      }
+
+      res.json({
+        success: true,
+        order: result.rows[0]
+      });
+
+    } catch (error: any) {
+      console.error('Failed to fetch order details:', error);
+      res.status(500).json({
+        success: false,
+        message: "Server error"
+      });
+    }
+  });
+
+  // Get legacy order details endpoint (for letter_jobs compatibility)
+  app.get('/api/letter-jobs/:jobId', async (req: Request, res: Response) => {
     try {
       const jobId = parseInt(req.params.jobId, 10);
       
