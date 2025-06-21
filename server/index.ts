@@ -1,11 +1,31 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
 import path from "path";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+// Configure session middleware FIRST
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'patientletterhub-secret-key-2025',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // Set to true in production with HTTPS
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Populate req.user from session
+app.use((req, res, next) => {
+  req.user = req.session?.user || null;
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();

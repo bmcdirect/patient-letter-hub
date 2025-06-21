@@ -140,10 +140,7 @@ Phone: {{new_practice_phone}}</p>
 
 // Authentication middleware
 const requireLogin = (req: Request, res: Response, next: NextFunction) => {
-  console.log('Auth check - Session:', req.session);
-  console.log('Auth check - Session user:', req.session?.user);
-  
-  if (!req.session?.user) {
+  if (!req.user) {
     return res.status(401).json({ 
       success: false, 
       message: 'Authentication required' 
@@ -153,10 +150,7 @@ const requireLogin = (req: Request, res: Response, next: NextFunction) => {
 };
 
 const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-  console.log('Admin check - Session:', req.session);
-  console.log('Admin check - Session user:', req.session?.user);
-  
-  if (!req.session?.user?.is_admin) {
+  if (!req.user?.is_admin) {
     return res.status(403).json({ 
       success: false, 
       message: 'Admin access required' 
@@ -269,20 +263,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Store user in session
-      if (!req.session) {
-        return res.status(500).json({
-          success: false,
-          message: 'Session not available'
-        });
-      }
-      
       req.session.user = {
         id: user.id,
         email: user.email,
         is_admin: user.is_admin
       };
-      
-      console.log('Session user set:', req.session.user);
 
       res.json({
         success: true,
@@ -664,7 +649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             parseInt(validRecipients) || 0,
             colorMode || 'bw',
             'Pending',
-            req.session.user.id
+            req.user.id
           ]);
           
           result = queryResult.rows[0];
@@ -716,9 +701,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let params = [];
 
       // Filter orders by user unless admin
-      if (!req.session.user.is_admin) {
+      if (!req.user.is_admin) {
         query += ` WHERE user_id = $1`;
-        params.push(req.session.user.id);
+        params.push(req.user.id);
       }
 
       query += ` ORDER BY created_at DESC LIMIT 20`;
@@ -761,9 +746,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let params = [jobId];
 
       // Add user filter for non-admin users
-      if (!req.session.user.is_admin) {
+      if (!req.user.is_admin) {
         query += ` AND user_id = $2`;
-        params.push(req.session.user.id);
+        params.push(req.user.id);
       }
 
       const result = await pool.query(query, params);
