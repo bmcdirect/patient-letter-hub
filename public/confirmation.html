@@ -126,11 +126,19 @@
 
         const order = data.order;
         
+        // Calculate estimated cost based on color mode
+        const rate = order.colorMode === 'color' ? 0.65 : 0.5;
+        const costPerLetter = rate.toFixed(2);
+        const estimatedCost = (order.validRecipients || 0) * rate;
+        const formattedCost = estimatedCost.toFixed(2);
+        
         container.innerHTML = `
           <div><span class="label">Order ID:</span> ${order.jobId || order.id}</div>
           <div><span class="label">Subject:</span> ${order.subject || 'N/A'}</div>
           <div><span class="label">Status:</span> ${order.status}</div>
           <div><span class="label">Created At:</span> ${new Date(order.createdAt).toLocaleString()}</div>
+          <div><span class="label">Recipients:</span> ${order.validRecipients || 0} valid</div>
+          <div><span class="label">Estimated Cost:</span> $${formattedCost} @ $${costPerLetter} each</div>
         `;
 
         // Set up PDF view link

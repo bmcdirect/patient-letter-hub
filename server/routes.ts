@@ -546,7 +546,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await pool.query(
-        `SELECT id AS "jobId", subject, status, created_at AS "createdAt"
+        `SELECT id AS "jobId", subject, status, created_at AS "createdAt",
+                valid_recipients AS "validRecipients", color_mode AS "colorMode"
          FROM orders
          WHERE id = $1`,
         [jobId]
