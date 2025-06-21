@@ -116,6 +116,7 @@ Changelog:
 - June 19, 2025. Fixed server crash issues by restoring routes.ts file and resolving authentication middleware errors. Removed req.isAuthenticated() calls and added null safety checks for recipient data. Server fully operational with test job ID 9999 available for confirmation page testing
 - June 20, 2025. Order submission system fully operational - fixed multer middleware configuration for file uploads, added database retry logic for connection stability, and confirmed complete workflow from form submission to job creation (Job IDs 18, 19 successfully created with proper file handling)
 - June 20, 2025. PDF generation system implemented - added /api/orders/:jobId/pdf endpoint with puppeteer integration, system chromium installation, database retry logic for connection timeouts, and professional healthcare letter formatting. Created /pdf-viewer.html for easy PDF viewing and testing
+- June 21, 2025. Orders table implemented - created new orders table with Pending status workflow, updated /api/orders endpoint to use direct SQL INSERT with RETURNING id clause, maintains dual table support (orders + letter_jobs) for flexible order management
 ```
 
 ## User Preferences
