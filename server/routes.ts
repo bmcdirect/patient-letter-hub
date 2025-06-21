@@ -10,6 +10,7 @@ import { insertLetterJobSchema, insertAddressSchema, insertTemplateSchema } from
 import { storage } from './storage';
 import { isAuthenticated } from './replitAuth';
 import { pool } from './db';
+import bcrypt from 'bcryptjs';
 
 // Configure multer for file uploads
 const uploadDir = './uploads';
