@@ -636,19 +636,20 @@ Bob,Johnson,789 Pine Rd,,Hometown,ST,11111`;
 
       // Add retry logic for database operations
       let job: any = null;
-      let practice: any = null;
       
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           console.log(`PDF generation attempt ${attempt} for job ${jobId}`);
-          job = await storage.getLetterJob(jobId);
+          const result = await pool.query(
+            `SELECT subject, body_html, color_mode FROM orders WHERE id = $1`,
+            [jobId]
+          );
           
-          if (!job) {
-            return res.status(404).json({ message: 'Job not found' });
+          if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Order not found' });
           }
 
-          // Get practice details for letterhead
-          practice = await storage.getPractice(job.practiceId);
+          job = result.rows[0];
           break; // Success, exit retry loop
           
         } catch (dbError) {
@@ -663,7 +664,7 @@ Bob,Johnson,789 Pine Rd,,Hometown,ST,11111`;
 
       // Ensure job exists after retry loop
       if (!job) {
-        return res.status(404).json({ message: 'Job not found after retries' });
+        return res.status(404).json({ message: 'Order not found after retries' });
       }
 
       console.log('Launching puppeteer for PDF generation...');
@@ -674,14 +675,13 @@ Bob,Johnson,789 Pine Rd,,Hometown,ST,11111`;
       });
       const page = await browser.newPage();
 
-      // Create better fallback content for jobs with minimal data
-      const fallbackContent = job.bodyHtml || `
-        <p><strong>Job ID:</strong> ${jobId}</p>
-        <p><strong>Status:</strong> ${job.status || 'Draft'}</p>
-        <p><strong>Event Type:</strong> ${job.eventType || 'Custom'}</p>
-        <p><strong>Total Recipients:</strong> ${job.totalRecipients || 0}</p>
-        <p><strong>Created:</strong> ${job.createdAt ? new Date(job.createdAt).toLocaleDateString() : 'Unknown'}</p>
-        <p>This is a test PDF generation for PatientLetterHub.</p>
+      // Create better fallback content for orders with minimal data
+      const fallbackContent = job.body_html || `
+        <p><strong>Order ID:</strong> ${jobId}</p>
+        <p><strong>Subject:</strong> ${job.subject || 'Patient Communication'}</p>
+        <p><strong>Color Mode:</strong> ${job.color_mode || 'Black & White'}</p>
+        <p>This is a PDF generation for PatientLetterHub order ${jobId}.</p>
+        <p>No content available for this order.</p>
       `;
 
       const htmlContent = `
@@ -732,11 +732,11 @@ Bob,Johnson,789 Pine Rd,,Hometown,ST,11111`;
           </head>
           <body>
             <div class="letterhead">
-              <div class="practice-name">${practice?.name || 'Healthcare Practice'}</div>
+              <div class="practice-name">Healthcare Practice</div>
               <div class="practice-info">
-                ${practice?.address || '123 Main St, Anytown, ST 12345'}<br>
-                ${practice?.phone || '555-0123'}<br>
-                NPI: ${practice?.npi || '1234567890'}
+                123 Main St, Anytown, ST 12345<br>
+                555-0123<br>
+                NPI: 1234567890
               </div>
             </div>
             
@@ -747,7 +747,7 @@ Bob,Johnson,789 Pine Rd,,Hometown,ST,11111`;
             
             <div class="footer">
               <p>Generated on ${new Date().toLocaleDateString()}</p>
-              <p>Job ID: ${jobId} | Event Type: ${job.eventType || 'N/A'}</p>
+              <p>Order ID: ${jobId} | Color Mode: ${job.color_mode || 'N/A'}</p>
               <p>PatientLetterHub - Healthcare Communication Platform</p>
             </div>
           </body>
@@ -773,7 +773,7 @@ Bob,Johnson,789 Pine Rd,,Hometown,ST,11111`;
 
       res.set({
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="letter-job-${jobId}.pdf"`,
+        'Content-Disposition': `inline; filename="order-${jobId}.pdf"`,
         'X-Content-Type-Options': 'nosniff',
         'Cache-Control': 'no-cache'
       });

@@ -1,49 +1,56 @@
 document.addEventListener("DOMContentLoaded", async () => {
-  const tableBody = document.getElementById("mailings-table");
+  const table = document.getElementById("mailings-table");
 
   try {
-    // Hardcoded for now
-    const practiceId = 1;
-
-    const res = await fetch(`/api/practices/${practiceId}/letter-jobs`, {
-      credentials: "include"
+    const response = await fetch("/api/orders", {
+      headers: { Accept: "application/json" }
     });
 
-    if (!res.ok) throw new Error("Failed to fetch jobs");
+    if (!response.ok) {
+      throw new Error("Failed to load recent orders.");
+    }
 
-    const jobs = await res.json();
+    const data = await response.json();
+    const orders = data.orders || [];
 
-    if (jobs.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="5">No mailings found.</td></tr>`;
+    if (orders.length === 0) {
+      table.innerHTML = `<tr><td colspan="5">No mailings found.</td></tr>`;
       return;
     }
 
-    const rows = jobs
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 5)
-      .map(job => `
-        <tr>
-          <td>${job.id}</td>
-          <td>${job.subject || '(no subject)'}</td>
-          <td>${job.status}</td>
-          <td>${new Date(job.createdAt).toLocaleDateString()}</td>
-          <td>
-            <button class="action-button" onclick="window.location.href='/confirmation.html?job_id=${job.id}'">View</button>
-            <button class="action-button" onclick="duplicateJob(${job.id})">Duplicate</button>
-          </td>
-        </tr>
-      `).join("");
+    // Clear placeholder
+    table.innerHTML = "";
 
-    tableBody.innerHTML = rows;
+    for (const order of orders) {
+      const row = document.createElement("tr");
+
+      row.innerHTML = `
+        <td>${order.jobId}</td>
+        <td>${order.subject}</td>
+        <td>${order.status}</td>
+        <td>${new Date(order.createdAt).toLocaleString()}</td>
+        <td>
+          <button class="action-button" onclick="viewPDF(${order.jobId})">View PDF</button>
+          <button class="action-button" onclick="duplicateJob(${order.jobId})">Duplicate</button>
+        </td>
+      `;
+
+      table.appendChild(row);
+    }
   } catch (err) {
-    tableBody.innerHTML = `<tr><td colspan="5">❌ ${err.message}</td></tr>`;
+    console.error("Error loading orders:", err);
+    table.innerHTML = `<tr><td colspan="5">Error loading data.</td></tr>`;
   }
 });
 
-async function duplicateJob(originalJobId) {
+function duplicateJob(originalJobId) {
   alert(`TODO: Duplicate logic for job #${originalJobId}`);
 }
+
+function viewPDF(jobId) {
+  window.open(`/api/orders/${jobId}/pdf`, "_blank");
+}
+
 function startNewJob(templateType) {
-  // Redirect to the order form with the selected template type pre-filled (if applicable)
   window.location.href = `/order.html?template=${encodeURIComponent(templateType)}`;
 }
