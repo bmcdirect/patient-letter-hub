@@ -9,6 +9,7 @@ import puppeteer from 'puppeteer';
 import { insertLetterJobSchema, insertAddressSchema, insertTemplateSchema } from '../shared/schema';
 import { storage } from './storage';
 import { isAuthenticated } from './replitAuth';
+import { pool } from './db';
 
 // Configure multer for file uploads
 const uploadDir = './uploads';
@@ -446,44 +447,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recipientsPath
       });
 
-      // For now, we'll use practice ID 1 and a default user
-      // In production, this would come from authentication
-      const practiceId = 1;
-      const createdBy = 'dev-user-1750356001255';
-
-      const letterJobData = {
-        practiceId,
-        createdBy,
-        templateType: templateType || 'custom',
-        status: 'draft',
-        eventType: eventType || 'custom',
-        subject: subject || 'Patient Notification',
-        bodyHtml: bodyHtml || '<p>Default letter content</p>',
-        totalRecipients: parseInt(totalRecipients) || 0,
-        validRecipients: parseInt(validRecipients) || 0,
-        logoPath,
-        signaturePath,
-        extraPagesPath,
-        recipientsPath,
-        colorMode: colorMode || 'bw',
-        eventData: eventData ? JSON.stringify(eventData) : '{}',
-        scheduledDatetime: null,
-        mailedAt: null
-      };
-
-      console.log('Letter job data to insert:', JSON.stringify(letterJobData, null, 2));
-      console.log('About to call storage.createLetterJob...');
-
-      // Add retry logic for database connection issues
-      let job;
+      // Insert into orders table with retry logic
+      let result;
       let attempts = 0;
       const maxAttempts = 3;
       
       while (attempts < maxAttempts) {
         try {
           attempts++;
-          console.log(`Database insert attempt ${attempts}/${maxAttempts}`);
-          job = await storage.createLetterJob(letterJobData);
+          console.log(`Orders table insert attempt ${attempts}/${maxAttempts}`);
+          
+          const queryResult = await pool.query(`
+            INSERT INTO orders (template_type, subject, body_html, total_recipients, valid_recipients, color_mode, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id
+          `, [
+            templateType || 'custom',
+            subject || 'Patient Notification',
+            bodyHtml || '<p>Default letter content</p>',
+            parseInt(totalRecipients) || 0,
+            parseInt(validRecipients) || 0,
+            colorMode || 'bw',
+            'Pending'
+          ]);
+          
+          result = queryResult.rows[0];
           break;
         } catch (dbError: any) {
           console.error(`Database attempt ${attempts} failed:`, dbError);
@@ -495,16 +483,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      if (!job) {
-        throw new Error('Failed to create job after all attempts');
+      if (!result) {
+        throw new Error('Failed to create order after all attempts');
       }
 
-      console.log('Letter job created successfully:', job);
+      const orderId = result.id;
+
+      console.log('Order created successfully with ID:', orderId);
       
       res.json({
         success: true,
-        jobId: job.id,
-        message: 'Order submitted successfully'
+        message: 'Order submitted successfully',
+        orderId: orderId,
+        status: 'Pending',
+        totalCost: 0,
+        redirectUrl: `/?confirmation=${orderId}`
       });
     } catch (error: any) {
       console.error('Order submission error:', error);
