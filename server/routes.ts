@@ -675,14 +675,8 @@ Bob,Johnson,789 Pine Rd,,Hometown,ST,11111`;
       });
       const page = await browser.newPage();
 
-      // Create better fallback content for orders with minimal data
-      const fallbackContent = job.body_html || `
-        <p><strong>Order ID:</strong> ${jobId}</p>
-        <p><strong>Subject:</strong> ${job.subject || 'Patient Communication'}</p>
-        <p><strong>Color Mode:</strong> ${job.color_mode || 'Black & White'}</p>
-        <p>This is a PDF generation for PatientLetterHub order ${jobId}.</p>
-        <p>No content available for this order.</p>
-      `;
+      // Build HTML content from job data or basic fallback
+      const html = job.body_html || `<h1>${job.subject}</h1><p>No content provided.</p>`;
 
       const htmlContent = `
         <!DOCTYPE html>
@@ -741,8 +735,7 @@ Bob,Johnson,789 Pine Rd,,Hometown,ST,11111`;
             </div>
             
             <div class="letter-content">
-              <h2>${job.subject || 'Patient Communication'}</h2>
-              <div>${fallbackContent}</div>
+              <div>${html}</div>
             </div>
             
             <div class="footer">
