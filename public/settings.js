@@ -77,11 +77,19 @@ function renderPracticeOverview() {
   const activeLocations = locations.filter(loc => loc.active).length;
   const defaultLocation = locations.find(loc => loc.is_default);
   
+  const contactName = [
+    currentPractice.contact_prefix,
+    currentPractice.contact_first_name,
+    currentPractice.contact_middle_initial,
+    currentPractice.contact_last_name,
+    currentPractice.contact_suffix
+  ].filter(Boolean).join(' ');
+
   container.innerHTML = `
     <div style="margin-bottom: 1.5rem;">
       <h3 style="color: #2d3748; margin-bottom: 0.5rem;">${escapeHtml(currentPractice.name)}</h3>
       <p style="color: #4a5568; margin-bottom: 0.25rem;"><strong>Practice ID:</strong> ${currentPractice.id}</p>
-      <p style="color: #4a5568; margin-bottom: 0.25rem;"><strong>Contact:</strong> ${escapeHtml(currentPractice.contact_name || 'Not set')}</p>
+      <p style="color: #4a5568; margin-bottom: 0.25rem;"><strong>Contact:</strong> ${escapeHtml(contactName || 'Not set')}</p>
       <p style="color: #4a5568; margin-bottom: 0.25rem;"><strong>Email:</strong> ${escapeHtml(currentPractice.email || 'Not set')}</p>
       <p style="color: #4a5568; margin-bottom: 0.25rem;"><strong>Phone:</strong> ${escapeHtml(currentPractice.phone || 'Not set')}</p>
     </div>
@@ -108,7 +116,11 @@ function populatePracticeForm() {
   if (!currentPractice) return;
   
   document.getElementById('practiceName').value = currentPractice.name || '';
-  document.getElementById('contactName').value = currentPractice.contact_name || '';
+  document.getElementById('contactPrefix').value = currentPractice.contact_prefix || '';
+  document.getElementById('contactFirstName').value = currentPractice.contact_first_name || '';
+  document.getElementById('contactMiddleInitial').value = currentPractice.contact_middle_initial || '';
+  document.getElementById('contactLastName').value = currentPractice.contact_last_name || '';
+  document.getElementById('contactSuffix').value = currentPractice.contact_suffix || '';
   document.getElementById('contactTitle').value = currentPractice.contact_title || '';
   document.getElementById('phone').value = currentPractice.phone || '';
   document.getElementById('email').value = currentPractice.email || '';
@@ -137,17 +149,45 @@ function populatePracticeForm() {
 function renderLocations() {
   const container = document.getElementById('locationsContainer');
   
-  if (locations.length === 0) {
+  // Create main location from practice if it exists
+  let allLocations = [...locations];
+  if (currentPractice && currentPractice.main_address) {
+    const mainLocation = {
+      id: 'main',
+      label: 'Main Location',
+      contact_name: [
+        currentPractice.contact_prefix,
+        currentPractice.contact_first_name,
+        currentPractice.contact_middle_initial,
+        currentPractice.contact_last_name,
+        currentPractice.contact_suffix
+      ].filter(Boolean).join(' '),
+      contact_title: currentPractice.contact_title,
+      phone: currentPractice.phone,
+      email: currentPractice.email,
+      address: currentPractice.main_address,
+      city: currentPractice.main_city,
+      state: currentPractice.main_state,
+      zip_code: currentPractice.main_zip,
+      location_suffix: `${currentPractice.id}.0`,
+      is_default: !locations.some(loc => loc.is_default),
+      active: true,
+      notes: 'Primary practice location'
+    };
+    allLocations.unshift(mainLocation);
+  }
+  
+  if (allLocations.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
         <h3>No Locations Added</h3>
-        <p>Add your first practice location to get started with location-specific mailings.</p>
+        <p>Complete the practice information form to create your main location, then add additional locations as needed.</p>
       </div>
     `;
     return;
   }
   
-  container.innerHTML = locations.map(location => {
+  container.innerHTML = allLocations.map(location => {
     const badges = [];
     if (location.is_default) badges.push('<span class="badge default">Default</span>');
     if (!location.active) badges.push('<span class="badge inactive">Inactive</span>');
@@ -159,10 +199,14 @@ function renderLocations() {
       location.zip_code
     ].filter(Boolean).join(', ');
     
+    const displayLabel = location.location_suffix ? 
+      `${escapeHtml(location.label)} (${location.location_suffix})` : 
+      escapeHtml(location.label);
+    
     return `
       <div class="location-card ${location.is_default ? 'default' : ''} ${!location.active ? 'inactive' : ''}">
         <div class="location-header">
-          <div class="location-title">${escapeHtml(location.label)}</div>
+          <div class="location-title">${displayLabel}</div>
           <div class="location-badges">${badges.join('')}</div>
         </div>
         <div class="location-details">
@@ -174,10 +218,14 @@ function renderLocations() {
           ${location.notes ? `<strong>Notes:</strong> ${escapeHtml(location.notes)}` : ''}
         </div>
         <div class="location-actions">
-          <button class="button secondary" onclick="editLocation(${location.id})">Edit</button>
-          ${!location.is_default ? `<button class="button secondary" onclick="setDefaultLocation(${location.id})">Set Default</button>` : ''}
-          <button class="button secondary" onclick="toggleLocationStatus(${location.id})">${location.active ? 'Deactivate' : 'Activate'}</button>
-          <button class="button danger" onclick="deleteLocation(${location.id})">Delete</button>
+          ${location.id !== 'main' ? `
+            <button class="button secondary" onclick="editLocation(${location.id})">Edit</button>
+            ${!location.is_default ? `<button class="button secondary" onclick="setDefaultLocation(${location.id})">Set Default</button>` : ''}
+            <button class="button secondary" onclick="toggleLocationStatus(${location.id})">${location.active ? 'Deactivate' : 'Activate'}</button>
+            <button class="button danger" onclick="deleteLocation(${location.id})">Delete</button>
+          ` : `
+            <small style="color: #718096; font-style: italic;">Main location is managed through practice information above</small>
+          `}
         </div>
       </div>
     `;
@@ -344,7 +392,11 @@ document.getElementById('practiceForm').addEventListener('submit', async functio
   const formData = new FormData(this);
   const practiceData = {
     name: formData.get('practiceName'),
-    contact_name: formData.get('contactName'),
+    contact_prefix: formData.get('contactPrefix'),
+    contact_first_name: formData.get('contactFirstName'),
+    contact_middle_initial: formData.get('contactMiddleInitial'),
+    contact_last_name: formData.get('contactLastName'),
+    contact_suffix: formData.get('contactSuffix'),
     contact_title: formData.get('contactTitle'),
     phone: formData.get('phone'),
     email: formData.get('email'),

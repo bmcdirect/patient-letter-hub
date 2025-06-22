@@ -115,13 +115,13 @@
 
   <form id="quote-form">
     <div class="section">
-      <h3>Practice Information</h3>
-      <label for="practiceSelect">Select Practice:</label>
-      <select id="practiceSelect" name="practice_id">
-        <option value="">Select a practice profile...</option>
+      <h3>Practice Location</h3>
+      <label for="practiceLocationSelect">Select Practice Location:</label>
+      <select id="practiceLocationSelect" name="location_id">
+        <option value="">Select a practice location...</option>
       </select>
       <div style="margin-top: 0.5rem;">
-        <a href="/practice-form.html" style="color: #007bff; text-decoration: none; font-size: 0.9rem;">+ Create New Practice Profile</a>
+        <a href="/settings.html" style="color: #007bff; text-decoration: none; font-size: 0.9rem;">+ Manage Practice Locations</a>
       </div>
     </div>
 
@@ -223,31 +223,34 @@
       }
     }
 
-    // Load practices for dropdown
-    async function loadPractices() {
+    // Load practice locations for dropdown
+    async function loadPracticeLocations() {
       try {
-        const res = await fetch('/api/practices');
+        const res = await fetch('/api/settings/practice/locations');
         if (res.ok) {
           const data = await res.json();
           if (data.success) {
-            const practiceSelect = document.getElementById('practiceSelect');
+            const locationSelect = document.getElementById('practiceLocationSelect');
             
             // Clear existing options except the first one
-            while (practiceSelect.children.length > 1) {
-              practiceSelect.removeChild(practiceSelect.lastChild);
+            while (locationSelect.children.length > 1) {
+              locationSelect.removeChild(locationSelect.lastChild);
             }
             
-            // Add practice options
-            data.practices.forEach(practice => {
+            // Add location options
+            data.locations.forEach(location => {
               const option = document.createElement('option');
-              option.value = practice.id;
-              option.textContent = practice.name;
-              practiceSelect.appendChild(option);
+              option.value = location.id;
+              const displayText = location.location_suffix ? 
+                `${location.label} (${location.location_suffix})` : 
+                location.label;
+              option.textContent = displayText;
+              locationSelect.appendChild(option);
             });
           }
         }
       } catch (err) {
-        console.error('Failed to load practices:', err);
+        console.error('Failed to load practice locations:', err);
       }
     }
 

@@ -1796,17 +1796,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/settings/practice', requireLogin, async (req: Request, res: Response) => {
     try {
       const {
-        name, contact_name, contact_title, phone, email,
+        name, contact_prefix, contact_first_name, contact_middle_initial, 
+        contact_last_name, contact_suffix, contact_title, phone, email,
         main_address, main_city, main_state, main_zip,
         mailing_address, mailing_city, mailing_state, mailing_zip,
         billing_address, billing_city, billing_state, billing_zip,
         emr_id, operating_hours
       } = req.body;
 
-      if (!name || !contact_name || !email) {
+      if (!name || !contact_first_name || !contact_last_name || !email) {
         return res.status(400).json({
           success: false,
-          message: 'Practice name, contact name, and email are required'
+          message: 'Practice name, contact first name, last name, and email are required'
         });
       }
 
@@ -1822,14 +1823,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         practiceId = existingResult.rows[0].id;
         await pool.query(`
           UPDATE practices_new SET 
-            name = $1, contact_name = $2, contact_title = $3, phone = $4, email = $5,
-            main_address = $6, main_city = $7, main_state = $8, main_zip = $9,
-            mailing_address = $10, mailing_city = $11, mailing_state = $12, mailing_zip = $13,
-            billing_address = $14, billing_city = $15, billing_state = $16, billing_zip = $17,
-            emr_id = $18, operating_hours = $19
-          WHERE id = $20
+            name = $1, contact_prefix = $2, contact_first_name = $3, contact_middle_initial = $4,
+            contact_last_name = $5, contact_suffix = $6, contact_title = $7, phone = $8, email = $9,
+            main_address = $10, main_city = $11, main_state = $12, main_zip = $13,
+            mailing_address = $14, mailing_city = $15, mailing_state = $16, mailing_zip = $17,
+            billing_address = $18, billing_city = $19, billing_state = $20, billing_zip = $21,
+            emr_id = $22, operating_hours = $23
+          WHERE id = $24
         `, [
-          name, contact_name, contact_title, phone, email,
+          name, contact_prefix, contact_first_name, contact_middle_initial,
+          contact_last_name, contact_suffix, contact_title, phone, email,
           main_address, main_city, main_state, main_zip,
           mailing_address, mailing_city, mailing_state, mailing_zip,
           billing_address, billing_city, billing_state, billing_zip,
@@ -1839,15 +1842,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create new practice
         const result = await pool.query(`
           INSERT INTO practices_new (
-            user_id, name, contact_name, contact_title, phone, email,
+            user_id, name, contact_prefix, contact_first_name, contact_middle_initial,
+            contact_last_name, contact_suffix, contact_title, phone, email,
             main_address, main_city, main_state, main_zip,
             mailing_address, mailing_city, mailing_state, mailing_zip,
             billing_address, billing_city, billing_state, billing_zip,
             emr_id, operating_hours
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
           RETURNING id
         `, [
-          req.user.id, name, contact_name, contact_title, phone, email,
+          req.user.id, name, contact_prefix, contact_first_name, contact_middle_initial,
+          contact_last_name, contact_suffix, contact_title, phone, email,
           main_address, main_city, main_state, main_zip,
           mailing_address, mailing_city, mailing_state, mailing_zip,
           billing_address, billing_city, billing_state, billing_zip,
@@ -2072,16 +2077,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get active locations for dropdowns (used in quote forms)
   app.get('/api/settings/practice/locations', requireLogin, async (req: Request, res: Response) => {
     try {
-      const result = await pool.query(`
-        SELECT pl.* FROM practice_locations pl
-        JOIN practices_new pn ON pl.practice_id = pn.id
-        WHERE pn.user_id = $1 AND pl.active = true
-        ORDER BY pl.is_default DESC, pl.label ASC
+      // Get practice and locations
+      const practiceResult = await pool.query(`
+        SELECT * FROM practices_new WHERE user_id = $1
       `, [req.user.id]);
+
+      let allLocations = [];
+
+      if (practiceResult.rows.length > 0) {
+        const practice = practiceResult.rows[0];
+        
+        // Add main location if practice has main address
+        if (practice.main_address) {
+          const contactName = [
+            practice.contact_prefix,
+            practice.contact_first_name,
+            practice.contact_middle_initial,
+            practice.contact_last_name,
+            practice.contact_suffix
+          ].filter(Boolean).join(' ');
+
+          allLocations.push({
+            id: 'main',
+            practice_id: practice.id,
+            label: 'Main Location',
+            contact_name: contactName,
+            contact_title: practice.contact_title,
+            phone: practice.phone,
+            email: practice.email,
+            address: practice.main_address,
+            city: practice.main_city,
+            state: practice.main_state,
+            zip_code: practice.main_zip,
+            location_suffix: `${practice.id}.0`,
+            is_default: true,
+            active: true
+          });
+        }
+
+        // Get additional locations
+        const locationsResult = await pool.query(`
+          SELECT pl.* FROM practice_locations pl
+          WHERE pl.practice_id = $1 AND pl.active = true
+          ORDER BY pl.is_default DESC, pl.label ASC
+        `, [practice.id]);
+
+        allLocations.push(...locationsResult.rows);
+      }
 
       res.json({
         success: true,
-        locations: result.rows
+        locations: allLocations
       });
 
     } catch (error: any) {
