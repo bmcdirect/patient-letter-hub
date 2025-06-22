@@ -2095,9 +2095,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             practice.contact_middle_initial,
             practice.contact_last_name,
             practice.contact_suffix
-          ].filter(Boolean).join(' ');
+          ].filter(Boolean).join(' ') || practice.contact_name || 'Main Contact';
 
-          allLocations.push({
+          const mainLocation = {
             id: 'main',
             practice_id: practice.id,
             label: 'Main Location',
@@ -2112,7 +2112,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             location_suffix: `${practice.id}.0`,
             is_default: true,
             active: true
-          });
+          };
+          
+          allLocations.push(mainLocation);
         }
 
         // Get additional locations

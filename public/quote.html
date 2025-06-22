@@ -227,14 +227,25 @@
     async function loadPracticeLocations() {
       try {
         const res = await fetch('/api/settings/practice/locations');
+        
         if (res.ok) {
           const data = await res.json();
-          if (data.success) {
+          
+          if (data.success && data.locations) {
             const locationSelect = document.getElementById('practiceLocationSelect');
             
             // Clear existing options except the first one
             while (locationSelect.children.length > 1) {
               locationSelect.removeChild(locationSelect.lastChild);
+            }
+            
+            if (data.locations.length === 0) {
+              const option = document.createElement('option');
+              option.value = '';
+              option.textContent = 'No practice locations configured';
+              option.disabled = true;
+              locationSelect.appendChild(option);
+              return;
             }
             
             // Sort locations: default first, then by label
