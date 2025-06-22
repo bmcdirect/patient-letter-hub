@@ -1754,6 +1754,345 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Practice settings endpoints
+  app.get('/api/settings/practice', requireLogin, async (req: Request, res: Response) => {
+    try {
+      // Get practice information
+      const practiceResult = await pool.query(`
+        SELECT * FROM practices_new WHERE user_id = $1
+      `, [req.user.id]);
+
+      let practice = null;
+      let locations = [];
+
+      if (practiceResult.rows.length > 0) {
+        practice = practiceResult.rows[0];
+
+        // Get practice locations
+        const locationsResult = await pool.query(`
+          SELECT * FROM practice_locations 
+          WHERE practice_id = $1 
+          ORDER BY is_default DESC, created_at ASC
+        `, [practice.id]);
+
+        locations = locationsResult.rows;
+      }
+
+      res.json({
+        success: true,
+        practice: practice,
+        locations: locations
+      });
+
+    } catch (error: any) {
+      console.error('Failed to fetch practice settings:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch practice settings'
+      });
+    }
+  });
+
+  app.post('/api/settings/practice', requireLogin, async (req: Request, res: Response) => {
+    try {
+      const {
+        name, contact_name, contact_title, phone, email,
+        main_address, main_city, main_state, main_zip,
+        mailing_address, mailing_city, mailing_state, mailing_zip,
+        billing_address, billing_city, billing_state, billing_zip,
+        emr_id, operating_hours
+      } = req.body;
+
+      if (!name || !contact_name || !email) {
+        return res.status(400).json({
+          success: false,
+          message: 'Practice name, contact name, and email are required'
+        });
+      }
+
+      // Check if practice exists
+      const existingResult = await pool.query(`
+        SELECT id FROM practices_new WHERE user_id = $1
+      `, [req.user.id]);
+
+      let practiceId;
+
+      if (existingResult.rows.length > 0) {
+        // Update existing practice
+        practiceId = existingResult.rows[0].id;
+        await pool.query(`
+          UPDATE practices_new SET 
+            name = $1, contact_name = $2, contact_title = $3, phone = $4, email = $5,
+            main_address = $6, main_city = $7, main_state = $8, main_zip = $9,
+            mailing_address = $10, mailing_city = $11, mailing_state = $12, mailing_zip = $13,
+            billing_address = $14, billing_city = $15, billing_state = $16, billing_zip = $17,
+            emr_id = $18, operating_hours = $19
+          WHERE id = $20
+        `, [
+          name, contact_name, contact_title, phone, email,
+          main_address, main_city, main_state, main_zip,
+          mailing_address, mailing_city, mailing_state, mailing_zip,
+          billing_address, billing_city, billing_state, billing_zip,
+          emr_id, operating_hours, practiceId
+        ]);
+      } else {
+        // Create new practice
+        const result = await pool.query(`
+          INSERT INTO practices_new (
+            user_id, name, contact_name, contact_title, phone, email,
+            main_address, main_city, main_state, main_zip,
+            mailing_address, mailing_city, mailing_state, mailing_zip,
+            billing_address, billing_city, billing_state, billing_zip,
+            emr_id, operating_hours
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+          RETURNING id
+        `, [
+          req.user.id, name, contact_name, contact_title, phone, email,
+          main_address, main_city, main_state, main_zip,
+          mailing_address, mailing_city, mailing_state, mailing_zip,
+          billing_address, billing_city, billing_state, billing_zip,
+          emr_id, operating_hours
+        ]);
+        practiceId = result.rows[0].id;
+      }
+
+      res.json({
+        success: true,
+        message: 'Practice information saved successfully',
+        practice_id: practiceId
+      });
+
+    } catch (error: any) {
+      console.error('Failed to save practice:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to save practice information'
+      });
+    }
+  });
+
+  app.post('/api/settings/practice/locations', requireLogin, async (req: Request, res: Response) => {
+    try {
+      const {
+        label, contact_name, contact_title, phone, email,
+        address, city, state, zip_code, notes, is_default, active
+      } = req.body;
+
+      if (!label || !contact_name || !address) {
+        return res.status(400).json({
+          success: false,
+          message: 'Location label, contact name, and address are required'
+        });
+      }
+
+      // Get user's practice
+      const practiceResult = await pool.query(`
+        SELECT id FROM practices_new WHERE user_id = $1
+      `, [req.user.id]);
+
+      if (practiceResult.rows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please create your practice information first'
+        });
+      }
+
+      const practiceId = practiceResult.rows[0].id;
+
+      // If setting as default, remove default from other locations
+      if (is_default) {
+        await pool.query(`
+          UPDATE practice_locations SET is_default = false WHERE practice_id = $1
+        `, [practiceId]);
+      }
+
+      // Generate location suffix
+      const countResult = await pool.query(`
+        SELECT COUNT(*) as count FROM practice_locations WHERE practice_id = $1
+      `, [practiceId]);
+      
+      const locationSuffix = `${practiceId}.${parseInt(countResult.rows[0].count) + 1}`;
+
+      const result = await pool.query(`
+        INSERT INTO practice_locations (
+          practice_id, label, contact_name, contact_title, phone, email,
+          address, city, state, zip_code, location_suffix, notes, is_default, active
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        RETURNING id
+      `, [
+        practiceId, label, contact_name, contact_title, phone, email,
+        address, city, state, zip_code, locationSuffix, notes, is_default, active
+      ]);
+
+      res.status(201).json({
+        success: true,
+        message: 'Location created successfully',
+        location_id: result.rows[0].id
+      });
+
+    } catch (error: any) {
+      console.error('Failed to create location:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to create location'
+      });
+    }
+  });
+
+  app.put('/api/settings/practice/locations/:id', requireLogin, async (req: Request, res: Response) => {
+    try {
+      const locationId = parseInt(req.params.id, 10);
+      const {
+        label, contact_name, contact_title, phone, email,
+        address, city, state, zip_code, notes, is_default, active
+      } = req.body;
+
+      if (isNaN(locationId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid location ID'
+        });
+      }
+
+      // Verify location belongs to user's practice
+      const verifyResult = await pool.query(`
+        SELECT pl.practice_id FROM practice_locations pl
+        JOIN practices_new pn ON pl.practice_id = pn.id
+        WHERE pl.id = $1 AND pn.user_id = $2
+      `, [locationId, req.user.id]);
+
+      if (verifyResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Location not found or access denied'
+        });
+      }
+
+      const practiceId = verifyResult.rows[0].practice_id;
+
+      // If setting as default, remove default from other locations
+      if (is_default) {
+        await pool.query(`
+          UPDATE practice_locations SET is_default = false 
+          WHERE practice_id = $1 AND id != $2
+        `, [practiceId, locationId]);
+      }
+
+      // Update location
+      await pool.query(`
+        UPDATE practice_locations SET 
+          label = $1, contact_name = $2, contact_title = $3, phone = $4, email = $5,
+          address = $6, city = $7, state = $8, zip_code = $9, notes = $10,
+          is_default = $11, active = $12
+        WHERE id = $13
+      `, [
+        label, contact_name, contact_title, phone, email,
+        address, city, state, zip_code, notes, is_default, active, locationId
+      ]);
+
+      res.json({
+        success: true,
+        message: 'Location updated successfully'
+      });
+
+    } catch (error: any) {
+      console.error('Failed to update location:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update location'
+      });
+    }
+  });
+
+  app.delete('/api/settings/practice/locations/:id', requireLogin, async (req: Request, res: Response) => {
+    try {
+      const locationId = parseInt(req.params.id, 10);
+
+      if (isNaN(locationId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid location ID'
+        });
+      }
+
+      // Verify location belongs to user's practice and check if it's the only location
+      const verifyResult = await pool.query(`
+        SELECT pl.practice_id, pl.is_default,
+               (SELECT COUNT(*) FROM practice_locations WHERE practice_id = pl.practice_id) as total_locations
+        FROM practice_locations pl
+        JOIN practices_new pn ON pl.practice_id = pn.id
+        WHERE pl.id = $1 AND pn.user_id = $2
+      `, [locationId, req.user.id]);
+
+      if (verifyResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Location not found or access denied'
+        });
+      }
+
+      const { practice_id, is_default, total_locations } = verifyResult.rows[0];
+
+      if (parseInt(total_locations) === 1) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot delete the only location. Please add another location first.'
+        });
+      }
+
+      // Delete the location
+      await pool.query(`DELETE FROM practice_locations WHERE id = $1`, [locationId]);
+
+      // If this was the default location, set another location as default
+      if (is_default) {
+        await pool.query(`
+          UPDATE practice_locations SET is_default = true 
+          WHERE practice_id = $1 AND id = (
+            SELECT id FROM practice_locations 
+            WHERE practice_id = $1 AND active = true 
+            ORDER BY created_at ASC LIMIT 1
+          )
+        `, [practice_id]);
+      }
+
+      res.json({
+        success: true,
+        message: 'Location deleted successfully'
+      });
+
+    } catch (error: any) {
+      console.error('Failed to delete location:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete location'
+      });
+    }
+  });
+
+  // Get active locations for dropdowns (used in quote forms)
+  app.get('/api/settings/practice/locations', requireLogin, async (req: Request, res: Response) => {
+    try {
+      const result = await pool.query(`
+        SELECT pl.* FROM practice_locations pl
+        JOIN practices_new pn ON pl.practice_id = pn.id
+        WHERE pn.user_id = $1 AND pl.active = true
+        ORDER BY pl.is_default DESC, pl.label ASC
+      `, [req.user.id]);
+
+      res.json({
+        success: true,
+        locations: result.rows
+      });
+
+    } catch (error: any) {
+      console.error('Failed to fetch locations:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch locations'
+      });
+    }
+  });
+
   // Admin calendar endpoint
   app.get('/admin/api/calendar', requireAdmin, async (req: Request, res: Response) => {
     try {

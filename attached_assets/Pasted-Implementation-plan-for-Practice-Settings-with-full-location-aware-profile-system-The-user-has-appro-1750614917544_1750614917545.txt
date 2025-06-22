@@ -1,0 +1,175 @@
+Implementation plan for Practice Settings with full location-aware profile system
+The user has approved a complete update to replace the current "Practice Profile" concept with a more robust "Practice Location" management system accessible via the Settings sidebar link.
+
+🔧 PHASE 1: SETTINGS UI
+Create settings.html and settings.js for authenticated users. Sidebar link already exists but is inactive.
+
+Page Structure
+Left column: Practice overview
+
+Right column: Active editable section (form for adding/updating practice and location)
+
+🏥 Practice Entity Fields (1:1 per user)
+Each user may be associated with a single Practice "Entity" which can have multiple locations.
+
+Field	Type	Notes
+Practice Name	text	Required
+Practice ID	auto-gen	e.g., 1, 2, 3
+Contact Name	text	Required
+Contact Title	text	Optional
+Phone Number	text	E.164 format optional
+Email	email	Required
+Main Address	addr block	Required
+Mailing Address	addr block	Optional (default = main)
+Billing Address	addr block	Optional (default = main)
+EMR ID / Facility ID	text	Optional, internal use
+Operating Hours	text/JSON	Optional, string or picker UI
+
+🌐 Practice Locations (1:N per practice)
+Create a sub-table or linked form for location management.
+
+Field	Type	Notes
+Location Label	text	“Satellite Office,” etc.
+Contact Name	text	Required
+Contact Title	text	Optional
+Phone/Email	contact	Optional
+Address	full block	Required
+Location Suffix ID	auto-gen	e.g., 1.1, 1.2
+Is Default?	boolean	UI toggle
+Notes	textarea	Optional
+Active/Inactive	toggle	For archival purposes
+
+🔄 Backend
+Update the data model to support:
+
+practices table = 1 per user
+
+locations table = linked to practices, multiple rows
+
+Required Endpoints
+Endpoint	Method	Description
+/api/settings/practice	GET	Return practice + all locations
+/api/settings/practice	POST	Create or update main practice
+/api/settings/practice/locations	POST	Add new location
+/api/settings/practice/locations/:id	PUT	Edit location
+/api/settings/practice/locations/:id	DELETE	Archive location (soft delete)
+
+🎯 Quote Page Adjustments
+Change “Select Practice” to “Select Practice Location”
+
+Drop-down populated from /api/settings/practice/locations
+
+Allow only “Active” locations to appear in list
+
+🛡️ Access Control
+Practice settings should be viewable/editable only by the associated authenticated user (unless admin)
+
+Admin may eventually need to manage on behalf of users, but not required for this phase
+
+Let me know if you need additional context, otherwise proceed with implementing this full practice location management system.
+
+The Replit Agent tool is currently unavailable, so I can't send the implementation instructions directly. However, here's the full breakdown you can forward manually or use as your implementation guide:
+
+✅ Practice Settings + Location Profiles Implementation Plan
+Overview:
+Replace the basic “Practice Profile” concept with a robust “Practice + Location” settings system, accessible via the “Settings” link in the dashboard sidebar. This supports advanced routing, billing, and Stripe cost center logic down the line.
+
+📄 Page: settings.html
+Sections:
+
+Practice Info
+
+Practice Name
+
+Practice ID (auto-assigned)
+
+Contact Name & Title
+
+Phone / Email
+
+EMR ID / Facility ID
+
+Operating Hours
+
+Main Address (Required)
+
+Mailing Address (optional; autofill toggle)
+
+Billing Address (optional; autofill toggle)
+
+Locations
+
+Add multiple physical locations per practice
+
+Each location includes:
+
+Contact name, title, phone, email
+
+Full address
+
+Location suffix ID (e.g., 1.1, 1.2)
+
+Toggle for active/inactive
+
+Set as default checkbox
+
+Notes (optional)
+
+🔧 Backend Database Schema
+Table: practices
+
+sql
+Copy
+Edit
+id SERIAL PRIMARY KEY,
+user_id INTEGER REFERENCES users(id),
+name TEXT NOT NULL,
+contact_name TEXT,
+contact_title TEXT,
+phone TEXT,
+email TEXT,
+main_address TEXT,
+mailing_address TEXT,
+billing_address TEXT,
+emr_id TEXT,
+operating_hours TEXT,
+created_at TIMESTAMP DEFAULT now()
+Table: practice_locations
+
+sql
+Copy
+Edit
+id SERIAL PRIMARY KEY,
+practice_id INTEGER REFERENCES practices(id),
+label TEXT,
+contact_name TEXT,
+contact_title TEXT,
+phone TEXT,
+email TEXT,
+address TEXT,
+location_suffix TEXT,
+is_default BOOLEAN DEFAULT false,
+notes TEXT,
+active BOOLEAN DEFAULT true,
+created_at TIMESTAMP DEFAULT now()
+🚀 API Endpoints
+Method	Endpoint	Description
+GET	/api/settings/practice	Return practice + locations
+POST	/api/settings/practice	Update practice base info
+POST	/api/settings/practice/locations	Add location
+PUT	/api/settings/practice/locations/:id	Edit location
+DELETE	/api/settings/practice/locations/:id	Soft delete (archive)
+
+🧠 Usage in Quote Page
+Update quote form to:
+
+Replace “Select Practice” → “Select Practice Location”
+
+Drop-down auto-filled with active locations via /api/settings/practice/locations
+
+Store location_id not just practice_id
+
+🔒 Access Control
+Only authenticated users can view/edit their own practice settings.
+
+Admin dashboard will not manage user practices in this phase.

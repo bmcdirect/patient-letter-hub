@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Practice Settings - PatientLetterHub</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8fafc;
+      color: #1a202c;
+      line-height: 1.5;
+    }
+
+    .header {
+      background: white;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .header h1 {
+      color: #2d3748;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .logout-button {
+      background: #e53e3e;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: background-color 0.2s;
+    }
+
+    .logout-button:hover {
+      background: #c53030;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+
+    .back-link {
+      color: #3182ce;
+      text-decoration: none;
+      margin-bottom: 1rem;
+      display: inline-block;
+      font-weight: 500;
+      grid-column: 1 / -1;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    .section {
+      background: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+
+    .section-header {
+      background: #f7fafc;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .section-header h2 {
+      color: #2d3748;
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+
+    .section-content {
+      padding: 1.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: #4a5568;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.375rem;
+      font-size: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #3182ce;
+      box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+    }
+
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+    }
+
+    .button {
+      background: #3182ce;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 500;
+      transition: background-color 0.2s;
+    }
+
+    .button:hover {
+      background: #2c5282;
+    }
+
+    .button.secondary {
+      background: #e2e8f0;
+      color: #4a5568;
+    }
+
+    .button.secondary:hover {
+      background: #cbd5e0;
+    }
+
+    .button.danger {
+      background: #e53e3e;
+    }
+
+    .button.danger:hover {
+      background: #c53030;
+    }
+
+    .location-card {
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.375rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .location-card.default {
+      border-color: #3182ce;
+      background: #ebf8ff;
+    }
+
+    .location-card.inactive {
+      opacity: 0.6;
+      background: #f1f5f9;
+    }
+
+    .location-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .location-title {
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    .location-badges {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .badge.default {
+      background: #3182ce;
+      color: white;
+    }
+
+    .badge.inactive {
+      background: #718096;
+      color: white;
+    }
+
+    .location-details {
+      font-size: 0.875rem;
+      color: #4a5568;
+      margin-bottom: 1rem;
+    }
+
+    .location-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .location-actions button {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.875rem;
+    }
+
+    .error {
+      background: #fed7d7;
+      color: #9b2c2c;
+      padding: 1rem;
+      border-radius: 0.375rem;
+      margin-bottom: 1rem;
+    }
+
+    .success {
+      background: #c6f6d5;
+      color: #22543d;
+      padding: 1rem;
+      border-radius: 0.375rem;
+      margin-bottom: 1rem;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #718096;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 2rem;
+      color: #718096;
+    }
+
+    .empty-state h3 {
+      margin-bottom: 0.5rem;
+      color: #4a5568;
+    }
+
+    .address-block {
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.375rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .address-block h4 {
+      margin-bottom: 0.75rem;
+      color: #2d3748;
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        padding: 0 0.5rem;
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+
+      .location-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+
+      .location-actions {
+        flex-wrap: wrap;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Practice Settings</h1>
+    <div class="user-info">
+      <span id="userEmail">Loading...</span>
+      <button onclick="logout()" class="logout-button">Logout</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <a href="/dashboard.html" class="back-link">← Back to Dashboard</a>
+
+    <!-- Practice Overview Section -->
+    <div class="section">
+      <div class="section-header">
+        <h2>Practice Information</h2>
+      </div>
+      <div class="section-content">
+        <div id="practiceOverview" class="loading">Loading practice information...</div>
+      </div>
+    </div>
+
+    <!-- Practice Form Section -->
+    <div class="section">
+      <div class="section-header">
+        <h2 id="formTitle">Practice Details</h2>
+      </div>
+      <div class="section-content">
+        <div id="messageContainer"></div>
+        
+        <form id="practiceForm">
+          <div class="form-group">
+            <label for="practiceName">Practice Name *</label>
+            <input type="text" id="practiceName" name="practiceName" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="contactName">Contact Name *</label>
+              <input type="text" id="contactName" name="contactName" required>
+            </div>
+            <div class="form-group">
+              <label for="contactTitle">Contact Title</label>
+              <input type="text" id="contactTitle" name="contactTitle">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="phone">Phone Number</label>
+              <input type="tel" id="phone" name="phone">
+            </div>
+            <div class="form-group">
+              <label for="email">Email *</label>
+              <input type="email" id="email" name="email" required>
+            </div>
+          </div>
+
+          <div class="address-block">
+            <h4>Main Address *</h4>
+            <div class="form-group">
+              <label for="mainAddress">Street Address</label>
+              <input type="text" id="mainAddress" name="mainAddress" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="mainCity">City</label>
+                <input type="text" id="mainCity" name="mainCity" required>
+              </div>
+              <div class="form-group">
+                <label for="mainState">State</label>
+                <input type="text" id="mainState" name="mainState" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="mainZip">ZIP Code</label>
+              <input type="text" id="mainZip" name="mainZip" required>
+            </div>
+          </div>
+
+          <div class="address-block">
+            <h4>Mailing Address</h4>
+            <div class="checkbox-group">
+              <input type="checkbox" id="sameAsMain" name="sameAsMain" checked>
+              <label for="sameAsMain">Same as main address</label>
+            </div>
+            <div id="mailingAddressFields" style="display: none;">
+              <div class="form-group">
+                <label for="mailingAddress">Street Address</label>
+                <input type="text" id="mailingAddress" name="mailingAddress">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="mailingCity">City</label>
+                  <input type="text" id="mailingCity" name="mailingCity">
+                </div>
+                <div class="form-group">
+                  <label for="mailingState">State</label>
+                  <input type="text" id="mailingState" name="mailingState">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="mailingZip">ZIP Code</label>
+                <input type="text" id="mailingZip" name="mailingZip">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="emrId">EMR/Facility ID</label>
+              <input type="text" id="emrId" name="emrId">
+            </div>
+            <div class="form-group">
+              <label for="operatingHours">Operating Hours</label>
+              <input type="text" id="operatingHours" name="operatingHours" placeholder="e.g., Mon-Fri 9AM-5PM">
+            </div>
+          </div>
+
+          <button type="submit" class="button">Save Practice Information</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Locations Section -->
+    <div class="section" style="grid-column: 1 / -1;">
+      <div class="section-header">
+        <h2>Practice Locations</h2>
+      </div>
+      <div class="section-content">
+        <div id="locationsContainer">
+          <div class="loading">Loading locations...</div>
+        </div>
+        <button type="button" class="button" onclick="showLocationForm()">Add New Location</button>
+      </div>
+    </div>
+
+    <!-- Location Form Section (Initially Hidden) -->
+    <div id="locationFormSection" class="section" style="grid-column: 1 / -1; display: none;">
+      <div class="section-header">
+        <h2 id="locationFormTitle">Add New Location</h2>
+      </div>
+      <div class="section-content">
+        <form id="locationForm">
+          <input type="hidden" id="locationId" name="locationId">
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="locationLabel">Location Label *</label>
+              <input type="text" id="locationLabel" name="locationLabel" placeholder="e.g., Main Office, Satellite Clinic" required>
+            </div>
+            <div class="form-group">
+              <label for="locationContactName">Contact Name *</label>
+              <input type="text" id="locationContactName" name="locationContactName" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="locationContactTitle">Contact Title</label>
+              <input type="text" id="locationContactTitle" name="locationContactTitle">
+            </div>
+            <div class="form-group">
+              <label for="locationPhone">Phone</label>
+              <input type="tel" id="locationPhone" name="locationPhone">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="locationEmail">Email</label>
+            <input type="email" id="locationEmail" name="locationEmail">
+          </div>
+
+          <div class="address-block">
+            <h4>Location Address *</h4>
+            <div class="form-group">
+              <label for="locationAddress">Street Address</label>
+              <input type="text" id="locationAddress" name="locationAddress" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="locationCity">City</label>
+                <input type="text" id="locationCity" name="locationCity" required>
+              </div>
+              <div class="form-group">
+                <label for="locationState">State</label>
+                <input type="text" id="locationState" name="locationState" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="locationZip">ZIP Code</label>
+              <input type="text" id="locationZip" name="locationZip" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="locationNotes">Notes</label>
+            <textarea id="locationNotes" name="locationNotes" placeholder="Optional notes about this location"></textarea>
+          </div>
+
+          <div class="checkbox-group">
+            <input type="checkbox" id="isDefault" name="isDefault">
+            <label for="isDefault">Set as default location</label>
+          </div>
+
+          <div class="checkbox-group">
+            <input type="checkbox" id="isActive" name="isActive" checked>
+            <label for="isActive">Location is active</label>
+          </div>
+
+          <div style="display: flex; gap: 1rem;">
+            <button type="submit" class="button">Save Location</button>
+            <button type="button" class="button secondary" onclick="hideLocationForm()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="/settings.js"></script>
+</body>
+</html>
