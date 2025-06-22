@@ -127,6 +127,10 @@
                   <td>$${quote.totalEstimate.toFixed(2)}</td>
                   <td>
                     <button onclick="window.open('/api/quotes/${quote.id}/pdf', '_blank')" class="action-button">View PDF</button>
+                    ${quote.converted_order_id ? 
+                      `<button onclick="window.open('/?confirmation=${quote.converted_order_id}', '_blank')" class="action-button" style="background: #17a2b8;">View Order</button>` :
+                      `<button onclick="convertQuoteToOrder(${quote.id})" class="action-button convert-btn" style="background: #28a745;">Convert to Order</button>`
+                    }
                   </td>
                 </tr>
               `).join('')}
@@ -137,6 +141,43 @@
       } catch (error) {
         console.error('Error loading quotes:', error);
         document.getElementById('quotes-list').innerHTML = '<p>Error loading quotes. Please try again.</p>';
+      }
+    }
+
+    // Convert quote to order
+    async function convertQuoteToOrder(quoteId) {
+      if (!confirm('Are you sure you want to convert this quote to an order? This action cannot be undone.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/quotes/${quoteId}/convert`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // Show success message
+          alert(`Quote ${data.quoteNumber} converted successfully! Redirecting to order confirmation.`);
+          
+          // Redirect to confirmation page
+          window.location.href = data.redirectUrl;
+        } else {
+          if (data.existingOrderId) {
+            alert(`This quote has already been converted. You can view the existing order.`);
+            // Refresh quotes to show updated state
+            loadQuotes();
+          } else {
+            alert('Failed to convert quote: ' + (data.message || 'Unknown error'));
+          }
+        }
+      } catch (error) {
+        console.error('Error converting quote:', error);
+        alert('Network error. Please try again.');
       }
     }
 

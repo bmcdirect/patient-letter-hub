@@ -357,7 +357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let query = `
         SELECT q.id, q.subject, q.template_type, q.color_mode, q.estimated_recipients, 
-               q.enclosures, q.notes, q.created_at, p.name as practice_name
+               q.enclosures, q.notes, q.created_at, q.converted_order_id, p.name as practice_name
         FROM quotes q
         LEFT JOIN practices p ON q.practice_id = p.id
       `;
@@ -596,6 +596,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: 'Failed to generate quote PDF'
+      });
+    }
+  });
+
+  // Convert quote to order endpoint
+  app.post('/api/quotes/:id/convert', requireLogin, async (req: Request, res: Response) => {
+    try {
+      const quoteId = parseInt(req.params.id, 10);
+      
+      if (isNaN(quoteId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid quote ID"
+        });
+      }
+
+      // Get quote details with access control
+      let quoteQuery = `
+        SELECT q.id, q.subject, q.template_type, q.color_mode, q.estimated_recipients, 
+               q.enclosures, q.practice_id, q.user_id, q.converted_order_id
+        FROM quotes q
+        WHERE q.id = $1
+      `;
+      let quoteParams = [quoteId];
+
+      // Add user filter for non-admin users
+      if (!req.user.is_admin) {
+        quoteQuery += ` AND q.user_id = $2`;
+        quoteParams.push(req.user.id);
+      }
+
+      const quoteResult = await pool.query(quoteQuery, quoteParams);
+
+      if (quoteResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Quote not found or access denied"
+        });
+      }
+
+      const quote = quoteResult.rows[0];
+
+      // Check if quote has already been converted
+      if (quote.converted_order_id) {
+        return res.status(400).json({
+          success: false,
+          message: "Quote has already been converted to an order",
+          existingOrderId: quote.converted_order_id
+        });
+      }
+
+      const quoteNumber = `Q-${1000 + quote.id}`;
+      
+      // Create new order from quote
+      const orderResult = await pool.query(`
+        INSERT INTO orders (
+          template_type, subject, body_html, total_recipients, valid_recipients, 
+          color_mode, status, production_start_date, production_end_date, 
+          user_id, practice_id
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE, CURRENT_DATE + INTERVAL '3 days', $8, $9)
+        RETURNING id
+      `, [
+        quote.template_type,
+        `Quote Conversion - ${quoteNumber}: ${quote.subject}`,
+        '<p>This order was converted from a quote. Please review and update content as needed.</p>',
+        quote.estimated_recipients,
+        quote.estimated_recipients,
+        quote.color_mode,
+        'Pending',
+        quote.user_id,
+        quote.practice_id
+      ]);
+
+      const newOrderId = orderResult.rows[0].id;
+
+      // Update quote to mark as converted
+      await pool.query(`
+        UPDATE quotes 
+        SET converted_order_id = $1 
+        WHERE id = $2
+      `, [newOrderId, quoteId]);
+
+      res.json({
+        success: true,
+        message: 'Quote converted to order successfully',
+        orderId: newOrderId,
+        quoteNumber: quoteNumber,
+        redirectUrl: `/?confirmation=${newOrderId}`
+      });
+
+    } catch (error: any) {
+      console.error('Quote conversion error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to convert quote to order'
       });
     }
   });
