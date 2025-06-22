@@ -1076,6 +1076,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Duplicate order endpoint
+  app.post('/api/orders/:jobId/duplicate', requireLogin, async (req: Request, res: Response) => {
+    try {
+      const jobId = parseInt(req.params.jobId, 10);
+      
+      if (isNaN(jobId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid order ID"
+        });
+      }
+
+      // Get original order details
+      let query = `
+        SELECT template_type, subject, body_html, total_recipients, valid_recipients, color_mode, practice_id
+        FROM orders
+        WHERE id = $1
+      `;
+      let params = [jobId];
+
+      // Add user filter for non-admin users
+      if (!req.user.is_admin) {
+        query += ` AND user_id = $2`;
+        params.push(req.user.id);
+      }
+
+      const result = await pool.query(query, params);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Order not found or access denied"
+        });
+      }
+
+      const originalOrder = result.rows[0];
+
+      // Create duplicate order
+      const duplicateResult = await pool.query(`
+        INSERT INTO orders (template_type, subject, body_html, total_recipients, valid_recipients, color_mode, status, production_start_date, production_end_date, user_id, practice_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE, CURRENT_DATE + INTERVAL '3 days', $8, $9)
+        RETURNING id
+      `, [
+        originalOrder.template_type,
+        `Copy of ${originalOrder.subject}`,
+        originalOrder.body_html,
+        originalOrder.total_recipients || 0,
+        originalOrder.valid_recipients || 0,
+        originalOrder.color_mode || 'bw',
+        'Pending',
+        req.user.id,
+        originalOrder.practice_id || null
+      ]);
+
+      const newOrderId = duplicateResult.rows[0].id;
+
+      res.json({
+        success: true,
+        message: 'Order duplicated successfully',
+        orderId: newOrderId,
+        redirectUrl: `/?confirmation=${newOrderId}`
+      });
+
+    } catch (error: any) {
+      console.error('Order duplication error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to duplicate order'
+      });
+    }
+  });
+
   // Get individual order details endpoint
   app.get('/api/orders/:jobId', requireLogin, async (req: Request, res: Response) => {
     try {
