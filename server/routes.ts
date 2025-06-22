@@ -300,6 +300,306 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Quote management endpoints
+  app.post('/api/quotes', requireLogin, async (req: Request, res: Response) => {
+    try {
+      const { subject, templateType, colorMode, estimatedRecipients, enclosures, practice_id, notes } = req.body;
+
+      if (!subject || !templateType || !colorMode || !estimatedRecipients) {
+        return res.status(400).json({
+          success: false,
+          message: 'Subject, template type, color mode, and estimated recipients are required'
+        });
+      }
+
+      const result = await pool.query(`
+        INSERT INTO quotes (user_id, subject, template_type, color_mode, estimated_recipients, enclosures, practice_id, notes)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id, created_at
+      `, [
+        req.user.id,
+        subject,
+        templateType,
+        colorMode,
+        parseInt(estimatedRecipients),
+        parseInt(enclosures) || 0,
+        practice_id || null,
+        notes || null
+      ]);
+
+      const quote = result.rows[0];
+      const quoteNumber = `Q-${1000 + quote.id}`;
+
+      // Calculate cost
+      const baseRate = colorMode === 'color' ? 0.65 : 0.50;
+      const enclosureRate = 0.10;
+      const costPerRecipient = baseRate + ((parseInt(enclosures) || 0) * enclosureRate);
+      const totalEstimate = costPerRecipient * parseInt(estimatedRecipients);
+
+      res.json({
+        success: true,
+        message: 'Quote generated successfully',
+        quoteId: quote.id,
+        quoteNumber: quoteNumber,
+        totalEstimate: totalEstimate
+      });
+
+    } catch (error: any) {
+      console.error('Quote creation error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to generate quote'
+      });
+    }
+  });
+
+  app.get('/api/quotes', requireLogin, async (req: Request, res: Response) => {
+    try {
+      let query = `
+        SELECT q.id, q.subject, q.template_type, q.color_mode, q.estimated_recipients, 
+               q.enclosures, q.notes, q.created_at, p.name as practice_name
+        FROM quotes q
+        LEFT JOIN practices p ON q.practice_id = p.id
+      `;
+      let params = [];
+
+      // Filter quotes by user unless admin
+      if (!req.user.is_admin) {
+        query += ` WHERE q.user_id = $1`;
+        params.push(req.user.id);
+      }
+
+      query += ` ORDER BY q.created_at DESC`;
+
+      const result = await pool.query(query, params);
+
+      const quotes = result.rows.map(quote => {
+        const baseRate = quote.color_mode === 'color' ? 0.65 : 0.50;
+        const enclosureRate = 0.10;
+        const costPerRecipient = baseRate + ((quote.enclosures || 0) * enclosureRate);
+        const totalEstimate = costPerRecipient * quote.estimated_recipients;
+
+        return {
+          ...quote,
+          quoteNumber: `Q-${1000 + quote.id}`,
+          totalEstimate: totalEstimate
+        };
+      });
+
+      res.json({
+        success: true,
+        quotes: quotes
+      });
+
+    } catch (error: any) {
+      console.error('Failed to fetch quotes:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch quotes'
+      });
+    }
+  });
+
+  app.get('/api/quotes/:id/pdf', requireLogin, async (req: Request, res: Response) => {
+    try {
+      const quoteId = parseInt(req.params.id, 10);
+      
+      if (isNaN(quoteId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid quote ID"
+        });
+      }
+
+      let query = `
+        SELECT q.id, q.subject, q.template_type, q.color_mode, q.estimated_recipients, 
+               q.enclosures, q.notes, q.created_at, p.name as practice_name,
+               u.email as user_email
+        FROM quotes q
+        LEFT JOIN practices p ON q.practice_id = p.id
+        LEFT JOIN users u ON q.user_id = u.id
+        WHERE q.id = $1
+      `;
+      let params = [quoteId];
+
+      // Add user filter for non-admin users
+      if (!req.user.is_admin) {
+        query += ` AND q.user_id = $2`;
+        params.push(req.user.id);
+      }
+
+      const result = await pool.query(query, params);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Quote not found or access denied"
+        });
+      }
+
+      const quote = result.rows[0];
+      const quoteNumber = `Q-${1000 + quote.id}`;
+      
+      // Calculate costs
+      const baseRate = quote.color_mode === 'color' ? 0.65 : 0.50;
+      const enclosureRate = 0.10;
+      const costPerRecipient = baseRate + ((quote.enclosures || 0) * enclosureRate);
+      const totalEstimate = costPerRecipient * quote.estimated_recipients;
+      
+      // Generate quote HTML
+      const quoteHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Quote ${quoteNumber}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #333; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #007bff; padding-bottom: 20px; }
+            .company-name { color: #007bff; font-size: 28px; font-weight: bold; margin: 0; }
+            .quote-title { color: #666; font-size: 24px; margin: 10px 0 0 0; }
+            .quote-info { display: flex; justify-content: space-between; margin-bottom: 30px; }
+            .info-section { flex: 1; margin-right: 20px; }
+            .info-section:last-child { margin-right: 0; }
+            .info-section h3 { color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 15px; }
+            .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; padding: 3px 0; }
+            .info-label { font-weight: 600; }
+            .info-value { text-align: right; }
+            .cost-section { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .cost-section h3 { margin-top: 0; color: #333; }
+            .cost-row { display: flex; justify-content: space-between; margin-bottom: 10px; padding: 5px 0; }
+            .cost-total { border-top: 2px solid #007bff; padding-top: 10px; margin-top: 15px; font-weight: bold; font-size: 18px; }
+            .footer { margin-top: 40px; text-align: center; color: #666; font-size: 12px; }
+            .notes-section { margin: 20px 0; padding: 15px; background: #fff3cd; border-radius: 8px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1 class="company-name">PatientLetterHub</h1>
+            <h2 class="quote-title">Quote ${quoteNumber}</h2>
+          </div>
+          
+          <div class="quote-info">
+            <div class="info-section">
+              <h3>Quote Information</h3>
+              <div class="info-row">
+                <span class="info-label">Quote Number:</span>
+                <span class="info-value">${quoteNumber}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Date:</span>
+                <span class="info-value">${new Date(quote.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Subject:</span>
+                <span class="info-value">${quote.subject}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Template Type:</span>
+                <span class="info-value">${quote.template_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+              </div>
+            </div>
+            
+            <div class="info-section">
+              <h3>Customer Information</h3>
+              <div class="info-row">
+                <span class="info-label">Practice:</span>
+                <span class="info-value">${quote.practice_name || 'N/A'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Email:</span>
+                <span class="info-value">${quote.user_email}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Estimated Recipients:</span>
+                <span class="info-value">${quote.estimated_recipients}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Color Mode:</span>
+                <span class="info-value">${quote.color_mode === 'color' ? 'Color' : 'Black & White'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Enclosures:</span>
+                <span class="info-value">${quote.enclosures || 0}</span>
+              </div>
+            </div>
+          </div>
+          
+          ${quote.notes ? `
+          <div class="notes-section">
+            <h3>Additional Notes</h3>
+            <p>${quote.notes}</p>
+          </div>
+          ` : ''}
+          
+          <div class="cost-section">
+            <h3>Cost Estimate</h3>
+            <div class="cost-row">
+              <span>Base rate (${quote.color_mode === 'color' ? 'Color' : 'Black & White'}):</span>
+              <span>$${baseRate.toFixed(2)} per letter</span>
+            </div>
+            <div class="cost-row">
+              <span>Enclosures (${quote.enclosures || 0}):</span>
+              <span>$${((quote.enclosures || 0) * enclosureRate).toFixed(2)} per letter</span>
+            </div>
+            <div class="cost-row">
+              <span>Cost per recipient:</span>
+              <span>$${costPerRecipient.toFixed(2)}</span>
+            </div>
+            <div class="cost-row">
+              <span>Estimated recipients:</span>
+              <span>${quote.estimated_recipients}</span>
+            </div>
+            <div class="cost-row cost-total">
+              <span>Total Estimated Cost:</span>
+              <span>$${totalEstimate.toFixed(2)}</span>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p>This is a cost estimate only. Final pricing may vary based on actual requirements.</p>
+            <p>Quote valid for 30 days from date of issue.</p>
+            <p>Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Generate PDF using Puppeteer
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+      
+      const page = await browser.newPage();
+      await page.setContent(quoteHtml, { waitUntil: 'networkidle0' });
+      
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '20px',
+          right: '20px',
+          bottom: '20px',
+          left: '20px'
+        }
+      });
+      
+      await browser.close();
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Quote-${quoteNumber}.pdf"`);
+      res.send(pdf);
+
+    } catch (error: any) {
+      console.error('Quote PDF generation error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to generate quote PDF'
+      });
+    }
+  });
+
   // Get current user endpoint
   app.get('/api/auth/user', (req: Request, res: Response) => {
     if (req.session?.user) {

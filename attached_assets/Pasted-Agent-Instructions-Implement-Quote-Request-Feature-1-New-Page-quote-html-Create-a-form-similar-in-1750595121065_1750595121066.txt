@@ -1,0 +1,100 @@
+Agent Instructions: Implement Quote Request Feature
+1. New Page: quote.html
+Create a form similar in appearance and fields to order.html, but with the following differences:
+
+✏️ Fields to Include:
+Subject (text) – "e.g., Doctor Retirement Letter"
+
+Template Type (dropdown) – same options as order.html
+
+Color Mode (dropdown) – “Color” or “Black & White”
+
+Estimated Recipient Count (number) – user estimates instead of uploading
+
+Enclosures (dropdown or number input) – e.g., 0–5
+
+Practice (dropdown) – same logic as order form
+
+Additional Notes (textarea) – optional
+
+✅ What’s Excluded from order.html:
+No file upload
+
+No recipient preview
+
+No final submission logic
+
+2. Database: Add Quotes Table
+Create a quotes table with:
+
+sql
+Copy
+Edit
+id SERIAL PRIMARY KEY,
+user_id INTEGER REFERENCES users(id),
+subject TEXT,
+template_type TEXT,
+color_mode TEXT,
+estimated_recipients INTEGER,
+enclosures INTEGER,
+practice_id INTEGER REFERENCES practices(id),
+notes TEXT,
+created_at TIMESTAMP DEFAULT NOW()
+3. Quote Number and Storage
+Assign quote IDs like: Q-1001, Q-1002 etc.
+
+Auto-generate this on insert using prefix "Q-" + id in response.
+
+4. Quote PDF Generation
+Use the same Puppeteer-based method as invoices.
+
+Output includes:
+
+Quote number
+
+Date
+
+Practice info
+
+Chosen options
+
+Estimated cost:
+
+$0.65/letter for color
+
+$0.50/letter for BW
+
+$0.10/enclosure per recipient (as placeholder logic)
+
+Formula:
+
+js
+Copy
+Edit
+base = 0.65 or 0.50 based on color mode
+costPerRecipient = base + (enclosures * 0.10)
+totalEstimate = costPerRecipient * estimated_recipients
+5. Email Integration
+After form submission:
+
+Generate quote PDF
+
+Email it to the user’s email on file
+
+Subject: Your Quote from PatientLetterHub
+
+Include quote summary + PDF attachment
+
+Use your existing transactional email solution (MailerSend) if already wired.
+
+6. User Dashboard Integration
+Add a “Quotes” section to the dashboard:
+
+Show: Quote ID, Subject, Created Date, Estimated Cost, PDF Link
+
+Optional: “Convert to Order” button (future)
+
+7. Access Control
+Ensure quotes are only visible to the creating user (unless admin)
+
+Protect endpoints accordingly

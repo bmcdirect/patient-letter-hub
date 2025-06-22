@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Request Quote – PatientLetterHub</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #F3F6FA;
+    }
+    h1 { color: #10069F; }
+    label { display: block; margin-top: 1rem; font-weight: bold; }
+    input, select, textarea, button {
+      width: 100%;
+      margin-top: 0.3rem;
+      padding: 0.5rem;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    textarea { height: 100px; }
+    .section { 
+      margin-bottom: 2rem; 
+      background: #FFF; 
+      padding: 1rem; 
+      border-radius: 8px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .submit-btn {
+      background: #10069F;
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      font-weight: bold;
+      margin-top: 1rem;
+      transition: background-color 0.3s ease;
+    }
+    .submit-btn:hover {
+      background: #0d0580;
+    }
+    .submit-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .cost-estimate {
+      background: #e8f4fd;
+      border: 1px solid #b3d9ff;
+      padding: 1rem;
+      border-radius: 6px;
+      margin-top: 1rem;
+    }
+    .cost-estimate h3 {
+      margin: 0 0 0.5rem 0;
+      color: #0066cc;
+    }
+    .cost-breakdown {
+      font-size: 0.9rem;
+      color: #555;
+      margin-top: 0.5rem;
+    }
+    .required { color: #dc3545; }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 1rem;
+      border-radius: 6px;
+      margin: 1rem 0;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      padding: 1rem;
+      border-radius: 6px;
+      margin: 1rem 0;
+    }
+    .logout-btn {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .logout-btn:hover {
+      background: #c82333;
+    }
+    @media (max-width: 600px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #ccc;">
+    <h1 style="margin: 0; color: #10069F;">Request a Quote</h1>
+    <div style="display: flex; gap: 1rem; align-items: center;">
+      <span id="user-info" style="color: #666; font-size: 0.9rem;"></span>
+      <button id="logout-btn" class="logout-btn">Logout</button>
+    </div>
+  </div>
+
+  <div id="message-container"></div>
+
+  <form id="quote-form">
+    <div class="section">
+      <h3>Practice Information</h3>
+      <label for="practiceSelect">Select Practice:</label>
+      <select id="practiceSelect" name="practice_id">
+        <option value="">Select a practice profile...</option>
+      </select>
+      <div style="margin-top: 0.5rem;">
+        <a href="/practice-form.html" style="color: #007bff; text-decoration: none; font-size: 0.9rem;">+ Create New Practice Profile</a>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Letter Details</h3>
+      
+      <label for="subject">Subject <span class="required">*</span></label>
+      <input type="text" id="subject" name="subject" placeholder="e.g., Doctor Retirement Letter" required />
+
+      <div class="form-row">
+        <div>
+          <label for="templateType">Template Type <span class="required">*</span></label>
+          <select id="templateType" name="templateType" required>
+            <option value="">Select template type...</option>
+            <option value="practice_closing">Practice Closing</option>
+            <option value="provider_departure">Provider Departure</option>
+            <option value="practice_relocation">Practice Relocation</option>
+            <option value="hipaa_breach">HIPAA Breach Notification</option>
+            <option value="custom">Custom Letter</option>
+          </select>
+        </div>
+        <div>
+          <label for="colorMode">Color Mode <span class="required">*</span></label>
+          <select id="colorMode" name="colorMode" required>
+            <option value="">Select color mode...</option>
+            <option value="color">Color</option>
+            <option value="bw">Black & White</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label for="estimatedRecipients">Estimated Recipient Count <span class="required">*</span></label>
+          <input type="number" id="estimatedRecipients" name="estimatedRecipients" min="1" max="10000" placeholder="e.g., 250" required />
+        </div>
+        <div>
+          <label for="enclosures">Number of Enclosures</label>
+          <select id="enclosures" name="enclosures">
+            <option value="0">0 - No enclosures</option>
+            <option value="1">1 enclosure</option>
+            <option value="2">2 enclosures</option>
+            <option value="3">3 enclosures</option>
+            <option value="4">4 enclosures</option>
+            <option value="5">5 enclosures</option>
+          </select>
+        </div>
+      </div>
+
+      <label for="notes">Additional Notes</label>
+      <textarea id="notes" name="notes" placeholder="Any special requirements or additional information..."></textarea>
+    </div>
+
+    <div class="section">
+      <div class="cost-estimate">
+        <h3>Estimated Cost</h3>
+        <div id="cost-display">
+          <p>Select options above to see cost estimate</p>
+        </div>
+        <div class="cost-breakdown" id="cost-breakdown" style="display: none;">
+          <p><strong>Breakdown:</strong></p>
+          <ul id="breakdown-details">
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="submit-btn">Request Quote</button>
+  </form>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      await checkAuth();
+      await loadPractices();
+      setupForm();
+      setupLogout();
+      setupCostCalculator();
+    });
+
+    // Check authentication and redirect if needed
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/user');
+        if (!res.ok) {
+          window.location.href = '/login.html';
+          return;
+        }
+        
+        const data = await res.json();
+        if (!data.success) {
+          window.location.href = '/login.html';
+          return;
+        }
+        
+        document.getElementById('user-info').textContent = `Logged in as: ${data.user.email}`;
+        
+      } catch (err) {
+        window.location.href = '/login.html';
+      }
+    }
+
+    // Load practices for dropdown
+    async function loadPractices() {
+      try {
+        const res = await fetch('/api/practices');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            const practiceSelect = document.getElementById('practiceSelect');
+            
+            // Clear existing options except the first one
+            while (practiceSelect.children.length > 1) {
+              practiceSelect.removeChild(practiceSelect.lastChild);
+            }
+            
+            // Add practice options
+            data.practices.forEach(practice => {
+              const option = document.createElement('option');
+              option.value = practice.id;
+              option.textContent = practice.name;
+              practiceSelect.appendChild(option);
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load practices:', err);
+      }
+    }
+
+    // Setup logout functionality
+    function setupLogout() {
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        try {
+          await fetch('/api/auth/logout', { method: 'POST' });
+          window.location.href = '/login.html';
+        } catch (err) {
+          console.error('Logout failed:', err);
+        }
+      });
+    }
+
+    // Show message
+    function showMessage(message, type = 'error') {
+      const container = document.getElementById('message-container');
+      container.innerHTML = `<div class="${type}">${message}</div>`;
+      
+      // Auto-hide after 5 seconds for success messages
+      if (type === 'success') {
+        setTimeout(() => {
+          container.innerHTML = '';
+        }, 5000);
+      }
+    }
+
+    // Calculate cost estimate
+    function calculateCost() {
+      const colorMode = document.getElementById('colorMode').value;
+      const recipients = parseInt(document.getElementById('estimatedRecipients').value) || 0;
+      const enclosures = parseInt(document.getElementById('enclosures').value) || 0;
+
+      if (!colorMode || recipients <= 0) {
+        document.getElementById('cost-display').innerHTML = '<p>Select options above to see cost estimate</p>';
+        document.getElementById('cost-breakdown').style.display = 'none';
+        return;
+      }
+
+      const baseRate = colorMode === 'color' ? 0.65 : 0.50;
+      const enclosureRate = 0.10;
+      const costPerRecipient = baseRate + (enclosures * enclosureRate);
+      const totalEstimate = costPerRecipient * recipients;
+
+      document.getElementById('cost-display').innerHTML = `
+        <p style="font-size: 1.2rem; font-weight: bold; margin: 0; color: #0066cc;">
+          Total Estimated Cost: $${totalEstimate.toFixed(2)}
+        </p>
+      `;
+
+      document.getElementById('breakdown-details').innerHTML = `
+        <li>Base cost (${colorMode === 'color' ? 'Color' : 'B&W'}): $${baseRate.toFixed(2)} per letter</li>
+        <li>Enclosures: ${enclosures} × $${enclosureRate.toFixed(2)} = $${(enclosures * enclosureRate).toFixed(2)} per letter</li>
+        <li>Cost per recipient: $${costPerRecipient.toFixed(2)}</li>
+        <li>Total recipients: ${recipients}</li>
+      `;
+
+      document.getElementById('cost-breakdown').style.display = 'block';
+    }
+
+    // Setup cost calculator
+    function setupCostCalculator() {
+      const inputs = ['colorMode', 'estimatedRecipients', 'enclosures'];
+      inputs.forEach(id => {
+        document.getElementById(id).addEventListener('change', calculateCost);
+        document.getElementById(id).addEventListener('input', calculateCost);
+      });
+    }
+
+    // Setup form submission
+    function setupForm() {
+      const form = document.getElementById('quote-form');
+      
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Generating Quote...';
+        
+        const formData = new FormData(form);
+        const data = {
+          subject: formData.get('subject'),
+          templateType: formData.get('templateType'),
+          colorMode: formData.get('colorMode'),
+          estimatedRecipients: parseInt(formData.get('estimatedRecipients')),
+          enclosures: parseInt(formData.get('enclosures')),
+          practice_id: formData.get('practice_id') || null,
+          notes: formData.get('notes')
+        };
+        
+        try {
+          const res = await fetch('/api/quotes', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+          });
+          
+          const result = await res.json();
+          
+          if (result.success) {
+            showMessage(`Quote ${result.quoteNumber} generated successfully! Check your email for the quote PDF.`, 'success');
+            
+            // Reset form after success
+            form.reset();
+            calculateCost();
+            
+          } else {
+            showMessage(result.message || 'Failed to generate quote');
+          }
+          
+        } catch (err) {
+          showMessage('Network error. Please try again.');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Request Quote';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

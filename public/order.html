@@ -69,6 +69,77 @@
       }
     });
 
+    // Tab switching functionality
+    function switchTab(tabName) {
+      // Update tab buttons
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(tabName + '-tab').classList.add('active');
+      
+      // Show/hide content
+      document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+      document.getElementById(tabName + '-section').style.display = 'block';
+      
+      // Load content if needed
+      if (tabName === 'quotes') {
+        loadQuotes();
+      }
+    }
+
+    // Load quotes
+    async function loadQuotes() {
+      try {
+        const response = await fetch('/api/quotes');
+        if (!response.ok) {
+          throw new Error('Failed to load quotes');
+        }
+
+        const data = await response.json();
+        const quotes = data.quotes || [];
+
+        const quotesList = document.getElementById('quotes-list');
+        
+        if (quotes.length === 0) {
+          quotesList.innerHTML = '<p>No quotes found. <a href="/quote.html">Request your first quote</a></p>';
+          return;
+        }
+
+        quotesList.innerHTML = `
+          <table class="jobs-table">
+            <thead>
+              <tr>
+                <th>Quote ID</th>
+                <th>Subject</th>
+                <th>Practice</th>
+                <th>Recipients</th>
+                <th>Date</th>
+                <th>Estimated Cost</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${quotes.map(quote => `
+                <tr>
+                  <td>${quote.quoteNumber}</td>
+                  <td>${quote.subject}</td>
+                  <td>${quote.practice_name || 'N/A'}</td>
+                  <td>${quote.estimated_recipients}</td>
+                  <td>${new Date(quote.created_at).toLocaleDateString()}</td>
+                  <td>$${quote.totalEstimate.toFixed(2)}</td>
+                  <td>
+                    <button onclick="window.open('/api/quotes/${quote.id}/pdf', '_blank')" class="action-button">View PDF</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+
+      } catch (error) {
+        console.error('Error loading quotes:', error);
+        document.getElementById('quotes-list').innerHTML = '<p>Error loading quotes. Please try again.</p>';
+      }
+    }
+
     // Load practices for dropdown
     async function loadPractices() {
       try {
