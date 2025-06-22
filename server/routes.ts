@@ -1271,7 +1271,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         params.push(req.user.id);
       }
 
-      query += ` ORDER BY created_at DESC LIMIT 20`;
+      query += ` ORDER BY o.created_at DESC LIMIT 20`;
 
       const result = await pool.query(query, params);
 
