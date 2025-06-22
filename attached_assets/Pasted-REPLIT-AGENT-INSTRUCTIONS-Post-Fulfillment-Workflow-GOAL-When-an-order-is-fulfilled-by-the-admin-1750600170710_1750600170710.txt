@@ -1,0 +1,103 @@
+REPLIT AGENT INSTRUCTIONS: Post-Fulfillment Workflow
+🧩 GOAL
+When an order is fulfilled by the admin:
+
+Its status updates to Fulfilled
+
+A fulfilled_at timestamp is recorded
+
+A confirmation PDF is generated (like a delivery receipt)
+
+The practice receives access to that PDF via dashboard (and email in the future)
+
+🔧 STEP-BY-STEP IMPLEMENTATION
+1. DATABASE ENHANCEMENT
+Update the orders table:
+
+sql
+Copy
+Edit
+ALTER TABLE orders ADD COLUMN fulfilled_at TIMESTAMP;
+Default NULL, set when status = 'Fulfilled'
+
+2. BACKEND LOGIC
+Update POST /api/orders/:id/status endpoint:
+
+When new status is "Fulfilled":
+
+Automatically set fulfilled_at = NOW()
+
+Trigger PDF confirmation generation (or queue it)
+
+3. CREATE ORDER CONFIRMATION PDF
+New endpoint:
+
+http
+Copy
+Edit
+GET /api/orders/:id/fulfillment-pdf
+Generates a professional 1-page PDF containing:
+
+Job ID
+
+Practice name
+
+Subject
+
+Recipient count
+
+Enclosure count
+
+Color mode
+
+Cost
+
+Fulfillment date
+
+“Thank you for your order” footer
+
+Use existing Puppeteer/HTML-to-PDF infrastructure (like invoice/quote).
+
+4. USER DASHBOARD INTEGRATION
+Update dashboard.html:
+
+In each row of the job table:
+
+If status === "Fulfilled", show:
+
+✅ View Confirmation PDF button → /api/orders/:id/fulfillment-pdf
+
+⬇️ Label: "Delivered" (if not already shown)
+
+Optional: Add date below status like:
+Fulfilled June 22, 2025
+
+5. ADMIN DASHBOARD SUPPORT
+Update admin.html:
+
+In job table, for Fulfilled orders:
+
+Include same "View Confirmation PDF" button
+
+Include fulfilled_at column (or tooltip)
+
+6. (OPTIONAL – FUTURE) EMAIL CONFIRMATION
+Not required now, but prepare for:
+
+When status is updated to Fulfilled, send email to the practice contact with:
+
+Subject: "Order Fulfilled – Confirmation Attached"
+
+Attachment: Fulfillment PDF
+
+Body: Thanks, summary details, support contact
+
+✅ FINAL CHECKPOINT
+Ensure:
+
+PDF generation works regardless of who views it (admin or user)
+
+Access control is enforced (users only see their own orders)
+
+Fulfillment timestamp is stored only once (no overwriting)
+
