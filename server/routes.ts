@@ -751,11 +751,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/practices', requireLogin, async (req: Request, res: Response) => {
     try {
-      const result = await pool.query(`
-        SELECT id, name, contact_email, phone, address_line1, address_line2, city, state, zip, created_at
-        FROM practices
-        ORDER BY name
-      `);
+      let query = `
+        SELECT id, name, email, phone, address, city, state, zip_code, npi, taxonomy, created_at 
+        FROM practices 
+      `;
+      let params = [];
+
+      // Filter practices by user unless admin
+      if (!req.user.is_admin) {
+        query += ` WHERE owner_id = $1`;
+        params.push(req.user.id);
+      }
+
+      query += ` ORDER BY o.created_at DESC`;
+
+      const result = await pool.query(query, params);
 
       res.json({
         success: true,
