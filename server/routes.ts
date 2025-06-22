@@ -1277,7 +1277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Filter orders by user unless admin
       if (!req.user.is_admin) {
-        query += ` WHERE user_id = $1`;
+        query += ` WHERE o.user_id = $1`;
         params.push(req.user.id);
       }
 
