@@ -717,7 +717,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Practice management endpoints
   app.post('/api/practices', requireLogin, async (req: Request, res: Response) => {
     try {
-      const { name, contact_email, phone, address_line1, address_line2, city, state, zip } = req.body;
+      const { name, email, phone, address, city, state, zipCode, npi, taxonomy } = req.body;
 
       if (!name) {
         return res.status(400).json({
@@ -727,10 +727,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await pool.query(`
-        INSERT INTO practices (name, contact_email, phone, address_line1, address_line2, city, state, zip)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING id, name, contact_email, phone, address_line1, address_line2, city, state, zip, created_at
-      `, [name, contact_email || null, phone || null, address_line1 || null, address_line2 || null, city || null, state || null, zip || null]);
+        INSERT INTO practices (name, email, phone, address, city, state, zip_code, npi, taxonomy, owner_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING id, name, email, phone, address, city, state, zip_code, npi, taxonomy, created_at
+      `, [name, email || null, phone || null, address || null, city || null, state || null, zipCode || null, npi || null, taxonomy || null, req.user.id]);
 
       const practice = result.rows[0];
 
