@@ -237,8 +237,15 @@
               locationSelect.removeChild(locationSelect.lastChild);
             }
             
+            // Sort locations: default first, then by label
+            const sortedLocations = data.locations.sort((a, b) => {
+              if (a.is_default && !b.is_default) return -1;
+              if (!a.is_default && b.is_default) return 1;
+              return a.label.localeCompare(b.label);
+            });
+
             // Add location options
-            data.locations.forEach(location => {
+            sortedLocations.forEach(location => {
               const option = document.createElement('option');
               option.value = location.id;
               const displayText = location.location_suffix ? 
@@ -247,6 +254,12 @@
               option.textContent = displayText;
               locationSelect.appendChild(option);
             });
+
+            // Auto-select default location if exists
+            const defaultLocation = data.locations.find(loc => loc.is_default);
+            if (defaultLocation) {
+              locationSelect.value = defaultLocation.id;
+            }
           }
         }
       } catch (err) {
