@@ -310,8 +310,14 @@ router.post('/api/quotes/:id/convert', async (req, res) => {
     const quoteId = req.params.id;
     console.log('Converting quote to order:', quoteId);
 
-    // For development, simulate order creation
-    const orderId = Math.floor(Math.random() * 1000) + 100;
+    // Map specific quotes to order IDs that exist in our sample data
+    const quoteToOrderMap = {
+      'Q-4350': 188,  // Practice Relocation Notice
+      'Q-7964': 9999, // Provider Departure - Dr. Smith  
+      'Q-2452': 15    // HIPAA Breach Notification (already converted)
+    };
+    
+    const orderId = quoteToOrderMap[quoteId] || 188; // Default to 188 if not found
     
     res.json({ 
       success: true, 
@@ -419,12 +425,12 @@ router.get('/api/orders/:id', async (req, res) => {
       },
       '9999': {
         jobId: 9999,
-        subject: 'Test Order',
+        subject: 'Provider Departure - Dr. Smith',
         status: 'Pending',
-        createdAt: '2024-06-20T14:30:00Z',
-        recipientCount: 100,
-        cost: 75.00,
-        practiceLocation: 'Test Practice'
+        createdAt: new Date().toISOString(),
+        recipientCount: 250,
+        cost: 287.50,
+        practiceLocation: 'North Valley Clinic (1.3)'
       }
     };
 
