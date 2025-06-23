@@ -186,6 +186,11 @@
           <input type="checkbox" id="ncoaUpdate" name="ncoaUpdate" value="yes" />
           <label for="ncoaUpdate" style="display: inline; margin-left: 0.5rem; font-weight: normal;">NCOA Move Update ($50)</label>
         </div>
+        
+        <div style="margin-bottom: 1rem;">
+          <input type="checkbox" id="firstClassPostage" name="firstClassPostage" value="yes" />
+          <label for="firstClassPostage" style="display: inline; margin-left: 0.5rem; font-weight: normal;">Include First Class Postage ($0.68 per recipient)</label>
+        </div>
       </div>
     </div>
 
@@ -264,7 +269,7 @@
     }
 
     function setupCostCalculator() {
-      ['colorMode', 'estimatedRecipients', 'enclosures', 'dataCleansing', 'ncoaUpdate'].forEach(id => {
+      ['colorMode', 'estimatedRecipients', 'enclosures', 'dataCleansing', 'ncoaUpdate', 'firstClassPostage'].forEach(id => {
         document.getElementById(id).addEventListener('change', calculateCost);
         document.getElementById(id).addEventListener('input', calculateCost);
       });
@@ -276,6 +281,7 @@
       const enclosures = parseInt(document.getElementById('enclosures').value) || 0;
       const dataCleansing = document.getElementById('dataCleansing').checked;
       const ncoaUpdate = document.getElementById('ncoaUpdate').checked;
+      const firstClassPostage = document.getElementById('firstClassPostage').checked;
 
       if (!color || recipients <= 0) {
         document.getElementById('cost-display').innerHTML = '<p>Select options above to see cost estimate</p>';
@@ -290,6 +296,9 @@
       if (dataCleansing) cost += 25;
       if (ncoaUpdate) cost += 50;
       
+      // Add first class postage if selected
+      if (firstClassPostage) cost += recipients * 0.68;
+      
       document.getElementById('cost-display').innerHTML = `<p style="font-size: 1.2rem; font-weight: bold; margin: 0; color: #0066cc;">Total Estimated Cost: $${cost.toFixed(2)}</p>`;
       
       let breakdownHTML = `
@@ -298,6 +307,10 @@
         <li>Total recipients: ${recipients}</li>
         <li>Letter cost subtotal: $${(recipients * (base + (enclosures * 0.10))).toFixed(2)}</li>
       `;
+      
+      if (firstClassPostage) {
+        breakdownHTML += `<li>First Class Postage: $0.68 × ${recipients} = $${(recipients * 0.68).toFixed(2)}</li>`;
+      }
       
       if (dataCleansing) {
         breakdownHTML += `<li>Data Cleansing & De-Duplication: $25.00</li>`;
@@ -328,7 +341,8 @@
           enclosures: parseInt(form.enclosures.value),
           notes: form.notes.value,
           dataCleansing: document.getElementById('dataCleansing').checked,
-          ncoaUpdate: document.getElementById('ncoaUpdate').checked
+          ncoaUpdate: document.getElementById('ncoaUpdate').checked,
+          firstClassPostage: document.getElementById('firstClassPostage').checked
         };
 
         try {

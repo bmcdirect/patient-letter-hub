@@ -150,7 +150,8 @@ router.post('/api/quotes', async (req, res) => {
       enclosures,
       notes,
       dataCleansing,
-      ncoaUpdate
+      ncoaUpdate,
+      firstClassPostage
     } = req.body;
 
     if (!subject || !templateType || !colorMode || !estimatedRecipients) {
@@ -163,6 +164,7 @@ router.post('/api/quotes', async (req, res) => {
     
     if (dataCleansing) totalCost += 25;
     if (ncoaUpdate) totalCost += 50;
+    if (firstClassPostage) totalCost += estimatedRecipients * 0.68;
 
     // Create a simple quote response
     const quoteNumber = `Q-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -176,8 +178,11 @@ router.post('/api/quotes', async (req, res) => {
       enclosures,
       dataCleansing,
       ncoaUpdate,
+      firstClassPostage,
       totalCost: totalCost.toFixed(2)
     });
+    
+    console.log('Raw request body:', req.body);
     
     res.json({ 
       success: true, 
