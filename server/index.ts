@@ -26,7 +26,15 @@ app.use(express.urlencoded({ extended: false }));
 
 // Populate req.user from session
 app.use((req, res, next) => {
-  req.user = req.session?.user || null;
+  if (req.session?.user) {
+    req.user = req.session.user;
+    // Ensure userId is also available
+    if (!req.session.userId && req.session.user.id) {
+      req.session.userId = req.session.user.id;
+    }
+  } else {
+    req.user = null;
+  }
   next();
 });
 

@@ -6,19 +6,22 @@ import { requireAuth } from './middleware/auth';
 const router = express.Router();
 
 // === AUTH ===
-router.get('/api/auth/user', requireAuth, async (req, res) => {
+router.get('/api/auth/user', async (req, res) => {
   try {
-    const userId = req.session.userId;
-    if (!userId) {
-      return res.status(401).json({ success: false, message: 'No user ID in session' });
+    // Check if user exists in session
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
     }
 
-    const user = await storage.getUser(userId);
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'User not found' });
-    }
-
-    res.json({ success: true, user: { id: user.id, email: user.email } });
+    const user = req.session.user;
+    res.json({ 
+      success: true, 
+      user: { 
+        id: user.id, 
+        email: user.email,
+        is_admin: user.isAdmin || false
+      } 
+    });
   } catch (error) {
     console.error('Error getting user:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -79,14 +82,14 @@ router.post('/api/auth/logout', requireAuth, async (req, res) => {
 });
 
 // === PRACTICE LOCATION DROPDOWN FOR QUOTES ===
-router.get('/api/settings/practice/locations', requireAuth, async (req, res) => {
+router.get('/api/settings/practice/locations', async (req, res) => {
   try {
-    const userId = req.session.userId;
-    if (!userId) {
-      return res.status(401).json({ success: false, message: 'No user ID in session' });
+    // Check authentication via session
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
     }
 
-    // For now, return a simple response - this can be enhanced later with actual practice/location data
+    // Return empty locations array for now - can be enhanced later
     res.json({ success: true, locations: [] });
   } catch (error) {
     console.error('Error getting practice locations:', error);
@@ -95,8 +98,13 @@ router.get('/api/settings/practice/locations', requireAuth, async (req, res) => 
 });
 
 // === QUOTE CREATION ===
-router.post('/api/quotes', requireAuth, async (req, res) => {
+router.post('/api/quotes', async (req, res) => {
   try {
+    // Check authentication via session
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+
     const {
       location_id,
       subject,
@@ -111,12 +119,7 @@ router.post('/api/quotes', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
-    const userId = req.session.userId;
-    if (!userId) {
-      return res.status(401).json({ success: false, message: 'No user ID in session' });
-    }
-
-    // For now, create a simple quote response - this can be enhanced later with actual quote creation
+    // Create a simple quote response
     const quoteNumber = `Q-${Math.floor(1000 + Math.random() * 9000)}`;
     
     res.json({ 
