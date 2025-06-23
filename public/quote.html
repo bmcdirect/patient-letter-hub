@@ -173,6 +173,20 @@
 
       <label for="notes">Additional Notes</label>
       <textarea id="notes" name="notes" placeholder="Any special requirements or additional information..."></textarea>
+
+      <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #eee;">
+        <h4 style="margin-bottom: 1rem; color: #333;">Additional Services</h4>
+        
+        <div style="margin-bottom: 1rem;">
+          <input type="checkbox" id="dataCleansing" name="dataCleansing" value="yes" />
+          <label for="dataCleansing" style="display: inline; margin-left: 0.5rem; font-weight: normal;">Data Cleansing & De-Duplication ($25)</label>
+        </div>
+        
+        <div style="margin-bottom: 1rem;">
+          <input type="checkbox" id="ncoaUpdate" name="ncoaUpdate" value="yes" />
+          <label for="ncoaUpdate" style="display: inline; margin-left: 0.5rem; font-weight: normal;">NCOA Move Update ($50)</label>
+        </div>
+      </div>
     </div>
 
     <div class="section">
@@ -250,7 +264,7 @@
     }
 
     function setupCostCalculator() {
-      ['colorMode', 'estimatedRecipients', 'enclosures'].forEach(id => {
+      ['colorMode', 'estimatedRecipients', 'enclosures', 'dataCleansing', 'ncoaUpdate'].forEach(id => {
         document.getElementById(id).addEventListener('change', calculateCost);
         document.getElementById(id).addEventListener('input', calculateCost);
       });
@@ -260,6 +274,8 @@
       const color = document.getElementById('colorMode').value;
       const recipients = parseInt(document.getElementById('estimatedRecipients').value) || 0;
       const enclosures = parseInt(document.getElementById('enclosures').value) || 0;
+      const dataCleansing = document.getElementById('dataCleansing').checked;
+      const ncoaUpdate = document.getElementById('ncoaUpdate').checked;
 
       if (!color || recipients <= 0) {
         document.getElementById('cost-display').innerHTML = '<p>Select options above to see cost estimate</p>';
@@ -268,14 +284,30 @@
       }
 
       const base = color === 'color' ? 0.65 : 0.50;
-      const cost = recipients * (base + (enclosures * 0.10));
+      let cost = recipients * (base + (enclosures * 0.10));
+      
+      // Add flat fees for additional services
+      if (dataCleansing) cost += 25;
+      if (ncoaUpdate) cost += 50;
+      
       document.getElementById('cost-display').innerHTML = `<p style="font-size: 1.2rem; font-weight: bold; margin: 0; color: #0066cc;">Total Estimated Cost: $${cost.toFixed(2)}</p>`;
-      document.getElementById('breakdown-details').innerHTML = `
+      
+      let breakdownHTML = `
         <li>Base cost: $${base.toFixed(2)} per letter</li>
         <li>Enclosures: ${enclosures} × $0.10</li>
         <li>Total recipients: ${recipients}</li>
-        <li>Total cost per recipient: $${(base + (enclosures * 0.10)).toFixed(2)}</li>
+        <li>Letter cost subtotal: $${(recipients * (base + (enclosures * 0.10))).toFixed(2)}</li>
       `;
+      
+      if (dataCleansing) {
+        breakdownHTML += `<li>Data Cleansing & De-Duplication: $25.00</li>`;
+      }
+      
+      if (ncoaUpdate) {
+        breakdownHTML += `<li>NCOA Move Update: $50.00</li>`;
+      }
+      
+      document.getElementById('breakdown-details').innerHTML = breakdownHTML;
       document.getElementById('cost-breakdown').style.display = 'block';
     }
 
@@ -294,7 +326,9 @@
           colorMode: form.colorMode.value,
           estimatedRecipients: parseInt(form.estimatedRecipients.value),
           enclosures: parseInt(form.enclosures.value),
-          notes: form.notes.value
+          notes: form.notes.value,
+          dataCleansing: document.getElementById('dataCleansing').checked,
+          ncoaUpdate: document.getElementById('ncoaUpdate').checked
         };
 
         try {

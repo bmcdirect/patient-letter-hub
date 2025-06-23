@@ -148,20 +148,42 @@ router.post('/api/quotes', async (req, res) => {
       colorMode,
       estimatedRecipients,
       enclosures,
-      notes
+      notes,
+      dataCleansing,
+      ncoaUpdate
     } = req.body;
 
     if (!subject || !templateType || !colorMode || !estimatedRecipients) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
+    // Calculate total cost including additional services
+    const base = colorMode === 'color' ? 0.65 : 0.50;
+    let totalCost = estimatedRecipients * (base + (enclosures * 0.10));
+    
+    if (dataCleansing) totalCost += 25;
+    if (ncoaUpdate) totalCost += 50;
+
     // Create a simple quote response
     const quoteNumber = `Q-${Math.floor(1000 + Math.random() * 9000)}`;
+    
+    console.log('Quote created:', {
+      quoteNumber,
+      subject,
+      templateType,
+      colorMode,
+      estimatedRecipients,
+      enclosures,
+      dataCleansing,
+      ncoaUpdate,
+      totalCost: totalCost.toFixed(2)
+    });
     
     res.json({ 
       success: true, 
       quoteId: Date.now(), 
-      quoteNumber: quoteNumber 
+      quoteNumber: quoteNumber,
+      totalCost: totalCost.toFixed(2)
     });
   } catch (error) {
     console.error('Error creating quote:', error);
