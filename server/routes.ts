@@ -387,6 +387,66 @@ router.post('/api/quotes', async (req, res) => {
   }
 });
 
+// === ORDER DETAILS ENDPOINT ===
+router.get('/api/orders/:id', async (req, res) => {
+  try {
+    // Check authentication via session
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+
+    const orderId = req.params.id;
+    
+    // For development, return sample order data for valid IDs
+    const sampleOrders = {
+      '15': {
+        jobId: 15,
+        subject: 'HIPAA Breach Notification',
+        status: 'Fulfilled',
+        createdAt: '2024-06-21T09:45:00Z',
+        recipientCount: 75,
+        cost: 95.25,
+        practiceLocation: 'UMass Occupational Therapy (1.2)'
+      },
+      '188': {
+        jobId: 188,
+        subject: 'Practice Relocation Notice',
+        status: 'Pending',
+        createdAt: new Date().toISOString(),
+        recipientCount: 150,
+        cost: 127.50,
+        practiceLocation: 'UMass Occupational Therapy (1.0)'
+      },
+      '9999': {
+        jobId: 9999,
+        subject: 'Test Order',
+        status: 'Pending',
+        createdAt: '2024-06-20T14:30:00Z',
+        recipientCount: 100,
+        cost: 75.00,
+        practiceLocation: 'Test Practice'
+      }
+    };
+
+    const order = sampleOrders[orderId];
+    
+    if (!order) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Order not found' 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      order: order 
+    });
+  } catch (error) {
+    console.error('Error getting order:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // Export a function to register routes
 export function registerRoutes(app: Express) {
   app.use(router);
