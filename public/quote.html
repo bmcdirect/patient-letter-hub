@@ -117,7 +117,7 @@
     <div class="section">
       <h3>Practice Location</h3>
       <label for="practiceLocationSelect">Select Practice Location:</label>
-      <select id="practiceLocationSelect" name="location_id">
+      <select id="practiceLocationSelect" name="location_id" required>
         <option value="">Select a practice location...</option>
       </select>
       <div style="margin-top: 0.5rem;">
@@ -127,7 +127,7 @@
 
     <div class="section">
       <h3>Letter Details</h3>
-      
+
       <label for="subject">Subject <span class="required">*</span></label>
       <input type="text" id="subject" name="subject" placeholder="e.g., Doctor Retirement Letter" required />
 
@@ -183,8 +183,7 @@
         </div>
         <div class="cost-breakdown" id="cost-breakdown" style="display: none;">
           <p><strong>Breakdown:</strong></p>
-          <ul id="breakdown-details">
-          </ul>
+          <ul id="breakdown-details"></ul>
         </div>
       </div>
     </div>
@@ -195,205 +194,129 @@
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       await checkAuth();
-      await loadPractices();
+      await loadPracticeLocations();
       setupForm();
       setupLogout();
       setupCostCalculator();
     });
 
-    // Check authentication and redirect if needed
     async function checkAuth() {
       try {
         const res = await fetch('/api/auth/user');
-        if (!res.ok) {
-          window.location.href = '/login.html';
-          return;
-        }
-        
         const data = await res.json();
-        if (!data.success) {
-          window.location.href = '/login.html';
-          return;
-        }
-        
+        if (!data.success) return window.location.href = '/login.html';
         document.getElementById('user-info').textContent = `Logged in as: ${data.user.email}`;
-        
-      } catch (err) {
+      } catch {
         window.location.href = '/login.html';
       }
     }
 
-    // Load practice locations for dropdown
     async function loadPracticeLocations() {
       try {
         const res = await fetch('/api/settings/practice/locations');
-        
-        if (res.ok) {
-          const data = await res.json();
-          
-          if (data.success && data.locations) {
-            const locationSelect = document.getElementById('practiceLocationSelect');
-            
-            // Clear existing options except the first one
-            while (locationSelect.children.length > 1) {
-              locationSelect.removeChild(locationSelect.lastChild);
-            }
-            
-            if (data.locations.length === 0) {
-              const option = document.createElement('option');
-              option.value = '';
-              option.textContent = 'No practice locations configured';
-              option.disabled = true;
-              locationSelect.appendChild(option);
-              return;
-            }
-            
-            // Sort locations: default first, then by label
-            const sortedLocations = data.locations.sort((a, b) => {
-              if (a.is_default && !b.is_default) return -1;
-              if (!a.is_default && b.is_default) return 1;
-              return a.label.localeCompare(b.label);
-            });
+        if (!res.ok) return;
 
-            // Add location options
-            sortedLocations.forEach(location => {
-              const option = document.createElement('option');
-              option.value = location.id;
-              const displayText = location.location_suffix ? 
-                `${location.label} (${location.location_suffix})` : 
-                location.label;
-              option.textContent = displayText;
-              locationSelect.appendChild(option);
-            });
+        const data = await res.json();
+        const select = document.getElementById('practiceLocationSelect');
+        select.innerHTML = `<option value="">Select a practice location...</option>`;
 
-            // Auto-select default location if exists
-            const defaultLocation = data.locations.find(loc => loc.is_default);
-            if (defaultLocation) {
-              locationSelect.value = defaultLocation.id;
-            }
-          }
+        if (Array.isArray(data.locations)) {
+          data.locations.sort((a, b) => {
+            if (a.is_default && !b.is_default) return -1;
+            if (!a.is_default && b.is_default) return 1;
+            return a.label.localeCompare(b.label);
+          });
+
+          data.locations.forEach(loc => {
+            const opt = document.createElement('option');
+            opt.value = loc.id;
+            opt.textContent = loc.location_suffix ? `${loc.label} (${loc.location_suffix})` : loc.label;
+            select.appendChild(opt);
+          });
+
+          const defaultLoc = data.locations.find(loc => loc.is_default);
+          if (defaultLoc) select.value = defaultLoc.id;
         }
       } catch (err) {
         console.error('Failed to load practice locations:', err);
       }
     }
 
-    // Setup logout functionality
     function setupLogout() {
       document.getElementById('logout-btn').addEventListener('click', async () => {
-        try {
-          await fetch('/api/auth/logout', { method: 'POST' });
-          window.location.href = '/login.html';
-        } catch (err) {
-          console.error('Logout failed:', err);
-        }
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.href = '/login.html';
       });
     }
 
-    // Show message
-    function showMessage(message, type = 'error') {
-      const container = document.getElementById('message-container');
-      container.innerHTML = `<div class="${type}">${message}</div>`;
-      
-      // Auto-hide after 5 seconds for success messages
-      if (type === 'success') {
-        setTimeout(() => {
-          container.innerHTML = '';
-        }, 5000);
-      }
-    }
-
-    // Calculate cost estimate
-    function calculateCost() {
-      const colorMode = document.getElementById('colorMode').value;
-      const recipients = parseInt(document.getElementById('estimatedRecipients').value) || 0;
-      const enclosures = parseInt(document.getElementById('enclosures').value) || 0;
-
-      if (!colorMode || recipients <= 0) {
-        document.getElementById('cost-display').innerHTML = '<p>Select options above to see cost estimate</p>';
-        document.getElementById('cost-breakdown').style.display = 'none';
-        return;
-      }
-
-      const baseRate = colorMode === 'color' ? 0.65 : 0.50;
-      const enclosureRate = 0.10;
-      const costPerRecipient = baseRate + (enclosures * enclosureRate);
-      const totalEstimate = costPerRecipient * recipients;
-
-      document.getElementById('cost-display').innerHTML = `
-        <p style="font-size: 1.2rem; font-weight: bold; margin: 0; color: #0066cc;">
-          Total Estimated Cost: $${totalEstimate.toFixed(2)}
-        </p>
-      `;
-
-      document.getElementById('breakdown-details').innerHTML = `
-        <li>Base cost (${colorMode === 'color' ? 'Color' : 'B&W'}): $${baseRate.toFixed(2)} per letter</li>
-        <li>Enclosures: ${enclosures} × $${enclosureRate.toFixed(2)} = $${(enclosures * enclosureRate).toFixed(2)} per letter</li>
-        <li>Cost per recipient: $${costPerRecipient.toFixed(2)}</li>
-        <li>Total recipients: ${recipients}</li>
-      `;
-
-      document.getElementById('cost-breakdown').style.display = 'block';
-    }
-
-    // Setup cost calculator
     function setupCostCalculator() {
-      const inputs = ['colorMode', 'estimatedRecipients', 'enclosures'];
-      inputs.forEach(id => {
+      ['colorMode', 'estimatedRecipients', 'enclosures'].forEach(id => {
         document.getElementById(id).addEventListener('change', calculateCost);
         document.getElementById(id).addEventListener('input', calculateCost);
       });
     }
 
-    // Setup form submission
+    function calculateCost() {
+      const color = document.getElementById('colorMode').value;
+      const recipients = parseInt(document.getElementById('estimatedRecipients').value) || 0;
+      const enclosures = parseInt(document.getElementById('enclosures').value) || 0;
+
+      if (!color || recipients <= 0) {
+        document.getElementById('cost-display').innerHTML = '<p>Select options above to see cost estimate</p>';
+        document.getElementById('cost-breakdown').style.display = 'none';
+        return;
+      }
+
+      const base = color === 'color' ? 0.65 : 0.50;
+      const cost = recipients * (base + (enclosures * 0.10));
+      document.getElementById('cost-display').innerHTML = `<p style="font-size: 1.2rem; font-weight: bold; margin: 0; color: #0066cc;">Total Estimated Cost: $${cost.toFixed(2)}</p>`;
+      document.getElementById('breakdown-details').innerHTML = `
+        <li>Base cost: $${base.toFixed(2)} per letter</li>
+        <li>Enclosures: ${enclosures} × $0.10</li>
+        <li>Total recipients: ${recipients}</li>
+        <li>Total cost per recipient: $${(base + (enclosures * 0.10)).toFixed(2)}</li>
+      `;
+      document.getElementById('cost-breakdown').style.display = 'block';
+    }
+
     function setupForm() {
       const form = document.getElementById('quote-form');
-      
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
-        const submitBtn = form.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Generating Quote...';
-        
-        const formData = new FormData(form);
+        const submit = form.querySelector('button[type="submit"]');
+        submit.disabled = true;
+        submit.textContent = 'Generating Quote...';
+
         const data = {
-          subject: formData.get('subject'),
-          templateType: formData.get('templateType'),
-          colorMode: formData.get('colorMode'),
-          estimatedRecipients: parseInt(formData.get('estimatedRecipients')),
-          enclosures: parseInt(formData.get('enclosures')),
-          practice_id: formData.get('practice_id') || null,
-          notes: formData.get('notes')
+          location_id: form.practiceLocationSelect.value,
+          subject: form.subject.value,
+          templateType: form.templateType.value,
+          colorMode: form.colorMode.value,
+          estimatedRecipients: parseInt(form.estimatedRecipients.value),
+          enclosures: parseInt(form.enclosures.value),
+          notes: form.notes.value
         };
-        
+
         try {
           const res = await fetch('/api/quotes', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
           });
-          
+
           const result = await res.json();
-          
           if (result.success) {
-            showMessage(`Quote ${result.quoteNumber} generated successfully! Check your email for the quote PDF.`, 'success');
-            
-            // Reset form after success
+            document.getElementById('message-container').innerHTML = `<div class="success">Quote ${result.quoteNumber} created successfully!</div>`;
             form.reset();
             calculateCost();
-            
           } else {
-            showMessage(result.message || 'Failed to generate quote');
+            document.getElementById('message-container').innerHTML = `<div class="error">${result.message || 'Failed to generate quote'}</div>`;
           }
-          
-        } catch (err) {
-          showMessage('Network error. Please try again.');
+        } catch {
+          document.getElementById('message-container').innerHTML = `<div class="error">Network error. Please try again.</div>`;
         } finally {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Request Quote';
+          submit.disabled = false;
+          submit.textContent = 'Request Quote';
         }
       });
     }
