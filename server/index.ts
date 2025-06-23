@@ -13,12 +13,14 @@ const server = createServer(app);
 app.use(session({
   secret: process.env.SESSION_SECRET || 'patientletterhub-secret-key-2025',
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true,
   cookie: {
     secure: false, // Set to true in production with HTTPS
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'lax'
+  },
+  name: 'sessionId'
 }));
 
 app.use(express.json());

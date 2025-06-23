@@ -77,7 +77,7 @@ router.post('/api/auth/login', async (req, res) => {
   }
 });
 
-router.post('/api/auth/logout', requireAuth, async (req, res) => {
+router.post('/api/auth/logout', async (req, res) => {
   req.session.destroy(() => res.json({ success: true }));
 });
 
