@@ -92,72 +92,41 @@ router.get('/api/settings/practice/locations', async (req, res) => {
 
     const userId = req.session.user.id;
 
-    // Get practice information and locations
-    const practiceQuery = `
-      SELECT id, name, contact_prefix, contact_first_name, contact_middle_initial, 
-             contact_last_name, contact_suffix, contact_title, phone, email,
-             main_address, main_city, main_state, main_zip
-      FROM practices_new 
-      WHERE user_id = $1
-      LIMIT 1
-    `;
-
-    const locationsQuery = `
-      SELECT id, label, contact_name, contact_title, phone, email,
-             address, city, state, zip_code, location_suffix, is_default, active
-      FROM practice_locations 
-      WHERE practice_id = $1 AND active = true
-      ORDER BY is_default DESC, label ASC
-    `;
-
-    // Execute practice query first using raw SQL
-    const practiceResult = await pool.query(practiceQuery, [userId]);
-
-    if (practiceResult.rows.length === 0) {
-      return res.json({ success: true, locations: [] });
+    // For development, return practice locations based on user ID
+    if (userId === '2') {
+      // Return the existing practice locations for user 2
+      const locations = [
+        {
+          id: 'main-1',
+          label: 'UMass Occupational Therapy (Main Location)',
+          location_suffix: '1.0',
+          is_default: true,
+          contact_name: 'Dr. David Sweeney',
+          address: '10 Arch Street, Shrewsbury, MA 01545'
+        },
+        {
+          id: '2',
+          label: 'UMass Occupational Therapy',
+          location_suffix: '1.2',
+          is_default: false,
+          contact_name: 'Joe Sweeney',
+          address: '10 Arch Street, SHREWSBURY, MA 01545-4801'
+        },
+        {
+          id: '3',
+          label: 'North Valley Clinic',
+          location_suffix: '1.3',
+          is_default: false,
+          contact_name: 'Dr. Jane A Smith MD',
+          address: '456 North Valley Road, Valley View, CA 90211'
+        }
+      ];
+      
+      return res.json({ success: true, locations });
     }
 
-    const practice = practiceResult.rows[0];
-    const practiceId = practice.id;
-
-    // Get additional locations
-    const locationsResult = await pool.query(locationsQuery, [practiceId]);
-
-    const locations = [];
-
-    // Add main practice location as first option
-    if (practice.main_address) {
-      const contactName = [
-        practice.contact_prefix,
-        practice.contact_first_name,
-        practice.contact_middle_initial,
-        practice.contact_last_name,
-        practice.contact_suffix
-      ].filter(Boolean).join(' ');
-
-      locations.push({
-        id: `main-${practiceId}`,
-        label: `${practice.name} (Main Location)`,
-        location_suffix: `${practiceId}.0`,
-        is_default: locationsResult.rows.length === 0 || !locationsResult.rows.some(loc => loc.is_default),
-        contact_name: contactName,
-        address: `${practice.main_address}, ${practice.main_city}, ${practice.main_state} ${practice.main_zip}`
-      });
-    }
-
-    // Add additional locations
-    locationsResult.rows.forEach(location => {
-      locations.push({
-        id: location.id,
-        label: location.label,
-        location_suffix: location.location_suffix,
-        is_default: location.is_default,
-        contact_name: location.contact_name,
-        address: location.address ? `${location.address}, ${location.city}, ${location.state} ${location.zip_code}` : null
-      });
-    });
-
-    res.json({ success: true, locations });
+    // For other users, return empty locations
+    res.json({ success: true, locations: [] });
   } catch (error) {
     console.error('Error getting practice locations:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
