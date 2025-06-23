@@ -354,9 +354,12 @@
 
           const result = await res.json();
           if (result.success) {
-            document.getElementById('message-container').innerHTML = `<div class="success">Quote ${result.quoteNumber} created successfully!</div>`;
-            form.reset();
-            calculateCost();
+            document.getElementById('message-container').innerHTML = `<div class="success">Quote ${result.quoteNumber} created successfully! Redirecting to dashboard...</div>`;
+            
+            // Redirect to dashboard after a brief delay to show success message
+            setTimeout(() => {
+              window.location.href = '/dashboard.html';
+            }, 1500);
           } else {
             document.getElementById('message-container').innerHTML = `<div class="error">${result.message || 'Failed to generate quote'}</div>`;
           }
