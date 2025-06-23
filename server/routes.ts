@@ -37,9 +37,10 @@ router.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
 
-    // For development/testing, create a test user with consistent ID
+    // For development/testing, use consistent user ID that matches existing practice data
+    const userId = email.includes('admin') ? '1' : '2';
     const testUser = {
-      id: email.includes('admin') ? '1' : '2', // Use ID 2 to match existing practice data
+      id: userId,
       email: email,
       firstName: 'Test',
       lastName: 'User',
@@ -61,7 +62,7 @@ router.post('/api/auth/login', async (req, res) => {
         return res.status(500).json({ success: false, message: 'Session save failed' });
       }
       
-      console.log('Login successful for user:', testUser.email);
+      console.log('Login successful for user:', testUser.email, 'with ID:', testUser.id);
       res.json({ 
         success: true, 
         user: { 
