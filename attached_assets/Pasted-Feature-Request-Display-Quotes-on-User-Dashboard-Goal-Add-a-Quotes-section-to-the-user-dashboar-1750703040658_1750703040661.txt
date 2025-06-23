@@ -1,0 +1,73 @@
+Feature Request: Display Quotes on User Dashboard
+📌 Goal:
+Add a Quotes section to the user dashboard with relevant quote details and actionable buttons — placed below "Recent Mailings" and above "Compliance Alerts".
+
+✅ Functional Requirements:
+Display All Quotes for the Logged-In User
+
+List in reverse chronological order (most recent first)
+
+Show the following columns:
+
+Quote ID (e.g., Q-1003)
+
+Subject
+
+Practice Location (show label with suffix, e.g., “Marlborough Pediatrics (1.1)”)
+
+Template Type
+
+Estimated Recipient Count
+
+Total Estimated Cost (calculated field)
+
+Status (e.g., Quote, Converted)
+
+Action Buttons:
+
+Convert to Order
+
+Only visible if the quote has not already been converted.
+
+Button should call: POST /api/quotes/:id/convert
+
+On success: redirect user to order confirmation page for the newly created order.
+
+Edit
+
+Reopens the quote form with the quote's data prefilled.
+
+Could route to: /quote.html?editId=Q-1003 (you may define this behavior in backend+frontend)
+
+🎯 Placement in Dashboard:
+Insert this section between:
+
+✅ Recent Mailings (Orders)
+
+🚨 Compliance Alerts
+
+Use a heading like:
+<h3 style="margin-top: 2rem; color: #10069F;">Your Recent Quotes</h3>
+
+📦 Prompt to the Agent:
+sql
+Copy
+Edit
+Add a "Quotes" section to the user dashboard (dashboard.html) below Recent Mailings and above Compliance Alerts. For each quote belonging to the logged-in user, display:
+
+- Quote Number
+- Subject
+- Practice Location label (with suffix)
+- Template Type
+- Estimated Recipient Count
+- Estimated Total Cost
+- Convert to Order button (if not already converted)
+- Edit button
+
+Use the existing styles and table structure for consistency with orders. Fetch data from /api/quotes for the logged-in user. Ensure that:
+- Quotes are sorted by most recent
+- "Convert" button calls /api/quotes/:id/convert and redirects to confirmation
+- "Edit" button loads quote.html with prefilled values
+
+Make sure this new section is styled and aligned to fit naturally in the dashboard between recent orders and compliance alerts.
+Let me know if you'd like me to draft the HTML table block or quote-editing logic too.

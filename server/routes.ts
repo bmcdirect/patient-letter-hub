@@ -241,6 +241,89 @@ router.post('/api/settings/practice', async (req, res) => {
   }
 });
 
+// === QUOTES ENDPOINTS ===
+router.get('/api/quotes', async (req, res) => {
+  try {
+    // Check authentication via session
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+
+    const userId = req.session.user.id;
+
+    // For development, return sample quotes for user ID 2
+    if (userId === '2') {
+      const quotes = [
+        {
+          id: 'Q-4350',
+          subject: 'Practice Relocation Notice',
+          practiceLocation: 'UMass Occupational Therapy (1.0)',
+          templateType: 'practice_relocation',
+          estimatedRecipients: 150,
+          totalCost: 127.50,
+          status: 'Quote',
+          createdAt: '2024-06-23T10:30:00Z',
+          convertedOrderId: null
+        },
+        {
+          id: 'Q-7964',
+          subject: 'Provider Departure - Dr. Smith',
+          practiceLocation: 'North Valley Clinic (1.3)',
+          templateType: 'provider_departure',
+          estimatedRecipients: 250,
+          totalCost: 287.50,
+          status: 'Quote',
+          createdAt: '2024-06-22T14:15:00Z',
+          convertedOrderId: null
+        },
+        {
+          id: 'Q-2452',
+          subject: 'HIPAA Breach Notification',
+          practiceLocation: 'UMass Occupational Therapy (1.2)',
+          templateType: 'hipaa_breach',
+          estimatedRecipients: 75,
+          totalCost: 95.25,
+          status: 'Converted',
+          createdAt: '2024-06-21T09:45:00Z',
+          convertedOrderId: 15
+        }
+      ];
+
+      return res.json({ success: true, quotes });
+    }
+
+    // For other users, return empty quotes
+    res.json({ success: true, quotes: [] });
+  } catch (error) {
+    console.error('Error getting quotes:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+router.post('/api/quotes/:id/convert', async (req, res) => {
+  try {
+    // Check authentication via session
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+
+    const quoteId = req.params.id;
+    console.log('Converting quote to order:', quoteId);
+
+    // For development, simulate order creation
+    const orderId = Math.floor(Math.random() * 1000) + 100;
+    
+    res.json({ 
+      success: true, 
+      orderId: orderId,
+      message: 'Quote converted to order successfully'
+    });
+  } catch (error) {
+    console.error('Error converting quote:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // === QUOTE CREATION ===
 router.post('/api/quotes', async (req, res) => {
   try {

@@ -158,6 +158,27 @@
     </div>
 
     <div class="section">
+      <h3 style="margin-top: 2rem; color: #10069F;">Your Recent Quotes</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Quote ID</th>
+            <th>Subject</th>
+            <th>Practice Location</th>
+            <th>Template Type</th>
+            <th>Recipients</th>
+            <th>Total Cost</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="quotes-table">
+          <tr><td colspan="8">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
       <h2>Compliance Alerts</h2>
       <p>No active alerts.</p>
     </div>
@@ -220,11 +241,89 @@
       }
     }
 
+    async function loadQuotes() {
+      try {
+        const res = await fetch("/api/quotes");
+        const data = await res.json();
+        const table = document.getElementById("quotes-table");
+        table.innerHTML = "";
+
+        if (!data.success || !Array.isArray(data.quotes) || data.quotes.length === 0) {
+          table.innerHTML = '<tr><td colspan="8">No quotes found.</td></tr>';
+          return;
+        }
+
+        for (const quote of data.quotes) {
+          const row = document.createElement("tr");
+          const isConverted = quote.status === 'Converted';
+          
+          row.innerHTML = `
+            <td>${quote.id}</td>
+            <td>${quote.subject}</td>
+            <td>${quote.practiceLocation}</td>
+            <td>${formatTemplateType(quote.templateType)}</td>
+            <td>${quote.estimatedRecipients}</td>
+            <td>$${quote.totalCost.toFixed(2)}</td>
+            <td>
+              <span class="${isConverted ? 'status-converted' : 'status-quote'}">${quote.status}</span>
+            </td>
+            <td>
+              ${!isConverted ? `<button class="action-button" onclick="convertQuote('${quote.id}')">Convert to Order</button>` : ''}
+              <button class="action-button" onclick="editQuote('${quote.id}')">Edit</button>
+            </td>
+          `;
+          table.appendChild(row);
+        }
+      } catch (err) {
+        console.error("Failed to load quotes", err);
+        const table = document.getElementById("quotes-table");
+        table.innerHTML = '<tr><td colspan="8">Error loading quotes.</td></tr>';
+      }
+    }
+
+    function formatTemplateType(type) {
+      const types = {
+        'practice_relocation': 'Practice Relocation',
+        'provider_departure': 'Provider Departure',
+        'practice_closing': 'Practice Closing',
+        'hipaa_breach': 'HIPAA Breach',
+        'custom': 'Custom Letter'
+      };
+      return types[type] || type;
+    }
+
+    async function convertQuote(quoteId) {
+      try {
+        const res = await fetch(`/api/quotes/${quoteId}/convert`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await res.json();
+        if (result.success) {
+          alert(`Quote ${quoteId} converted to order successfully!`);
+          window.location.href = `/confirmation.html?jobId=${result.orderId}`;
+        } else {
+          alert('Failed to convert quote: ' + (result.message || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('Error converting quote:', err);
+        alert('Error converting quote. Please try again.');
+      }
+    }
+
+    function editQuote(quoteId) {
+      window.location.href = `/quote.html?editId=${quoteId}`;
+    }
+
     function duplicateJob(jobId) {
       alert("TODO: Duplicate job " + jobId);
     }
 
-    document.addEventListener("DOMContentLoaded", loadDashboardData);
+    document.addEventListener("DOMContentLoaded", () => {
+      loadDashboardData();
+      loadQuotes();
+    });
   </script>
 
 </body>
