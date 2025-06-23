@@ -144,6 +144,7 @@ Changelog:
 - June 23, 2025. First Class Postage option added - implemented checkbox for "Include First Class Postage ($0.68 per recipient)" in quote form, updated cost calculation to add $0.68 per recipient when selected, enhanced cost breakdown to show postage line item only when checked, integrated postage calculation in both frontend and backend processing with proper form submission handling
 - June 23, 2025. Quote submission redirect implemented - updated quote form to automatically redirect users to dashboard after successful quote creation, added 1.5 second delay with success message display before redirect to provide user feedback and smooth transition back to main dashboard interface
 - June 23, 2025. Additional services layout improved - fixed checkbox alignment in quote form using flexbox layout with proper service-option styling, enhanced visual consistency for Data Cleansing, NCOA Update, and First Class Postage options with consistent spacing and cursor interaction
+- June 23, 2025. Practice settings API endpoints fixed - implemented missing GET and POST /api/settings/practice endpoints to resolve JSON error on settings page, added proper practice data structure with contact information and location details, enabled settings page functionality for practice and location management
 ```
 
 ## User Preferences

@@ -133,6 +133,114 @@ router.get('/api/settings/practice/locations', async (req, res) => {
   }
 });
 
+// === PRACTICE SETTINGS ===
+router.get('/api/settings/practice', async (req, res) => {
+  try {
+    // Check authentication via session
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+
+    const userId = req.session.user.id;
+
+    // For development, return practice data for user ID 2
+    if (userId === '2') {
+      const practice = {
+        id: 1,
+        name: 'UMass Occupational Therapy',
+        contact_prefix: 'Dr.',
+        contact_first_name: 'David',
+        contact_middle_initial: '',
+        contact_last_name: 'Sweeney',
+        contact_suffix: '',
+        contact_title: 'Practice Director',
+        phone: '(508) 555-0123',
+        email: 'dsweeney@umass.edu',
+        main_address: '10 Arch Street',
+        main_city: 'Shrewsbury',
+        main_state: 'MA',
+        main_zip: '01545',
+        mailing_address: '10 Arch Street',
+        mailing_city: 'Shrewsbury',
+        mailing_state: 'MA',
+        mailing_zip: '01545',
+        emr_id: 'UMASS-OT-001',
+        operating_hours: 'Mon-Fri 8AM-5PM'
+      };
+
+      const locations = [
+        {
+          id: 2,
+          label: 'UMass Occupational Therapy',
+          location_suffix: '1.2',
+          contact_name: 'Joe Sweeney',
+          contact_title: 'Location Manager',
+          phone: '(508) 555-0124',
+          email: 'jsweeney@umass.edu',
+          address: '10 Arch Street',
+          city: 'SHREWSBURY',
+          state: 'MA',
+          zip_code: '01545-4801',
+          is_default: false,
+          active: true
+        },
+        {
+          id: 3,
+          label: 'North Valley Clinic',
+          location_suffix: '1.3',
+          contact_name: 'Dr. Jane A Smith MD',
+          contact_title: 'Medical Director',
+          phone: '(818) 555-0125',
+          email: 'jsmith@northvalley.com',
+          address: '456 North Valley Road',
+          city: 'Valley View',
+          state: 'CA',
+          zip_code: '90211',
+          is_default: false,
+          active: true
+        }
+      ];
+
+      return res.json({ 
+        success: true, 
+        practice: practice,
+        locations: locations 
+      });
+    }
+
+    // For other users, return empty data
+    res.json({ 
+      success: true, 
+      practice: null,
+      locations: [] 
+    });
+  } catch (error) {
+    console.error('Error getting practice data:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+router.post('/api/settings/practice', async (req, res) => {
+  try {
+    // Check authentication via session
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+
+    const practiceData = req.body;
+    console.log('Practice data update:', practiceData);
+    
+    // For development, just return success
+    res.json({ 
+      success: true, 
+      message: 'Practice information saved successfully' 
+    });
+  } catch (error) {
+    console.error('Error saving practice data:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // === QUOTE CREATION ===
 router.post('/api/quotes', async (req, res) => {
   try {
