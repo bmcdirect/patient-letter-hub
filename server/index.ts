@@ -1,10 +1,13 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import path from "path";
+import { createServer } from "http";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import "./types"; // Import session type definitions
 
 const app = express();
+const server = createServer(app);
 
 // Configure session middleware FIRST
 app.use(session({
@@ -78,7 +81,7 @@ app.use((req, res, next) => {
     app.use(express.static('public', staticOptions));
     app.use(express.static(path.resolve('server/public'), staticOptions));
     
-    const server = await registerRoutes(app);
+    registerRoutes(app);
     console.log("Routes registered successfully");
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
