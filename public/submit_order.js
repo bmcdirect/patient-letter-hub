@@ -1,15 +1,15 @@
 document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("orderForm");
 
-  // If template type is provided in the URL, pre-fill the dropdown
-  const params = new URLSearchParams(window.location.search);
-  const templateFromUrl = params.get("template");
-  if (templateFromUrl) {
-    const templateSelect = document.querySelector('[name="template"]');
-    if (templateSelect) {
-      templateSelect.value = templateFromUrl;
-    }
-  }
+  // Template feature temporarily disabled
+  // const params = new URLSearchParams(window.location.search);
+  // const templateFromUrl = params.get("template");
+  // if (templateFromUrl) {
+  //   const templateSelect = document.querySelector('[name="template"]');
+  //   if (templateSelect) {
+  //     templateSelect.value = templateFromUrl;
+  //   }
+  // }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();

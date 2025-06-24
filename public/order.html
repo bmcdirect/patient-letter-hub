@@ -22,6 +22,10 @@
     textarea { height: 150px; }
     .file-info { font-size: 0.9rem; color: #666; margin-top: 0.2rem; }
     .section { margin-bottom: 2rem; background: #FFF; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem; }
+    .full-width-upload { margin-bottom: 2rem; text-align: center; }
+    .full-width-upload input { max-width: 400px; margin: 0 auto; }
+    @media (max-width: 768px) { .upload-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -212,6 +216,8 @@
 
   <form id="orderForm" enctype="multipart/form-data">
 
+    <!-- Template feature temporarily disabled -->
+    <!--
     <div class="section">
       <label for="template">Choose a Template (optional)</label>
       <select id="template" name="template">
@@ -223,16 +229,47 @@
       <label for="letterBody">Letter Body</label>
       <textarea id="letterBody" name="letterBody" placeholder="Type or paste your letter here..."></textarea>
     </div>
+    -->
 
     <div class="section">
-      <label for="logo">Practice Logo (optional)</label>
-      <input type="file" id="logo" name="logo" accept="image/*">
+      <label for="letterBody">Letter Body</label>
+      <textarea id="letterBody" name="letterBody" placeholder="Type or paste your letter here..."></textarea>
+    </div>
 
-      <label for="signature">Doctor's Signature</label>
-      <input type="file" id="signature" name="signature" accept="image/*">
+    <div class="section">
+      <h3>Upload Documents</h3>
+      
+      <!-- Full Width Upload -->
+      <div class="full-width-upload">
+        <label for="letterDocument">Upload Letter Document (Word Doc or PDF)</label>
+        <input type="file" id="letterDocument" name="letterDocument" accept=".doc,.docx,.pdf">
+        <div class="file-info">Accepts .doc, .docx, .pdf files</div>
+      </div>
 
-      <label for="extraPages">Additional Pages (PDF)</label>
-      <input type="file" id="extraPages" name="extraPages" accept="application/pdf">
+      <!-- Two Column Layout -->
+      <div class="upload-grid">
+        <div>
+          <label for="letterhead">Practice Letterhead</label>
+          <input type="file" id="letterhead" name="letterhead" accept="image/*,.pdf">
+          
+          <label for="logo">Practice Logo</label>
+          <input type="file" id="logo" name="logo" accept="image/*">
+          
+          <label for="envelopeArt">Practice Envelope Artwork</label>
+          <input type="file" id="envelopeArt" name="envelopeArt" accept="image/*,.pdf">
+        </div>
+        
+        <div>
+          <label for="signature">Letter Signature</label>
+          <input type="file" id="signature" name="signature" accept="image/*">
+          
+          <label for="enclosures">Additional Enclosures (Word or PDF)</label>
+          <input type="file" id="enclosures" name="enclosures" accept=".doc,.docx,.pdf" multiple>
+          
+          <label for="zipFile">Zip File for All</label>
+          <input type="file" id="zipFile" name="zipFile" accept=".zip">
+        </div>
+      </div>
     </div>
 
     <div class="section">

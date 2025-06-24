@@ -148,6 +148,7 @@ Changelog:
 - June 23, 2025. Quotes section added to dashboard - implemented quotes display between Recent Mailings and Compliance Alerts sections, added GET /api/quotes endpoint with sample quote data, created quote conversion functionality with POST /api/quotes/:id/convert endpoint, integrated Convert to Order and Edit buttons with proper status indicators for Quote vs Converted states
 - June 23, 2025. Confirmation page API error fixed - implemented missing GET /api/orders/:id endpoint with proper JSON responses and 404 handling, enhanced confirmation page error handling with robust fetch error checking, added proper error states and user-friendly messages for missing orders, authentication errors, and server issues
 - June 23, 2025. Quote-to-order conversion workflow fixed - resolved data mismatch issue by mapping specific quote IDs to consistent order IDs (Q-4350→188, Q-7964→9999, Q-2452→15), updated order sample data to match quote details, ensured confirmation page displays proper converted order information with matching subjects and costs
+- June 23, 2025. Order form layout redesigned with template feature disabled - commented out template selection section and Quick Actions from dashboard, redesigned upload section with full-width Letter Document upload at top, implemented two-column responsive layout for remaining uploads (Practice Letterhead/Logo/Envelope Artwork vs Letter Signature/Enclosures/Zip File), added proper responsive grid that stacks on mobile devices
 ```
 
 ## User Preferences
