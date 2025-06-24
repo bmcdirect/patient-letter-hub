@@ -100,6 +100,10 @@ app.use((req, res, next) => {
       }
     });
     
+    // Add body parsing middleware
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: true }));
+    
     // Add multer middleware to routes that need file upload
     app.use('/api/orders', upload.any());
     

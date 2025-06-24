@@ -447,12 +447,16 @@ router.post('/api/orders', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Subject line is required' });
     }
     
-    // Check for required files
-    if (!req.files || !req.files.letterDocument) {
+    // Check for required files (req.files is an array when using upload.any())
+    const files = req.files as Express.Multer.File[] || [];
+    const letterDoc = files.find(f => f.fieldname === 'letterDocument');
+    const recipientsFile = files.find(f => f.fieldname === 'recipients');
+    
+    if (!letterDoc) {
       return res.status(400).json({ success: false, message: 'Letter document is required' });
     }
     
-    if (!req.files.recipients) {
+    if (!recipientsFile) {
       return res.status(400).json({ success: false, message: 'Recipient list is required' });
     }
 
@@ -474,7 +478,7 @@ router.post('/api/orders', async (req, res) => {
       colorMode,
       estimatedRecipients,
       totalCost: totalCost.toFixed(2),
-      files: Object.keys(req.files || {})
+      files: files.map(f => f.fieldname)
     });
 
     res.json({ 
