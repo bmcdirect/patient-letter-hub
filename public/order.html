@@ -29,6 +29,10 @@
     .upload-item { margin-bottom: 1.5rem; }
     .upload-item:last-child { margin-bottom: 0; }
     .upload-placeholder { font-size: 0.8rem; color: #999; margin-top: 0.3rem; font-style: italic; }
+    .services-grid { display: flex; flex-direction: column; gap: 0.8rem; margin-top: 1rem; }
+    .service-option { display: flex; align-items: center; gap: 0.5rem; }
+    .service-option input[type="checkbox"] { margin: 0; width: auto; }
+    .service-option label { margin: 0; font-weight: normal; cursor: pointer; }
     @media (max-width: 768px) { .upload-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -220,107 +224,191 @@
 
   <form id="orderForm" enctype="multipart/form-data">
 
-    <!-- Template feature temporarily disabled -->
-    <!--
+    <!-- A. Subject Line -->
     <div class="section">
-      <label for="template">Choose a Template (optional)</label>
-      <select id="template" name="template">
-        <option value="">-- Select --</option>
-        <option value="doctor_departure">Doctor Departure</option>
-        <option value="office_relocation">Office Relocation</option>
-      </select>
-
-      <label for="letterBody">Letter Body</label>
-      <textarea id="letterBody" name="letterBody" placeholder="Type or paste your letter here..."></textarea>
-    </div>
-    -->
-
-    <div class="section">
-      <label for="letterBody">Letter Body</label>
-      <textarea id="letterBody" name="letterBody" placeholder="Type or paste your letter here..."></textarea>
+      <label for="subject">Subject Line *</label>
+      <input type="text" id="subject" name="subject" placeholder="Enter the subject for your letter" required>
     </div>
 
+    <!-- B. Upload Letter Document -->
     <div class="section">
-      <h3>Upload Documents</h3>
+      <h3>📄 Upload Letter Document</h3>
       
-      <!-- Full Width Upload -->
       <div class="full-width-upload">
-        <label for="letterDocument">📄 Upload Letter Document (Word Doc or PDF)</label>
-        <input type="file" id="letterDocument" name="letterDocument" accept=".doc,.docx,.pdf">
+        <label for="letterDocument">Upload Letter Document (Word Doc or PDF) *</label>
+        <input type="file" id="letterDocument" name="letterDocument" accept=".doc,.docx,.pdf" required>
         <div class="file-info">Accepts .DOC, .DOCX, .PDF files</div>
         <div class="upload-placeholder">Main letter content with your message to patients</div>
       </div>
-
-      <!-- Two Column Layout -->
-      <div class="upload-grid">
-        <div class="upload-column">
-          <div class="upload-item">
-            <label for="letterhead">Practice Letterhead</label>
-            <input type="file" id="letterhead" name="letterhead" accept="image/*,.pdf">
-            <div class="file-info">Accepts .PNG, .JPG, .PDF</div>
-            <div class="upload-placeholder">Official practice header with contact info</div>
-          </div>
-          
-          <div class="upload-item">
-            <label for="logo">Practice Logo</label>
-            <input type="file" id="logo" name="logo" accept="image/*">
-            <div class="file-info">Accepts .PNG, .JPG, .SVG</div>
-            <div class="upload-placeholder">Practice logo for branding</div>
-          </div>
-          
-          <div class="upload-item">
-            <label for="envelopeArt">Practice Envelope Artwork</label>
-            <input type="file" id="envelopeArt" name="envelopeArt" accept="image/*,.pdf">
-            <div class="file-info">Accepts .PNG, .JPG, .PDF</div>
-            <div class="upload-placeholder">Custom envelope design or return address</div>
-          </div>
-        </div>
-        
-        <div class="upload-column">
-          <div class="upload-item">
-            <label for="signature">Letter Signature</label>
-            <input type="file" id="signature" name="signature" accept="image/*">
-            <div class="file-info">Accepts .PNG, .JPG</div>
-            <div class="upload-placeholder">Doctor or practice manager signature</div>
-          </div>
-          
-          <div class="upload-item">
-            <label for="enclosures">Additional Enclosures (Word or PDF)</label>
-            <input type="file" id="enclosures" name="enclosures" accept=".doc,.docx,.pdf" multiple>
-            <div class="file-info">Accepts .DOC, .DOCX, .PDF (multiple files)</div>
-            <div class="upload-placeholder">Additional documents to include with letter</div>
-          </div>
-          
-          <div class="upload-item">
-            <label for="zipFile">Zip File for All</label>
-            <input type="file" id="zipFile" name="zipFile" accept=".zip">
-            <div class="file-info">Accepts .ZIP files</div>
-            <div class="upload-placeholder">All documents bundled in one zip file</div>
-          </div>
-        </div>
-      </div>
     </div>
 
+    <!-- C. Recipient Mailing List -->
     <div class="section">
-      <label for="colorMode">Letter Color</label>
-      <select id="colorMode" name="colorMode">
-        <option value="bw">Black & White</option>
-        <option value="color">Color</option>
-      </select>
-    </div>
-
-    <div class="section">
-      <label for="recipients">Recipient List (CSV)</label>
-      <input type="file" id="recipients" name="recipients" accept=".csv">
+      <label for="recipients">Recipient Mailing List (CSV or Excel) *</label>
+      <input type="file" id="recipients" name="recipients" accept=".csv,.xlsx,.xls" required>
+      <div class="file-info">Accepts .CSV, .XLSX, .XLS files</div>
       <div class="file-info">Must include: FirstName, LastName, AddressLine1, City, State, Zip</div>
       <a href="/sample/recipients.csv" download>Download Sample CSV</a>
     </div>
 
+    <!-- D. Letter Color -->
     <div class="section">
-      <button type="submit">Generate Proof</button>
+      <label for="colorMode">Letter Color</label>
+      <select id="colorMode" name="colorMode">
+        <option value="bw">Black & White ($0.50 per letter)</option>
+        <option value="color">Color ($0.65 per letter)</option>
+      </select>
+    </div>
+
+    <!-- E. Additional Services -->
+    <div class="section">
+      <h3>Additional Services</h3>
+      <div class="services-grid">
+        <div class="service-option">
+          <input type="checkbox" id="dataCleansing" name="dataCleansing" value="true">
+          <label for="dataCleansing">Data Cleansing & De-Duplication ($25)</label>
+        </div>
+        
+        <div class="service-option">
+          <input type="checkbox" id="ncoaUpdate" name="ncoaUpdate" value="true">
+          <label for="ncoaUpdate">NCOA Move Update ($50)</label>
+        </div>
+        
+        <div class="service-option">
+          <input type="checkbox" id="firstClassPostage" name="firstClassPostage" value="true">
+          <label for="firstClassPostage">Include First Class Postage ($0.68 per recipient)</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cost Preview -->
+    <div class="section">
+      <div id="cost-preview" style="background: #f8f9fa; padding: 1rem; border-radius: 4px; border-left: 4px solid #0066cc;">
+        <h4 style="margin: 0 0 0.5rem 0; color: #0066cc;">Estimated Cost</h4>
+        <div id="cost-display">Upload recipient list to calculate estimate</div>
+        <div id="cost-breakdown" style="display: none;">
+          <ul id="breakdown-details" style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #666;"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Optional uploads moved to expandable section -->
+    <div class="section">
+      <details>
+        <summary style="cursor: pointer; font-weight: bold; padding: 0.5rem 0;">Optional: Additional Documents & Branding</summary>
+        <div class="upload-grid" style="margin-top: 1rem;">
+          <div class="upload-column">
+            <div class="upload-item">
+              <label for="letterhead">Practice Letterhead</label>
+              <input type="file" id="letterhead" name="letterhead" accept="image/*,.pdf">
+              <div class="file-info">Accepts .PNG, .JPG, .PDF</div>
+              <div class="upload-placeholder">Official practice header with contact info</div>
+            </div>
+            
+            <div class="upload-item">
+              <label for="logo">Practice Logo</label>
+              <input type="file" id="logo" name="logo" accept="image/*">
+              <div class="file-info">Accepts .PNG, .JPG, .SVG</div>
+              <div class="upload-placeholder">Practice logo for branding</div>
+            </div>
+            
+            <div class="upload-item">
+              <label for="envelopeArt">Practice Envelope Artwork</label>
+              <input type="file" id="envelopeArt" name="envelopeArt" accept="image/*,.pdf">
+              <div class="file-info">Accepts .PNG, .JPG, .PDF</div>
+              <div class="upload-placeholder">Custom envelope design or return address</div>
+            </div>
+          </div>
+          
+          <div class="upload-column">
+            <div class="upload-item">
+              <label for="signature">Letter Signature</label>
+              <input type="file" id="signature" name="signature" accept="image/*">
+              <div class="file-info">Accepts .PNG, .JPG</div>
+              <div class="upload-placeholder">Doctor or practice manager signature</div>
+            </div>
+            
+            <div class="upload-item">
+              <label for="enclosures">Additional Enclosures (Word or PDF)</label>
+              <input type="file" id="enclosures" name="enclosures" accept=".doc,.docx,.pdf" multiple>
+              <div class="file-info">Accepts .DOC, .DOCX, .PDF (multiple files)</div>
+              <div class="upload-placeholder">Additional documents to include with letter</div>
+            </div>
+            
+            <div class="upload-item">
+              <label for="zipFile">Zip File for All</label>
+              <input type="file" id="zipFile" name="zipFile" accept=".zip">
+              <div class="file-info">Accepts .ZIP files</div>
+              <div class="upload-placeholder">All documents bundled in one zip file</div>
+            </div>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="section">
+      <button type="submit" id="submitBtn">Generate Proof</button>
     </div>
   </form>
 
+  <script>
+    // Cost calculation functionality
+    function calculateCost() {
+      const recipientsFile = document.getElementById('recipients').files[0];
+      if (!recipientsFile) {
+        document.getElementById('cost-display').textContent = 'Upload recipient list to calculate estimate';
+        document.getElementById('cost-breakdown').style.display = 'none';
+        return;
+      }
+
+      // Estimate recipient count (placeholder - would parse CSV in real implementation)
+      const estimatedRecipients = 100;
+      
+      const colorMode = document.getElementById('colorMode').value;
+      const dataCleansing = document.getElementById('dataCleansing').checked;
+      const ncoaUpdate = document.getElementById('ncoaUpdate').checked;
+      const firstClassPostage = document.getElementById('firstClassPostage').checked;
+      
+      const baseRate = colorMode === 'color' ? 0.65 : 0.50;
+      let totalCost = estimatedRecipients * baseRate;
+      
+      if (dataCleansing) totalCost += 25;
+      if (ncoaUpdate) totalCost += 50;
+      if (firstClassPostage) totalCost += estimatedRecipients * 0.68;
+      
+      document.getElementById('cost-display').innerHTML = `<strong>Total Estimated Cost: $${totalCost.toFixed(2)}</strong>`;
+      
+      let breakdownHTML = `
+        <li>Base cost: $${baseRate.toFixed(2)} per letter</li>
+        <li>Total recipients: ${estimatedRecipients}</li>
+        <li>Letter cost subtotal: $${(estimatedRecipients * baseRate).toFixed(2)}</li>
+      `;
+      
+      if (firstClassPostage) {
+        breakdownHTML += `<li>First Class Postage: $0.68 × ${estimatedRecipients} = $${(estimatedRecipients * 0.68).toFixed(2)}</li>`;
+      }
+      
+      if (dataCleansing) {
+        breakdownHTML += `<li>Data Cleansing & De-Duplication: $25.00</li>`;
+      }
+      
+      if (ncoaUpdate) {
+        breakdownHTML += `<li>NCOA Move Update: $50.00</li>`;
+      }
+      
+      document.getElementById('breakdown-details').innerHTML = breakdownHTML;
+      document.getElementById('cost-breakdown').style.display = 'block';
+    }
+
+    // Setup cost calculation listeners
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('recipients').addEventListener('change', calculateCost);
+      document.getElementById('colorMode').addEventListener('change', calculateCost);
+      document.getElementById('dataCleansing').addEventListener('change', calculateCost);
+      document.getElementById('ncoaUpdate').addEventListener('change', calculateCost);
+      document.getElementById('firstClassPostage').addEventListener('change', calculateCost);
+    });
+  </script>
   <script src="/submit_order.js"></script>
 </body>
 </html>

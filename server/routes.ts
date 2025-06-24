@@ -429,6 +429,65 @@ router.post('/api/quotes', async (req, res) => {
   }
 });
 
+// === ORDER SUBMISSION ENDPOINT ===
+router.post('/api/orders', async (req, res) => {
+  try {
+    // Check authentication via session
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+
+    const userId = req.session.user.id;
+    
+    // Extract form data
+    const { subject, colorMode, dataCleansing, ncoaUpdate, firstClassPostage } = req.body;
+    
+    // Validate required fields
+    if (!subject) {
+      return res.status(400).json({ success: false, message: 'Subject line is required' });
+    }
+    
+    // Check for required files
+    if (!req.files || !req.files.letterDocument) {
+      return res.status(400).json({ success: false, message: 'Letter document is required' });
+    }
+    
+    if (!req.files.recipients) {
+      return res.status(400).json({ success: false, message: 'Recipient list is required' });
+    }
+
+    // Generate order ID and create order
+    const orderId = Math.floor(Math.random() * 10000) + 1000;
+    
+    // Calculate estimated costs (placeholder logic)
+    const estimatedRecipients = 100; // Would parse CSV in real implementation
+    const baseRate = colorMode === 'color' ? 0.65 : 0.50;
+    let totalCost = estimatedRecipients * baseRate;
+    
+    if (dataCleansing === 'true') totalCost += 25;
+    if (ncoaUpdate === 'true') totalCost += 50;
+    if (firstClassPostage === 'true') totalCost += estimatedRecipients * 0.68;
+
+    console.log('Order created:', {
+      orderId,
+      subject,
+      colorMode,
+      estimatedRecipients,
+      totalCost: totalCost.toFixed(2),
+      files: Object.keys(req.files || {})
+    });
+
+    res.json({ 
+      success: true, 
+      orderId: orderId,
+      message: 'Order submitted successfully'
+    });
+  } catch (error) {
+    console.error('Error creating order:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // === ORDER DETAILS ENDPOINT ===
 router.get('/api/orders/:id', async (req, res) => {
   try {
