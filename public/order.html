@@ -23,8 +23,12 @@
     .file-info { font-size: 0.9rem; color: #666; margin-top: 0.2rem; }
     .section { margin-bottom: 2rem; background: #FFF; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem; }
-    .full-width-upload { margin-bottom: 2rem; text-align: center; }
+    .full-width-upload { margin-bottom: 2rem; text-align: center; background: #f8f9fa; padding: 2rem; border-radius: 8px; border: 2px dashed #dee2e6; }
     .full-width-upload input { max-width: 400px; margin: 0 auto; }
+    .upload-column { background: #f8f9fa; padding: 1.5rem; border-radius: 8px; border: 1px solid #dee2e6; }
+    .upload-item { margin-bottom: 1.5rem; }
+    .upload-item:last-child { margin-bottom: 0; }
+    .upload-placeholder { font-size: 0.8rem; color: #999; margin-top: 0.3rem; font-style: italic; }
     @media (max-width: 768px) { .upload-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -241,33 +245,58 @@
       
       <!-- Full Width Upload -->
       <div class="full-width-upload">
-        <label for="letterDocument">Upload Letter Document (Word Doc or PDF)</label>
+        <label for="letterDocument">📄 Upload Letter Document (Word Doc or PDF)</label>
         <input type="file" id="letterDocument" name="letterDocument" accept=".doc,.docx,.pdf">
-        <div class="file-info">Accepts .doc, .docx, .pdf files</div>
+        <div class="file-info">Accepts .DOC, .DOCX, .PDF files</div>
+        <div class="upload-placeholder">Main letter content with your message to patients</div>
       </div>
 
       <!-- Two Column Layout -->
       <div class="upload-grid">
-        <div>
-          <label for="letterhead">Practice Letterhead</label>
-          <input type="file" id="letterhead" name="letterhead" accept="image/*,.pdf">
+        <div class="upload-column">
+          <div class="upload-item">
+            <label for="letterhead">Practice Letterhead</label>
+            <input type="file" id="letterhead" name="letterhead" accept="image/*,.pdf">
+            <div class="file-info">Accepts .PNG, .JPG, .PDF</div>
+            <div class="upload-placeholder">Official practice header with contact info</div>
+          </div>
           
-          <label for="logo">Practice Logo</label>
-          <input type="file" id="logo" name="logo" accept="image/*">
+          <div class="upload-item">
+            <label for="logo">Practice Logo</label>
+            <input type="file" id="logo" name="logo" accept="image/*">
+            <div class="file-info">Accepts .PNG, .JPG, .SVG</div>
+            <div class="upload-placeholder">Practice logo for branding</div>
+          </div>
           
-          <label for="envelopeArt">Practice Envelope Artwork</label>
-          <input type="file" id="envelopeArt" name="envelopeArt" accept="image/*,.pdf">
+          <div class="upload-item">
+            <label for="envelopeArt">Practice Envelope Artwork</label>
+            <input type="file" id="envelopeArt" name="envelopeArt" accept="image/*,.pdf">
+            <div class="file-info">Accepts .PNG, .JPG, .PDF</div>
+            <div class="upload-placeholder">Custom envelope design or return address</div>
+          </div>
         </div>
         
-        <div>
-          <label for="signature">Letter Signature</label>
-          <input type="file" id="signature" name="signature" accept="image/*">
+        <div class="upload-column">
+          <div class="upload-item">
+            <label for="signature">Letter Signature</label>
+            <input type="file" id="signature" name="signature" accept="image/*">
+            <div class="file-info">Accepts .PNG, .JPG</div>
+            <div class="upload-placeholder">Doctor or practice manager signature</div>
+          </div>
           
-          <label for="enclosures">Additional Enclosures (Word or PDF)</label>
-          <input type="file" id="enclosures" name="enclosures" accept=".doc,.docx,.pdf" multiple>
+          <div class="upload-item">
+            <label for="enclosures">Additional Enclosures (Word or PDF)</label>
+            <input type="file" id="enclosures" name="enclosures" accept=".doc,.docx,.pdf" multiple>
+            <div class="file-info">Accepts .DOC, .DOCX, .PDF (multiple files)</div>
+            <div class="upload-placeholder">Additional documents to include with letter</div>
+          </div>
           
-          <label for="zipFile">Zip File for All</label>
-          <input type="file" id="zipFile" name="zipFile" accept=".zip">
+          <div class="upload-item">
+            <label for="zipFile">Zip File for All</label>
+            <input type="file" id="zipFile" name="zipFile" accept=".zip">
+            <div class="file-info">Accepts .ZIP files</div>
+            <div class="upload-placeholder">All documents bundled in one zip file</div>
+          </div>
         </div>
       </div>
     </div>
