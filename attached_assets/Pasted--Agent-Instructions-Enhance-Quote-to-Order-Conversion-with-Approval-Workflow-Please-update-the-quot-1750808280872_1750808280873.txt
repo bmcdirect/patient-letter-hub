@@ -1,0 +1,76 @@
+ Agent Instructions: Enhance Quote-to-Order Conversion with Approval Workflow
+Please update the quote-to-order flow and user dashboard to support post-conversion approval and invoicing:
+
+✅ 1. Add “Download Proofs” and “Approve Order” Buttons (Dashboard)
+In the dashboard Recent Mailings section:
+
+If an order is in "Pending Approval" status:
+
+Show Download Proofs button (linked to /api/orders/:id/proof)
+
+Show Approve Order button (triggers popup — see below)
+
+✅ 2. Approval Popup Modal
+When the user clicks Approve Order, show a modal overlay with:
+
+a. Final Cost Summary
+Display a breakdown based on original quote data:
+
+Number of recipients × per-letter cost (B&W or Color)
+
+Add-ons:
+
+Data Cleansing ($25)
+
+NCOA ($50)
+
+First Class Postage ($0.68 × recipients)
+
+Example:
+Estimated Total: $812.50
+(This is the final amount billed; no further approval is needed.)
+
+b. Legal Terms Section
+Include the following placeholder terms:
+
+PatientLetterHub Mailing Authorization
+By checking the box below, you agree to the terms of this mailing:
+
+You have reviewed and approved all uploaded materials.
+
+You authorize MASS Communications to print and mail this job as submitted.
+
+You agree to be billed according to the terms below.
+
+MASS Communications is not responsible for address data accuracy unless data cleansing/NCOA was purchased.
+
+✅ “I agree to the above terms and authorize MASS Communications to fulfill this order.”
+
+✅ 3. Approval Action (POST)
+When the user checks the agreement box and clicks Confirm, send a POST /api/orders/:id/approve request.
+
+This endpoint should:
+
+Set the order status = 'In Process'
+
+Generate a simple invoice record:
+
+Copy total from quote
+
+Create invoice number (e.g., INV-XXXX)
+
+Add 30-day due date (NET 30)
+
+Store in invoices table (if exists), or append to order object for now
+
+Redirect user to /confirmation.html?jobId={orderId} or update dashboard status inline
+
+✅ 4. Update Order Status on Dashboard
+Once approved:
+
+Replace “Approve Order” and “Download Proofs” buttons with:
+
+Status: In Process
+
+Optionally: View Invoice button (PDF or HTML)
+

@@ -492,6 +492,59 @@ router.post('/api/orders', async (req, res) => {
   }
 });
 
+// === ORDER APPROVAL ENDPOINT ===
+router.post('/api/orders/:id/approve', async (req, res) => {
+  try {
+    // Check authentication via session
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+
+    const orderId = req.params.id;
+    
+    // Generate invoice number and set approval details
+    const invoiceNumber = `INV-${Math.floor(Math.random() * 9000) + 1000}`;
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 30); // NET 30
+    
+    console.log('Order approved:', {
+      orderId,
+      invoiceNumber,
+      status: 'In Process',
+      approvedAt: new Date().toISOString(),
+      dueDate: dueDate.toISOString()
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Order approved and moved to production',
+      invoiceNumber,
+      redirectUrl: `/confirmation.html?jobId=${orderId}`
+    });
+  } catch (error) {
+    console.error('Error approving order:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// === ORDER PROOF ENDPOINT ===
+router.get('/api/orders/:id/proof', async (req, res) => {
+  try {
+    // Check authentication via session
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+
+    const orderId = req.params.id;
+    
+    // For now, redirect to existing PDF endpoint
+    res.redirect(`/api/orders/${orderId}/pdf`);
+  } catch (error) {
+    console.error('Error generating proof:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // === ORDER DETAILS ENDPOINT ===
 router.get('/api/orders/:id', async (req, res) => {
   try {
@@ -502,7 +555,7 @@ router.get('/api/orders/:id', async (req, res) => {
 
     const orderId = req.params.id;
     
-    // For development, return sample order data for valid IDs
+    // For development, return sample order data for valid IDs with approval workflow support
     const sampleOrders = {
       '15': {
         jobId: 15,
@@ -511,25 +564,37 @@ router.get('/api/orders/:id', async (req, res) => {
         createdAt: '2024-06-21T09:45:00Z',
         recipientCount: 75,
         cost: 95.25,
-        practiceLocation: 'UMass Occupational Therapy (1.2)'
+        practiceLocation: 'UMass Occupational Therapy (1.2)',
+        colorMode: 'color',
+        dataCleansing: false,
+        ncoaUpdate: true,
+        firstClassPostage: true
       },
       '188': {
         jobId: 188,
         subject: 'Practice Relocation Notice',
-        status: 'Pending',
+        status: 'Pending Approval',
         createdAt: new Date().toISOString(),
         recipientCount: 150,
         cost: 127.50,
-        practiceLocation: 'UMass Occupational Therapy (1.0)'
+        practiceLocation: 'UMass Occupational Therapy (1.0)',
+        colorMode: 'bw',
+        dataCleansing: true,
+        ncoaUpdate: false,
+        firstClassPostage: true
       },
       '9999': {
         jobId: 9999,
         subject: 'Provider Departure - Dr. Smith',
-        status: 'Pending',
+        status: 'Pending Approval',
         createdAt: new Date().toISOString(),
         recipientCount: 250,
         cost: 287.50,
-        practiceLocation: 'North Valley Clinic (1.3)'
+        practiceLocation: 'North Valley Clinic (1.3)',
+        colorMode: 'color',
+        dataCleansing: true,
+        ncoaUpdate: true,
+        firstClassPostage: false
       }
     };
 
