@@ -251,9 +251,9 @@ router.get('/api/quotes', async (req, res) => {
 
     const userId = req.session.user.id;
 
-    // For development, return sample quotes for user ID 2
+    // For development, return sample quotes plus any dynamically created ones for user ID 2
     if (userId === '2') {
-      const quotes = [
+      const baseQuotes = [
         {
           id: 'Q-4350',
           subject: 'Practice Relocation Notice',
@@ -261,9 +261,9 @@ router.get('/api/quotes', async (req, res) => {
           templateType: 'practice_relocation',
           estimatedRecipients: 150,
           totalCost: 127.50,
-          status: 'Quote',
+          status: req.session.convertedQuotes && req.session.convertedQuotes.includes('Q-4350') ? 'Converted' : 'Quote',
           createdAt: '2024-06-23T10:30:00Z',
-          convertedOrderId: null
+          convertedOrderId: req.session.convertedQuotes && req.session.convertedQuotes.includes('Q-4350') ? 188 : null
         },
         {
           id: 'Q-7964',
@@ -272,9 +272,9 @@ router.get('/api/quotes', async (req, res) => {
           templateType: 'provider_departure',
           estimatedRecipients: 250,
           totalCost: 287.50,
-          status: 'Quote',
+          status: req.session.convertedQuotes && req.session.convertedQuotes.includes('Q-7964') ? 'Converted' : 'Quote',
           createdAt: '2024-06-22T14:15:00Z',
-          convertedOrderId: null
+          convertedOrderId: req.session.convertedQuotes && req.session.convertedQuotes.includes('Q-7964') ? 9999 : null
         },
         {
           id: 'Q-2452',
@@ -289,7 +289,11 @@ router.get('/api/quotes', async (req, res) => {
         }
       ];
 
-      return res.json({ success: true, quotes });
+      // Add any dynamically created quotes from session
+      const dynamicQuotes = req.session.createdQuotes || [];
+      const allQuotes = [...baseQuotes, ...dynamicQuotes];
+
+      return res.json({ success: true, quotes: allQuotes });
     }
 
     // For other users, return empty quotes
@@ -310,6 +314,18 @@ router.post('/api/quotes/:id/convert', async (req, res) => {
     const quoteId = req.params.id;
     console.log('Converting quote to order:', quoteId);
 
+    // Track converted quotes in session
+    if (!req.session.convertedQuotes) {
+      req.session.convertedQuotes = [];
+    }
+    
+    if (req.session.convertedQuotes.includes(quoteId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Quote has already been converted to an order' 
+      });
+    }
+
     // Map specific quotes to order IDs that exist in our sample data
     const quoteToOrderMap = {
       'Q-4350': 188,  // Practice Relocation Notice
@@ -318,6 +334,9 @@ router.post('/api/quotes/:id/convert', async (req, res) => {
     };
     
     const orderId = quoteToOrderMap[quoteId] || 188; // Default to 188 if not found
+    
+    // Mark quote as converted
+    req.session.convertedQuotes.push(quoteId);
     
     res.json({ 
       success: true, 
@@ -366,6 +385,25 @@ router.post('/api/quotes', async (req, res) => {
     // Create a simple quote response
     const quoteNumber = `Q-${Math.floor(1000 + Math.random() * 9000)}`;
     
+    // Store the quote in session for persistence
+    if (!req.session.createdQuotes) {
+      req.session.createdQuotes = [];
+    }
+    
+    const newQuote = {
+      id: quoteNumber,
+      subject: subject,
+      practiceLocation: `Practice Location (${location_id})`,
+      templateType: templateType,
+      estimatedRecipients: estimatedRecipients,
+      totalCost: parseFloat(totalCost.toFixed(2)),
+      status: 'Quote',
+      createdAt: new Date().toISOString(),
+      convertedOrderId: null
+    };
+    
+    req.session.createdQuotes.push(newQuote);
+    
     console.log('Quote created:', {
       quoteNumber,
       subject,
@@ -378,8 +416,6 @@ router.post('/api/quotes', async (req, res) => {
       firstClassPostage,
       totalCost: totalCost.toFixed(2)
     });
-    
-    console.log('Raw request body:', req.body);
     
     res.json({ 
       success: true, 
