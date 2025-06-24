@@ -91,6 +91,18 @@ app.use((req, res, next) => {
     app.use(express.static('public', staticOptions));
     app.use(express.static(path.resolve('server/public'), staticOptions));
     
+    // Setup multer for file uploads
+    const upload = multer({ 
+      dest: 'uploads/',
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB limit
+        files: 10 // Maximum 10 files
+      }
+    });
+    
+    // Add multer middleware to routes that need file upload
+    app.use('/api/orders', upload.any());
+    
     registerRoutes(app);
     console.log("Routes registered successfully");
 
