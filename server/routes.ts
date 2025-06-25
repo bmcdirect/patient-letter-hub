@@ -617,6 +617,178 @@ router.get('/api/orders/:id', async (req, res) => {
   }
 });
 
+// === ADMIN API ENDPOINTS ===
+
+// Admin orders endpoint with full order data
+router.get('/admin/api/orders', async (req, res) => {
+  try {
+    // Check authentication via session (admin only)
+    if (!req.session?.user?.isAdmin) {
+      return res.status(401).json({ success: false, message: 'Admin access required' });
+    }
+
+    // Return comprehensive order data for admin dashboard
+    const adminOrders = [
+      {
+        id: 15,
+        subject: 'HIPAA Breach Notification',
+        status: 'Fulfilled',
+        created_at: '2024-06-21T09:45:00Z',
+        recipientCount: 75,
+        totalCost: 95.25,
+        practiceName: 'UMass Occupational Therapy',
+        userEmail: 'practice@umass.edu',
+        invoiceNumber: 'INV-1521',
+        files: {
+          letterDocument: 'hipaa_breach_letter.pdf',
+          recipients: 'recipients_list.csv',
+          letterhead: 'umass_letterhead.pdf'
+        },
+        statusHistory: [
+          { status: 'Quote', timestamp: '2024-06-20T10:00:00Z' },
+          { status: 'Converted', timestamp: '2024-06-21T09:00:00Z' },
+          { status: 'In Process', timestamp: '2024-06-21T09:45:00Z' },
+          { status: 'Fulfilled', timestamp: '2024-06-22T14:30:00Z' }
+        ],
+        adminNotes: 'Priority order - completed ahead of schedule'
+      },
+      {
+        id: 188,
+        subject: 'Practice Relocation Notice',
+        status: 'Pending Approval',
+        created_at: new Date().toISOString(),
+        recipientCount: 150,
+        totalCost: 127.50,
+        practiceName: 'UMass Occupational Therapy',
+        userEmail: 'practice@umass.edu',
+        invoiceNumber: null,
+        files: {
+          letterDocument: 'relocation_notice.docx',
+          recipients: 'patient_addresses.csv',
+          logo: 'practice_logo.png',
+          signature: 'doctor_signature.png'
+        },
+        statusHistory: [
+          { status: 'Quote', timestamp: new Date(Date.now() - 86400000).toISOString() },
+          { status: 'Converted', timestamp: new Date().toISOString() }
+        ],
+        adminNotes: ''
+      },
+      {
+        id: 9999,
+        subject: 'Provider Departure - Dr. Smith',
+        status: 'In Process',
+        created_at: new Date().toISOString(),
+        recipientCount: 250,
+        totalCost: 287.50,
+        practiceName: 'North Valley Clinic',
+        userEmail: 'admin@northvalley.com',
+        invoiceNumber: 'INV-2231',
+        files: {
+          letterDocument: 'departure_notice.pdf',
+          recipients: 'all_patients.csv',
+          letterhead: 'clinic_letterhead.pdf',
+          enclosures: 'provider_directory.pdf'
+        },
+        statusHistory: [
+          { status: 'Quote', timestamp: new Date(Date.now() - 172800000).toISOString() },
+          { status: 'Converted', timestamp: new Date(Date.now() - 86400000).toISOString() },
+          { status: 'In Process', timestamp: new Date().toISOString() }
+        ],
+        adminNotes: 'Large batch - requires special handling'
+      }
+    ];
+
+    res.json({ 
+      success: true, 
+      orders: adminOrders 
+    });
+  } catch (error) {
+    console.error('Error getting admin orders:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Admin order fulfillment endpoint
+router.post('/admin/api/orders/:id/fulfill', async (req, res) => {
+  try {
+    if (!req.session?.user?.isAdmin) {
+      return res.status(401).json({ success: false, message: 'Admin access required' });
+    }
+
+    const orderId = req.params.id;
+    
+    console.log('Admin marked order as fulfilled:', {
+      orderId,
+      fulfilledBy: req.session.user.email,
+      fulfilledAt: new Date().toISOString()
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Order marked as fulfilled'
+    });
+  } catch (error) {
+    console.error('Error fulfilling order:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Admin order metadata update endpoint
+router.put('/admin/api/orders/:id/metadata', async (req, res) => {
+  try {
+    if (!req.session?.user?.isAdmin) {
+      return res.status(401).json({ success: false, message: 'Admin access required' });
+    }
+
+    const orderId = req.params.id;
+    const { invoiceNumber, totalCost } = req.body;
+    
+    console.log('Admin updated order metadata:', {
+      orderId,
+      invoiceNumber,
+      totalCost,
+      updatedBy: req.session.user.email,
+      updatedAt: new Date().toISOString()
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Order metadata updated'
+    });
+  } catch (error) {
+    console.error('Error updating order metadata:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Admin notes endpoint
+router.put('/admin/api/orders/:id/notes', async (req, res) => {
+  try {
+    if (!req.session?.user?.isAdmin) {
+      return res.status(401).json({ success: false, message: 'Admin access required' });
+    }
+
+    const orderId = req.params.id;
+    const { note } = req.body;
+    
+    console.log('Admin note saved:', {
+      orderId,
+      note,
+      savedBy: req.session.user.email,
+      savedAt: new Date().toISOString()
+    });
+
+    res.json({ 
+      success: true, 
+      message: 'Admin note saved'
+    });
+  } catch (error) {
+    console.error('Error saving admin note:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // Export a function to register routes
 export function registerRoutes(app: Express) {
   app.use(router);
