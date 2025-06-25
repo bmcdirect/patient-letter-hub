@@ -308,8 +308,7 @@ router.get('/api/quotes/:id', async (req, res) => {
     const [quote] = await db
       .select()
       .from(quotes)
-      .where(eq(quotes.quote_number, quoteId))
-      .where(eq(quotes.user_id, userId));
+      .where(eq(quotes.quote_number, quoteId) && eq(quotes.user_id, userId));
 
     if (!quote) {
       return res.status(404).json({ success: false, message: 'Quote not found' });

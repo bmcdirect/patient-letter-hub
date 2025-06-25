@@ -354,12 +354,31 @@
     }
 
     function editQuote(quoteId) {
-      // Only allow editing of non-converted quotes
-      const quote = data.quotes.find(q => q.id === quoteId);
-      if (quote && quote.status === 'Converted') {
-        alert('Cannot edit converted quotes');
-        return;
+      // Find the quote in the current loaded data
+      let quotes = [];
+      try {
+        // Get quotes from the table data that was loaded
+        const tableBody = document.getElementById('quotes-table-body');
+        if (tableBody) {
+          // Check status from the table display
+          const rows = tableBody.querySelectorAll('tr');
+          for (const row of rows) {
+            const idCell = row.cells[0];
+            const statusCell = row.cells[6];
+            if (idCell && idCell.textContent.includes(quoteId.split('-')[1])) {
+              const statusText = statusCell.querySelector('.status-tag')?.textContent;
+              if (statusText === 'Converted') {
+                alert('Cannot edit converted quotes');
+                return;
+              }
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        console.log('Could not check quote status from table');
       }
+      
       window.location.href = `/quote.html?editId=${quoteId}`;
     }
 

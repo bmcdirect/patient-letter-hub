@@ -211,13 +211,84 @@
   </form>
 
   <script>
+    // Global variables for form state
+    let editQuoteId = null;
+
     document.addEventListener('DOMContentLoaded', async () => {
       await checkAuth();
       await loadPracticeLocations();
+      await checkForEditMode();
       setupForm();
       setupLogout();
       setupCostCalculator();
     });
+
+    // Check for edit mode and load quote data
+    async function checkForEditMode() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const editId = urlParams.get('editId');
+
+      if (editId) {
+        try {
+          const res = await fetch(`/api/quotes/${editId}`, {
+            headers: { Accept: "application/json" }
+          });
+
+          // Check if response is JSON
+          const contentType = res.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            throw new Error("Non-JSON response from server");
+          }
+
+          if (!res.ok) {
+            throw new Error("Failed to load quote");
+          }
+
+          const data = await res.json();
+
+          if (!data.success) {
+            throw new Error(data.message || "Failed to load quote");
+          }
+
+          if (data.success && data.quote) {
+            // Store edit ID for form submission
+            editQuoteId = data.quote.id;
+            
+            // Prefill form fields
+            document.getElementById('subject').value = data.quote.subject || '';
+            document.getElementById('templateType').value = data.quote.templateType || '';
+            document.getElementById('colorMode').value = data.quote.colorMode || 'color';
+            document.getElementById('estimatedRecipients').value = data.quote.estimatedRecipients || '';
+            document.getElementById('enclosures').value = data.quote.enclosures || 0;
+            document.getElementById('notes').value = data.quote.notes || '';
+            
+            // Set checkboxes
+            document.getElementById('dataCleansing').checked = data.quote.dataCleansing || false;
+            document.getElementById('ncoaUpdate').checked = data.quote.ncoaUpdate || false;
+            document.getElementById('firstClassPostage').checked = data.quote.firstClassPostage || false;
+
+            // Set location if exists
+            const locSelect = document.getElementById('practiceLocationSelect');
+            if (locSelect && data.quote.location_id) {
+              locSelect.value = data.quote.location_id;
+            }
+
+            // Update form title and button text
+            document.querySelector('h1').textContent = 'Edit Quote Request';
+            document.querySelector('button[type="submit"]').textContent = 'Update Quote';
+
+            // Trigger cost calculation
+            calculateCosts();
+
+            console.log('Quote loaded for editing:', data.quote);
+          }
+        } catch (err) {
+          console.error("Failed to load quote for edit:", err);
+          document.getElementById('message-container').innerHTML = 
+            `<div class="error">Failed to load quote for editing: ${err.message}</div>`;
+        }
+      }
+    }
 
     async function checkAuth() {
       try {
@@ -363,16 +434,30 @@
             return;
           }
           
-          const res = await fetch('/api/quotes', {
-            method: 'POST',
+          // Determine if this is an edit or new quote
+          const method = editQuoteId ? 'PUT' : 'POST';
+          const url = editQuoteId ? `/api/quotes/${editQuoteId}` : '/api/quotes';
+
+          const res = await fetch(url, {
+            method: method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
           });
+
+          // Check if response is JSON
+          const contentType = res.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            throw new Error("Non-JSON response from server");
+          }
           
           const result = await res.json();
           if (result.success) {
+            const actionText = editQuoteId ? 'updated' : 'created';
+            const quoteRef = result.quoteNumber || editQuoteId;
+            const cost = result.totalCost || data.totalCost;
+            
             document.getElementById('message-container').innerHTML = 
-              `<div class="success">Quote ${result.quoteNumber} created successfully! Total cost: $${result.totalCost}. Redirecting to dashboard...</div>`;
+              `<div class="success">Quote ${quoteRef} ${actionText} successfully! Total cost: $${cost}. Redirecting to dashboard...</div>`;
             
             // Redirect to dashboard after success message
             setTimeout(() => {
@@ -381,7 +466,7 @@
           } else {
             const errorMessage = result.missingFields ? 
               `Missing required fields: ${result.missingFields.join(', ')}` : 
-              result.message || 'Failed to generate quote';
+              result.message || `Failed to ${editQuoteId ? 'update' : 'create'} quote`;
             document.getElementById('message-container').innerHTML = 
               `<div class="error">${errorMessage}</div>`;
           }
@@ -391,7 +476,8 @@
             `<div class="error">Network error. Please try again.</div>`;
         } finally {
           submit.disabled = false;
-          submit.textContent = 'Request Quote';
+          const buttonText = editQuoteId ? 'Update Quote' : 'Request Quote';
+          submit.textContent = buttonText;
         }
       });
     }
