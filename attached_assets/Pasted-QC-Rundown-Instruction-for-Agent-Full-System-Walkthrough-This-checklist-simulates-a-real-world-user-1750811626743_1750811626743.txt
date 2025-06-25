@@ -1,0 +1,244 @@
+QC Rundown Instruction for Agent: Full System Walkthrough
+This checklist simulates a real-world user experience and identifies faults in flow, visibility, or functionality.
+
+🔐 1. Authentication & Routing
+✅ Check:
+
+Registering a new user
+
+Logging in with user and admin roles
+
+Redirect to:
+
+/dashboard.html for users
+
+/admin.html for admins
+
+Session persistence (cookies) and logout redirection
+
+📋 2. Practice & Location Settings
+✅ Check:
+
+"Settings" sidebar link opens settings.html
+
+User can:
+
+View assigned practice and locations
+
+Add/edit locations
+
+Mark default location
+
+See auto-generated practice ID suffixes (1.0, 1.1, etc.)
+
+Save operating hours, EMR ID, billing addresses
+
+❌ Fault Test:
+
+Try to save without required fields
+
+Try to delete a location in use (should fail gracefully)
+
+Ensure user can only access their own practice
+
+📄 3. Quote Request Flow
+✅ Check:
+
+"Request a Quote" link in user dashboard
+
+Quote form loads active locations
+
+Default location pre-selected
+
+Required fields: subject, location, color, estimated recipient count
+
+Optional checkboxes: data cleansing, NCOA, postage
+
+Estimated cost calculation updates live
+
+Quote submits and:
+
+✅ Triggers quote number generation
+
+✅ Shows success message
+
+✅ Redirects to dashboard
+
+❌ Fault Test:
+
+Submit form with missing required field
+
+Check for non-responsive dropdowns or failed fetch calls
+
+Check behavior if no practice locations exist
+
+📥 4. Dashboard Quote View
+✅ Check:
+
+Submitted quote appears in dashboard
+
+Shows all correct details
+
+“Convert to Order” and “Edit” buttons display properly
+
+Converted quote status updates to “Converted”
+
+Duplicate conversion blocked with meaningful error
+
+🔄 5. Quote-to-Order Conversion
+✅ Check:
+
+Convert button works
+
+Redirects to /confirmation.html?jobId=X
+
+Order is visible on user dashboard with correct status: Pending Approval
+
+Order number and details match original quote
+
+❌ Fault Test:
+
+Convert the same quote again
+
+Visit confirmation page with a bad jobId
+
+Delete a practice and confirm orphaned orders are protected
+
+🧾 6. Approval Flow (Proof Review)
+✅ Check:
+
+Order card shows:
+
+✅ Download Proofs button
+
+✅ Approve Order button
+
+Modal opens on “Approve Order”
+
+✅ Shows:
+
+Quote summary
+
+Final cost
+
+Legal Terms (NET 30, authorization verbiage)
+
+“I agree” checkbox must be selected
+
+Upon approval:
+
+Order status → “In Process”
+
+Invoice number generated
+
+Redirect to confirmation
+
+❌ Fault Test:
+
+Try approving without checking box
+
+Trigger modal with broken cost data
+
+Check for broken file links in "Download Proofs"
+
+📄 7. Order Page Form
+✅ Check:
+
+Template selection section is removed
+
+Upload fields appear in correct layout:
+
+Full-width: Letter Document
+
+Left Column: Letterhead, Logo, Envelope
+
+Right Column: Signature, Enclosures, ZIP
+
+Recipient list + color selection work
+
+Additional Services checkboxes match quote page
+
+Estimated cost displays accurately
+
+Submitting form works with valid files
+
+❌ Fault Test:
+
+Submit with missing file
+
+Try uploading unsupported file types
+
+Double-submit the form
+
+🧑‍💼 8. Admin Dashboard Sync
+✅ Check:
+
+Admin can:
+
+See all orders + statuses
+
+Download same proofs
+
+View invoice
+
+View uploaded files
+
+Orders converted from quotes show updated status
+
+User + practice info shows per order
+
+❌ Fault Test:
+
+Orders missing from admin view
+
+Mismatched file access (e.g. can't open ZIPs)
+
+Admin sees irrelevant data (cross-user leak)
+
+🔄 9. APIs & Backend Integrity
+✅ Check:
+
+GET /api/quotes returns only user’s quotes
+
+POST /api/quotes/:id/convert returns correct order ID
+
+GET /api/orders/:id returns all required order metadata
+
+POST /api/orders/:id/approve updates database correctly
+
+📬 10. Email Notifications (Future Placeholder)
+Note: No live email system yet. Confirm the framework is ready for:
+
+Sending quote confirmation
+
+Sending order approval receipt
+
+Sending invoice PDF
+
+📊 11. Cost and Invoicing
+✅ Check:
+
+Quote → Order → Invoice total matches
+
+Invoice ID appears in dashboard
+
+NET 30 is shown in legal terms
+
+🔐 12. Security & Permissions
+✅ Check:
+
+User cannot access other users’ orders
+
+Admin can access all
+
+Attempting to POST/GET with tampered IDs fails gracefully
+
+🔚 Final Step: Report
+Ask the agent to:
+
+List any broken or incomplete feature
+
+Suggest UI improvements or validation gaps
+
+Confirm feature parity between user and admin dashboards
+
