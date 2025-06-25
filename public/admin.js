@@ -12,13 +12,26 @@ document.addEventListener("DOMContentLoaded", async () => {
 // Enhanced admin-specific functions
 async function loadOrders() {
   try {
-    const response = await fetch('/admin/api/orders');
+    const response = await fetch('/admin/api/orders', {
+      headers: { Accept: "application/json" }
+    });
+    
+    // Check if response is JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error("Non-JSON response from server");
+    }
     
     if (!response.ok) {
       throw new Error('Failed to load orders');
     }
 
     const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.message || "Failed to load orders");
+    }
+    
     allOrders = data.orders || [];
     
     // Load practice list for filter
@@ -27,7 +40,7 @@ async function loadOrders() {
     renderOrdersTable();
   } catch (error) {
     console.error('Error loading orders:', error);
-    showToast('Failed to load orders', 'error');
+    showToast('Failed to load orders: ' + error.message, 'error');
   }
 }
 

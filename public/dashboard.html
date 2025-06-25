@@ -204,12 +204,32 @@
 
     async function loadDashboardData() {
       try {
-        const res = await fetch("/api/orders");
+        const res = await fetch("/api/orders", {
+          headers: { Accept: "application/json" }
+        });
+        
+        // Check if response is JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error("Non-JSON response from server");
+        }
+        
+        if (!res.ok) {
+          throw new Error("Failed to load orders");
+        }
+        
         const data = await res.json();
+        
+        if (!data.success) {
+          throw new Error(data.message || "Failed to load orders");
+        }
+        
         const table = document.getElementById("mailings-table");
         table.innerHTML = "";
+        
+        const orders = data.orders || [];
 
-        if (!Array.isArray(data) || data.length === 0) {
+        if (orders.length === 0) {
           table.innerHTML = '<tr><td colspan="5">No mailings found.</td></tr>';
           return;
         }

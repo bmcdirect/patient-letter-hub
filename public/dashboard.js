@@ -6,11 +6,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       headers: { Accept: "application/json" }
     });
 
+    // Check if response is JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error("Non-JSON response from server");
+    }
+
     if (!response.ok) {
       throw new Error("Failed to load recent orders.");
     }
 
     const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.message || "Failed to load orders");
+    }
+
     const orders = data.orders || [];
 
     if (orders.length === 0) {
@@ -39,7 +50,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   } catch (err) {
     console.error("Error loading orders:", err);
-    table.innerHTML = `<tr><td colspan="5">Error loading data.</td></tr>`;
+    table.innerHTML = `<tr><td colspan="5">Error loading data: ${err.message}</td></tr>`;
   }
 });
 
