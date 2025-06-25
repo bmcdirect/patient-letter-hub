@@ -246,9 +246,12 @@ router.post('/api/settings/practice', async (req, res) => {
 // === QUOTES ENDPOINTS ===
 router.get('/api/quotes', async (req, res) => {
   try {
+    // Set JSON content type header immediately
+    res.setHeader('Content-Type', 'application/json');
+    
     // Check authentication via session
     if (!req.session?.user) {
-      return res.status(401).json({ success: false, message: 'Not authenticated' });
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
     const userId = req.session.user.id;
@@ -282,8 +285,8 @@ router.get('/api/quotes', async (req, res) => {
 
     res.json({ success: true, quotes: formattedQuotes });
   } catch (error) {
-    console.error('Error getting quotes:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    console.error('Failed to fetch quotes:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 
@@ -378,9 +381,12 @@ router.post('/api/quotes/:id/convert', async (req, res) => {
 // === QUOTE CREATION ===
 router.post('/api/quotes', async (req, res) => {
   try {
+    // Set JSON content type header immediately
+    res.setHeader('Content-Type', 'application/json');
+    
     // Check authentication via session
     if (!req.session?.user) {
-      return res.status(401).json({ success: false, message: 'Not authenticated' });
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
     const {
