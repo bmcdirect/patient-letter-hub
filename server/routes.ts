@@ -290,6 +290,59 @@ router.get('/api/quotes', async (req, res) => {
   }
 });
 
+// === GET SINGLE QUOTE ENDPOINT ===
+router.get('/api/quotes/:id', async (req, res) => {
+  try {
+    // Set JSON content type header immediately
+    res.setHeader('Content-Type', 'application/json');
+    
+    // Check authentication via session
+    if (!req.session?.user) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const quoteId = req.params.id;
+    const userId = req.session.user.id;
+
+    // Get quote from database for this user
+    const [quote] = await db
+      .select()
+      .from(quotes)
+      .where(eq(quotes.quote_number, quoteId))
+      .where(eq(quotes.user_id, userId));
+
+    if (!quote) {
+      return res.status(404).json({ success: false, message: 'Quote not found' });
+    }
+
+    // Transform to match frontend format
+    const formattedQuote = {
+      id: quote.quote_number,
+      subject: quote.subject,
+      practiceLocation: `Practice Location (${quote.location_id})`,
+      templateType: quote.template_type,
+      estimatedRecipients: quote.estimated_recipients,
+      totalCost: parseFloat(quote.total_cost || '0'),
+      status: quote.status,
+      createdAt: quote.created_at?.toISOString(),
+      convertedOrderId: quote.converted_order_id,
+      colorMode: quote.color_mode,
+      enclosures: quote.enclosures,
+      dataCleansing: quote.data_cleansing,
+      ncoaUpdate: quote.ncoa_update,
+      firstClassPostage: quote.first_class_postage,
+      notes: quote.notes,
+      location_id: quote.location_id
+    };
+
+    console.log(`Retrieved quote ${quoteId} for user ${userId}`);
+    res.json({ success: true, quote: formattedQuote });
+  } catch (error) {
+    console.error('Failed to fetch quote:', error);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
 router.post('/api/quotes/:id/convert', async (req, res) => {
   try {
     // Check authentication via session

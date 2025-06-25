@@ -354,6 +354,12 @@
     }
 
     function editQuote(quoteId) {
+      // Only allow editing of non-converted quotes
+      const quote = data.quotes.find(q => q.id === quoteId);
+      if (quote && quote.status === 'Converted') {
+        alert('Cannot edit converted quotes');
+        return;
+      }
       window.location.href = `/quote.html?editId=${quoteId}`;
     }
 

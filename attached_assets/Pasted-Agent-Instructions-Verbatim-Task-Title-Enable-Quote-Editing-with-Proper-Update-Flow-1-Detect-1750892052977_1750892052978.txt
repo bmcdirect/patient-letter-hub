@@ -1,0 +1,116 @@
+Agent Instructions (Verbatim)
+🛠 Task Title: Enable Quote Editing with Proper Update Flow
+
+1. Detect Edit Mode in quote.html
+Modify the JavaScript in quote.html to:
+
+Check for a query parameter like ?editId=Q-1234
+
+If found, make a GET /api/quotes/:id request to fetch quote data
+
+Prefill the form fields with the returned values
+
+Example snippet to check URL and load quote:
+
+javascript
+Copy
+Edit
+const urlParams = new URLSearchParams(window.location.search);
+const editId = urlParams.get('editId');
+
+if (editId) {
+  fetch(`/api/quotes/${editId}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.quote) {
+        document.getElementById('subject').value = data.quote.subject;
+        document.getElementById('templateType').value = data.quote.templateType;
+        document.getElementById('colorMode').value = data.quote.colorMode;
+        document.getElementById('estimatedRecipients').value = data.quote.estimatedRecipients;
+        document.getElementById('enclosures').value = data.quote.enclosures;
+        document.getElementById('notes').value = data.quote.notes || '';
+        document.getElementById('dataCleansing').checked = data.quote.dataCleansing;
+        document.getElementById('ncoaUpdate').checked = data.quote.ncoaUpdate;
+        document.getElementById('firstClassPostage').checked = data.quote.firstClassPostage;
+
+        // Set location if exists
+        const locSelect = document.getElementById('practiceLocationSelect');
+        if (locSelect && data.quote.location_id) {
+          locSelect.value = data.quote.location_id;
+        }
+
+        // Store editId in a hidden field or variable
+        window.editQuoteId = data.quote.id;
+      }
+    })
+    .catch(err => console.error("Failed to load quote for edit:", err));
+}
+2. Modify the Quote Submission Handler
+In the quote-form submit handler, check if window.editQuoteId is present:
+
+If present, send a PUT /api/quotes/:id to update the quote
+
+Otherwise, proceed with normal POST /api/quotes to create a new quote
+
+Example:
+
+javascript
+Copy
+Edit
+const method = window.editQuoteId ? 'PUT' : 'POST';
+const url = window.editQuoteId ? `/api/quotes/${window.editQuoteId}` : '/api/quotes';
+
+const res = await fetch(url, {
+  method,
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(data)
+});
+3. Update the Backend
+In server/routes.ts, make sure the following exists:
+
+a. GET /api/quotes/:id
+Returns a single quote in JSON for editing:
+
+ts
+Copy
+Edit
+app.get('/api/quotes/:id', async (req, res) => {
+  const quote = await db.quotes.findOne({ id: req.params.id, user_id: req.session.user_id });
+  if (!quote) return res.status(404).json({ success: false, message: "Quote not found" });
+  res.json({ success: true, quote });
+});
+b. PUT /api/quotes/:id
+Updates the quote with new values:
+
+ts
+Copy
+Edit
+app.put('/api/quotes/:id', async (req, res) => {
+  const updates = req.body;
+  await db.quotes.update({ id: req.params.id, user_id: req.session.user_id }, updates);
+  res.json({ success: true, message: "Quote updated" });
+});
+4. Dashboard Logic (Optional but Ideal)
+When a quote is updated:
+
+Refresh the dashboard data
+
+Show updated status or modified date
+
+🧪 Agent Testing
+After implementing:
+
+Log in as a test user
+
+Create a quote
+
+Click “Edit”
+
+Change the subject or number of recipients
+
+Submit the form
+
+✅ Confirm no duplicate quote is created
+
+✅ Confirm dashboard reflects changes
+
