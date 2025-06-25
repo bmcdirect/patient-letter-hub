@@ -619,6 +619,30 @@ router.get('/api/orders/:id', async (req, res) => {
 
 // === ADMIN API ENDPOINTS ===
 
+// Admin practices endpoint for filter dropdown
+router.get('/admin/api/practices', async (req, res) => {
+  try {
+    if (!req.session?.user?.isAdmin) {
+      return res.status(401).json({ success: false, message: 'Admin access required' });
+    }
+
+    const practices = [
+      { name: 'UMass Occupational Therapy' },
+      { name: 'North Valley Clinic' },
+      { name: 'Springfield Medical Center' },
+      { name: 'Regional Healthcare Partners' }
+    ];
+
+    res.json({ 
+      success: true, 
+      practices 
+    });
+  } catch (error) {
+    console.error('Error getting practices:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // Admin orders endpoint with full order data
 router.get('/admin/api/orders', async (req, res) => {
   try {
