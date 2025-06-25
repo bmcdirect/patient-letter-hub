@@ -1,0 +1,97 @@
+ Agent Instructions: Fix “calculateCosts is not defined” Error in quote.html
+🛠 Task Title:
+Fix missing function error in quote edit mode
+
+🔧 What to Fix:
+The quote.html script throws an error when editing a quote:
+
+pgsql
+Copy
+Edit
+Failed to load quote for editing: calculateCosts is not defined
+This is likely because the form prefilling logic is trying to call calculateCosts() without defining it or initializing the cost estimator properly.
+
+✅ Solution Steps:
+1. Ensure the Cost Calculator is Defined
+In quote.html, there’s likely a calculateCost() or calculateCosts() function defined. Make sure it is declared before it’s called during form prefilling.
+
+If not defined, add this near the top of the <script> section or before any function calls:
+
+js
+Copy
+Edit
+function calculateCosts() {
+  const color = document.getElementById('colorMode').value;
+  const recipients = parseInt(document.getElementById('estimatedRecipients').value) || 0;
+  const enclosures = parseInt(document.getElementById('enclosures').value) || 0;
+  const dataCleansing = document.getElementById('dataCleansing').checked;
+  const ncoaUpdate = document.getElementById('ncoaUpdate').checked;
+  const firstClassPostage = document.getElementById('firstClassPostage').checked;
+
+  if (!color || recipients <= 0) {
+    document.getElementById('cost-display').innerHTML = '<p>Select options above to see cost estimate</p>';
+    document.getElementById('cost-breakdown').style.display = 'none';
+    return;
+  }
+
+  const base = color === 'color' ? 0.65 : 0.50;
+  let cost = recipients * (base + (enclosures * 0.10));
+  
+  if (dataCleansing) cost += 25;
+  if (ncoaUpdate) cost += 50;
+  if (firstClassPostage) cost += recipients * 0.68;
+
+  document.getElementById('cost-display').innerHTML = `<p style="font-size: 1.2rem; font-weight: bold; margin: 0; color: #0066cc;">Total Estimated Cost: $${cost.toFixed(2)}</p>`;
+
+  let breakdownHTML = `
+    <li>Base cost: $${base.toFixed(2)} per letter</li>
+    <li>Enclosures: ${enclosures} × $0.10</li>
+    <li>Total recipients: ${recipients}</li>
+    <li>Letter cost subtotal: $${(recipients * (base + (enclosures * 0.10))).toFixed(2)}</li>
+  `;
+  
+  if (firstClassPostage) {
+    breakdownHTML += `<li>First Class Postage: $0.68 × ${recipients} = $${(recipients * 0.68).toFixed(2)}</li>`;
+  }
+  if (dataCleansing) breakdownHTML += `<li>Data Cleansing & De-Duplication: $25.00</li>`;
+  if (ncoaUpdate) breakdownHTML += `<li>NCOA Move Update: $50.00</li>`;
+
+  document.getElementById('breakdown-details').innerHTML = breakdownHTML;
+  document.getElementById('cost-breakdown').style.display = 'block';
+}
+2. Fix the Edit Prefill Logic
+After the quote is loaded (in the editId block), add this at the end of the then():
+
+js
+Copy
+Edit
+calculateCosts();
+Make sure this runs after the form values have been set, like so:
+
+js
+Copy
+Edit
+fetch(`/api/quotes/${editId}`)
+  .then(res => res.json())
+  .then(data => {
+    if (data.success && data.quote) {
+      // Prefill form
+      // ...
+      calculateCosts();  // <-- Call after prefill
+    }
+  });
+✅ Test Case:
+Log in as a user.
+
+Create a quote.
+
+Return to dashboard.
+
+Click “Edit” on the quote.
+
+✅ Form should load pre-filled.
+
+✅ No JS error in console.
+
+✅ Cost estimate updates automatically.
+

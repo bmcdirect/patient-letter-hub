@@ -214,6 +214,47 @@
     // Global variables for form state
     let editQuoteId = null;
 
+    // Cost calculation function - defined early to avoid reference errors
+    function calculateCosts() {
+      const color = document.getElementById('colorMode').value;
+      const recipients = parseInt(document.getElementById('estimatedRecipients').value) || 0;
+      const enclosures = parseInt(document.getElementById('enclosures').value) || 0;
+      const dataCleansing = document.getElementById('dataCleansing').checked;
+      const ncoaUpdate = document.getElementById('ncoaUpdate').checked;
+      const firstClassPostage = document.getElementById('firstClassPostage').checked;
+
+      if (!color || recipients <= 0) {
+        document.getElementById('cost-display').innerHTML = '<p>Select options above to see cost estimate</p>';
+        document.getElementById('cost-breakdown').style.display = 'none';
+        return;
+      }
+
+      const base = color === 'color' ? 0.65 : 0.50;
+      let cost = recipients * (base + (enclosures * 0.10));
+      
+      if (dataCleansing) cost += 25;
+      if (ncoaUpdate) cost += 50;
+      if (firstClassPostage) cost += recipients * 0.68;
+
+      document.getElementById('cost-display').innerHTML = `<p style="font-size: 1.2rem; font-weight: bold; margin: 0; color: #0066cc;">Total Estimated Cost: $${cost.toFixed(2)}</p>`;
+
+      let breakdownHTML = `
+        <li>Base cost: $${base.toFixed(2)} per letter</li>
+        <li>Enclosures: ${enclosures} × $0.10</li>
+        <li>Total recipients: ${recipients}</li>
+        <li>Letter cost subtotal: $${(recipients * (base + (enclosures * 0.10))).toFixed(2)}</li>
+      `;
+      
+      if (firstClassPostage) {
+        breakdownHTML += `<li>First Class Postage: $0.68 × ${recipients} = $${(recipients * 0.68).toFixed(2)}</li>`;
+      }
+      if (dataCleansing) breakdownHTML += `<li>Data Cleansing & De-Duplication: $25.00</li>`;
+      if (ncoaUpdate) breakdownHTML += `<li>NCOA Move Update: $50.00</li>`;
+
+      document.getElementById('breakdown-details').innerHTML = breakdownHTML;
+      document.getElementById('cost-breakdown').style.display = 'block';
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       await checkAuth();
       await loadPracticeLocations();
