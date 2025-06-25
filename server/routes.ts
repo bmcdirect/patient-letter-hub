@@ -370,17 +370,35 @@ router.post('/api/quotes', async (req, res) => {
       firstClassPostage
     } = req.body;
 
-    if (!subject || !templateType || !colorMode || !estimatedRecipients) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    console.log('Quote submission - received data:', req.body);
+
+    // Detailed field validation with specific error messages
+    const missingFields = [];
+    if (!subject) missingFields.push('subject');
+    if (!templateType) missingFields.push('templateType');
+    if (!colorMode) missingFields.push('colorMode');
+    if (!estimatedRecipients || estimatedRecipients <= 0) missingFields.push('estimatedRecipients');
+    if (!location_id) missingFields.push('location_id');
+
+    if (missingFields.length > 0) {
+      console.log('Missing required fields:', missingFields);
+      return res.status(400).json({ 
+        success: false, 
+        message: `Missing required fields: ${missingFields.join(', ')}`,
+        missingFields: missingFields
+      });
     }
 
     // Calculate total cost including additional services
     const base = colorMode === 'color' ? 0.65 : 0.50;
-    let totalCost = estimatedRecipients * (base + (enclosures * 0.10));
+    const enclosureCount = parseInt(enclosures) || 0;
+    const recipientCount = parseInt(estimatedRecipients) || 0;
+    
+    let totalCost = recipientCount * (base + (enclosureCount * 0.10));
     
     if (dataCleansing) totalCost += 25;
     if (ncoaUpdate) totalCost += 50;
-    if (firstClassPostage) totalCost += estimatedRecipients * 0.68;
+    if (firstClassPostage) totalCost += recipientCount * 0.68;
 
     // Create a simple quote response
     const quoteNumber = `Q-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -395,33 +413,42 @@ router.post('/api/quotes', async (req, res) => {
       subject: subject,
       practiceLocation: `Practice Location (${location_id})`,
       templateType: templateType,
-      estimatedRecipients: estimatedRecipients,
+      estimatedRecipients: recipientCount,
       totalCost: parseFloat(totalCost.toFixed(2)),
       status: 'Quote',
       createdAt: new Date().toISOString(),
-      convertedOrderId: null
+      convertedOrderId: null,
+      colorMode: colorMode,
+      enclosures: enclosureCount,
+      dataCleansing: dataCleansing,
+      ncoaUpdate: ncoaUpdate,
+      firstClassPostage: firstClassPostage,
+      notes: notes,
+      location_id: location_id
     };
     
     req.session.createdQuotes.push(newQuote);
     
-    console.log('Quote created:', {
+    console.log('Quote created successfully:', {
       quoteNumber,
       subject,
       templateType,
       colorMode,
-      estimatedRecipients,
-      enclosures,
+      estimatedRecipients: recipientCount,
+      enclosures: enclosureCount,
       dataCleansing,
       ncoaUpdate,
       firstClassPostage,
-      totalCost: totalCost.toFixed(2)
+      totalCost: totalCost.toFixed(2),
+      location_id
     });
     
     res.json({ 
       success: true, 
       quoteId: Date.now(), 
       quoteNumber: quoteNumber,
-      totalCost: totalCost.toFixed(2)
+      totalCost: totalCost.toFixed(2),
+      message: `Quote ${quoteNumber} created successfully`
     });
   } catch (error) {
     console.error('Error creating quote:', error);
