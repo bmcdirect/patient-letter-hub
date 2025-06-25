@@ -246,6 +246,62 @@ export type Address = typeof addresses.$inferSelect;
 export type Letter = typeof letters.$inferSelect;
 export type TrackingEvent = typeof trackingEvents.$inferSelect;
 export type Alert = typeof alerts.$inferSelect;
+
+// Modern types
+export type Quote = typeof quotes.$inferSelect;
+export type InsertQuote = typeof quotes.$inferInsert;
+export type Order = typeof orders.$inferSelect;
+export type InsertOrder = typeof orders.$inferInsert;
+// Modern quotes table for persistent storage
+export const quotes = pgTable("quotes", {
+  id: serial("id").primaryKey(),
+  quote_number: varchar("quote_number", { length: 20 }).notNull().unique(),
+  user_id: varchar("user_id", { length: 50 }).notNull(),
+  practice_id: integer("practice_id"),
+  location_id: varchar("location_id", { length: 50 }),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  template_type: varchar("template_type", { length: 100 }).notNull(),
+  color_mode: varchar("color_mode", { length: 20 }).notNull(),
+  estimated_recipients: integer("estimated_recipients").notNull(),
+  enclosures: integer("enclosures").default(0),
+  notes: text("notes"),
+  data_cleansing: boolean("data_cleansing").default(false),
+  ncoa_update: boolean("ncoa_update").default(false),
+  first_class_postage: boolean("first_class_postage").default(false),
+  total_cost: numeric("total_cost", { precision: 10, scale: 2 }).notNull(),
+  status: varchar("status", { length: 50 }).default("Quote"),
+  converted_order_id: integer("converted_order_id"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow()
+});
+
+// Modern orders table for persistent storage
+export const orders = pgTable("orders", {
+  id: serial("id").primaryKey(),
+  user_id: varchar("user_id", { length: 50 }).notNull(),
+  practice_id: integer("practice_id"),
+  quote_id: integer("quote_id"),
+  subject: varchar("subject", { length: 255 }).notNull(),
+  template_type: varchar("template_type", { length: 100 }),
+  color_mode: varchar("color_mode", { length: 20 }),
+  estimated_recipients: integer("estimated_recipients"),
+  recipient_count: integer("recipient_count"),
+  enclosures: integer("enclosures").default(0),
+  notes: text("notes"),
+  data_cleansing: boolean("data_cleansing").default(false),
+  ncoa_update: boolean("ncoa_update").default(false),
+  first_class_postage: boolean("first_class_postage").default(false),
+  total_cost: numeric("total_cost", { precision: 10, scale: 2 }),
+  status: varchar("status", { length: 50 }).default("Pending"),
+  invoice_number: varchar("invoice_number", { length: 50 }),
+  production_start_date: date("production_start_date"),
+  production_end_date: date("production_end_date"),
+  fulfilled_at: timestamp("fulfilled_at"),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow()
+});
+
+// Legacy quotes table (keep for reference)
 export const letter_quotes = pgTable("letter_quotes", {
   id: serial("id").primaryKey(),
   practice_name: varchar("practice_name", { length: 255 }).notNull(),
@@ -255,7 +311,7 @@ export const letter_quotes = pgTable("letter_quotes", {
   letter_color: boolean("letter_color").notNull(),
   envelope_color: boolean("envelope_color").notNull(),
   ncoa: boolean("ncoa").notNull(),
-  postage_type: varchar("postage_type", { length: 50 }).notNull(), // meter, certified, bulk
+  postage_type: varchar("postage_type", { length: 50 }).notNull(),
   confirmation: boolean("confirmation").notNull(),
   mail_date: date("mail_date"),
   quote_total: numeric("quote_total", { precision: 10, scale: 2 }).notNull(),

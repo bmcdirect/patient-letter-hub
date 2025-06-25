@@ -2,6 +2,8 @@ import express, { type Express } from 'express';
 import { db, pool } from './db';
 import { storage } from './storage';
 import { requireAuth } from './middleware/auth';
+import { quotes, orders, type InsertQuote, type InsertOrder } from '../shared/schema';
+import { eq, desc } from 'drizzle-orm';
 
 const router = express.Router();
 
@@ -251,53 +253,34 @@ router.get('/api/quotes', async (req, res) => {
 
     const userId = req.session.user.id;
 
-    // For development, return sample quotes plus any dynamically created ones for user ID 2
-    if (userId === '2') {
-      const baseQuotes = [
-        {
-          id: 'Q-4350',
-          subject: 'Practice Relocation Notice',
-          practiceLocation: 'UMass Occupational Therapy (1.0)',
-          templateType: 'practice_relocation',
-          estimatedRecipients: 150,
-          totalCost: 127.50,
-          status: req.session.convertedQuotes && req.session.convertedQuotes.includes('Q-4350') ? 'Converted' : 'Quote',
-          createdAt: '2024-06-23T10:30:00Z',
-          convertedOrderId: req.session.convertedQuotes && req.session.convertedQuotes.includes('Q-4350') ? 188 : null
-        },
-        {
-          id: 'Q-7964',
-          subject: 'Provider Departure - Dr. Smith',
-          practiceLocation: 'North Valley Clinic (1.3)',
-          templateType: 'provider_departure',
-          estimatedRecipients: 250,
-          totalCost: 287.50,
-          status: req.session.convertedQuotes && req.session.convertedQuotes.includes('Q-7964') ? 'Converted' : 'Quote',
-          createdAt: '2024-06-22T14:15:00Z',
-          convertedOrderId: req.session.convertedQuotes && req.session.convertedQuotes.includes('Q-7964') ? 9999 : null
-        },
-        {
-          id: 'Q-2452',
-          subject: 'HIPAA Breach Notification',
-          practiceLocation: 'UMass Occupational Therapy (1.2)',
-          templateType: 'hipaa_breach',
-          estimatedRecipients: 75,
-          totalCost: 95.25,
-          status: 'Converted',
-          createdAt: '2024-06-21T09:45:00Z',
-          convertedOrderId: 15
-        }
-      ];
+    // Get quotes from database for this user
+    const userQuotes = await db
+      .select()
+      .from(quotes)
+      .where(eq(quotes.user_id, userId))
+      .orderBy(desc(quotes.created_at));
 
-      // Add any dynamically created quotes from session
-      const dynamicQuotes = req.session.createdQuotes || [];
-      const allQuotes = [...baseQuotes, ...dynamicQuotes];
+    // Transform to match frontend format
+    const formattedQuotes = userQuotes.map(quote => ({
+      id: quote.quote_number,
+      subject: quote.subject,
+      practiceLocation: `Practice Location (${quote.location_id})`,
+      templateType: quote.template_type,
+      estimatedRecipients: quote.estimated_recipients,
+      totalCost: parseFloat(quote.total_cost || '0'),
+      status: quote.status,
+      createdAt: quote.created_at?.toISOString(),
+      convertedOrderId: quote.converted_order_id,
+      colorMode: quote.color_mode,
+      enclosures: quote.enclosures,
+      dataCleansing: quote.data_cleansing,
+      ncoaUpdate: quote.ncoa_update,
+      firstClassPostage: quote.first_class_postage,
+      notes: quote.notes,
+      location_id: quote.location_id
+    }));
 
-      return res.json({ success: true, quotes: allQuotes });
-    }
-
-    // For other users, return empty quotes
-    res.json({ success: true, quotes: [] });
+    res.json({ success: true, quotes: formattedQuotes });
   } catch (error) {
     console.error('Error getting quotes:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -311,36 +294,79 @@ router.post('/api/quotes/:id/convert', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Not authenticated' });
     }
 
-    const quoteId = req.params.id;
-    console.log('Converting quote to order:', quoteId);
-
-    // Track converted quotes in session
-    if (!req.session.convertedQuotes) {
-      req.session.convertedQuotes = [];
-    }
+    const quoteNumber = req.params.id;
+    const userId = req.session.user.id;
     
-    if (req.session.convertedQuotes.includes(quoteId)) {
+    console.log('Converting quote to order:', quoteNumber);
+
+    // Find the quote in database
+    const [quoteToConvert] = await db
+      .select()
+      .from(quotes)
+      .where(eq(quotes.quote_number, quoteNumber));
+
+    if (!quoteToConvert) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Quote not found' 
+      });
+    }
+
+    if (quoteToConvert.user_id !== userId) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Unauthorized to convert this quote' 
+      });
+    }
+
+    if (quoteToConvert.status === 'Converted') {
       return res.status(400).json({ 
         success: false, 
         message: 'Quote has already been converted to an order' 
       });
     }
 
-    // Map specific quotes to order IDs that exist in our sample data
-    const quoteToOrderMap = {
-      'Q-4350': 188,  // Practice Relocation Notice
-      'Q-7964': 9999, // Provider Departure - Dr. Smith  
-      'Q-2452': 15    // HIPAA Breach Notification (already converted)
+    // Create new order from quote
+    const newOrderData: InsertOrder = {
+      user_id: userId,
+      quote_id: quoteToConvert.id,
+      subject: quoteToConvert.subject,
+      template_type: quoteToConvert.template_type,
+      color_mode: quoteToConvert.color_mode,
+      estimated_recipients: quoteToConvert.estimated_recipients,
+      recipient_count: quoteToConvert.estimated_recipients,
+      enclosures: quoteToConvert.enclosures,
+      notes: quoteToConvert.notes,
+      data_cleansing: quoteToConvert.data_cleansing,
+      ncoa_update: quoteToConvert.ncoa_update,
+      first_class_postage: quoteToConvert.first_class_postage,
+      total_cost: quoteToConvert.total_cost,
+      status: 'Pending Approval',
+      production_start_date: new Date().toISOString().split('T')[0],
+      production_end_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     };
+
+    const [newOrder] = await db.insert(orders).values(newOrderData).returning();
+
+    // Update quote status and link to order
+    await db
+      .update(quotes)
+      .set({ 
+        status: 'Converted', 
+        converted_order_id: newOrder.id,
+        updated_at: new Date()
+      })
+      .where(eq(quotes.id, quoteToConvert.id));
     
-    const orderId = quoteToOrderMap[quoteId] || 188; // Default to 188 if not found
-    
-    // Mark quote as converted
-    req.session.convertedQuotes.push(quoteId);
+    console.log('Quote converted to order successfully:', {
+      quoteId: quoteNumber,
+      orderId: newOrder.id,
+      subject: quoteToConvert.subject
+    });
     
     res.json({ 
       success: true, 
-      orderId: orderId,
+      orderId: newOrder.id,
       message: 'Quote converted to order successfully'
     });
   } catch (error) {
@@ -400,36 +426,31 @@ router.post('/api/quotes', async (req, res) => {
     if (ncoaUpdate) totalCost += 50;
     if (firstClassPostage) totalCost += recipientCount * 0.68;
 
-    // Create a simple quote response
+    // Create a unique quote number
     const quoteNumber = `Q-${Math.floor(1000 + Math.random() * 9000)}`;
     
-    // Store the quote in session for persistence
-    if (!req.session.createdQuotes) {
-      req.session.createdQuotes = [];
-    }
-    
-    const newQuote = {
-      id: quoteNumber,
+    // Insert quote into database
+    const newQuoteData: InsertQuote = {
+      quote_number: quoteNumber,
+      user_id: req.session.user.id,
+      location_id: location_id,
       subject: subject,
-      practiceLocation: `Practice Location (${location_id})`,
-      templateType: templateType,
-      estimatedRecipients: recipientCount,
-      totalCost: parseFloat(totalCost.toFixed(2)),
-      status: 'Quote',
-      createdAt: new Date().toISOString(),
-      convertedOrderId: null,
-      colorMode: colorMode,
+      template_type: templateType,
+      color_mode: colorMode,
+      estimated_recipients: recipientCount,
       enclosures: enclosureCount,
-      dataCleansing: dataCleansing,
-      ncoaUpdate: ncoaUpdate,
-      firstClassPostage: firstClassPostage,
-      notes: notes,
-      location_id: location_id
+      notes: notes || '',
+      data_cleansing: dataCleansing || false,
+      ncoa_update: ncoaUpdate || false,
+      first_class_postage: firstClassPostage || false,
+      total_cost: totalCost.toFixed(2),
+      status: 'Quote'
     };
+
+    const [insertedQuote] = await db.insert(quotes).values(newQuoteData).returning();
     
-    req.session.createdQuotes.push(newQuote);
-    
-    console.log('Quote created successfully:', {
+    console.log('Quote created successfully in database:', {
+      id: insertedQuote.id,
       quoteNumber,
       subject,
       templateType,
@@ -445,7 +466,7 @@ router.post('/api/quotes', async (req, res) => {
     
     res.json({ 
       success: true, 
-      quoteId: Date.now(), 
+      quoteId: insertedQuote.id, 
       quoteNumber: quoteNumber,
       totalCost: totalCost.toFixed(2),
       message: `Quote ${quoteNumber} created successfully`
