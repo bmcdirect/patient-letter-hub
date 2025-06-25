@@ -548,19 +548,45 @@ router.post('/api/orders/:id/approve', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Not authenticated' });
     }
 
-    const orderId = req.params.id;
+    const orderId = parseInt(req.params.id);
+    const userId = req.session.user.id;
+
+    if (isNaN(orderId)) {
+      return res.status(400).json({ success: false, message: 'Invalid order ID' });
+    }
+
+    // Get order from database
+    const [order] = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, orderId));
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    // Check if user owns this order
+    if (order.user_id !== userId) {
+      return res.status(403).json({ success: false, message: 'Unauthorized to approve this order' });
+    }
     
-    // Generate invoice number and set approval details
+    // Generate invoice number and update order
     const invoiceNumber = `INV-${Math.floor(Math.random() * 9000) + 1000}`;
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 30); // NET 30
     
-    console.log('Order approved:', {
+    await db
+      .update(orders)
+      .set({ 
+        status: 'In Process',
+        invoice_number: invoiceNumber,
+        updated_at: new Date()
+      })
+      .where(eq(orders.id, orderId));
+    
+    console.log('Order approved and updated in database:', {
       orderId,
       invoiceNumber,
       status: 'In Process',
-      approvedAt: new Date().toISOString(),
-      dueDate: dueDate.toISOString()
+      approvedAt: new Date().toISOString()
     });
 
     res.json({ 
@@ -699,77 +725,35 @@ router.get('/admin/api/orders', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Admin access required' });
     }
 
-    // Return comprehensive order data for admin dashboard
-    const adminOrders = [
-      {
-        id: 15,
-        subject: 'HIPAA Breach Notification',
-        status: 'Fulfilled',
-        created_at: '2024-06-21T09:45:00Z',
-        recipientCount: 75,
-        totalCost: 95.25,
-        practiceName: 'UMass Occupational Therapy',
-        userEmail: 'practice@umass.edu',
-        invoiceNumber: 'INV-1521',
-        files: {
-          letterDocument: 'hipaa_breach_letter.pdf',
-          recipients: 'recipients_list.csv',
-          letterhead: 'umass_letterhead.pdf'
-        },
-        statusHistory: [
-          { status: 'Quote', timestamp: '2024-06-20T10:00:00Z' },
-          { status: 'Converted', timestamp: '2024-06-21T09:00:00Z' },
-          { status: 'In Process', timestamp: '2024-06-21T09:45:00Z' },
-          { status: 'Fulfilled', timestamp: '2024-06-22T14:30:00Z' }
-        ],
-        adminNotes: 'Priority order - completed ahead of schedule'
+    // Get all orders from database for admin view
+    const allOrders = await db
+      .select()
+      .from(orders)
+      .orderBy(desc(orders.created_at));
+
+    // Transform to match admin dashboard format
+    const adminOrders = allOrders.map(order => ({
+      id: order.id,
+      subject: order.subject,
+      status: order.status,
+      created_at: order.created_at?.toISOString(),
+      recipientCount: order.recipient_count || order.estimated_recipients,
+      totalCost: parseFloat(order.total_cost || '0'),
+      practiceName: 'Practice Name', // TODO: Join with practices table
+      userEmail: 'user@example.com', // TODO: Join with users table
+      invoiceNumber: order.invoice_number,
+      files: {
+        letterDocument: 'letter_document.pdf',
+        recipients: 'recipients.csv'
       },
-      {
-        id: 188,
-        subject: 'Practice Relocation Notice',
-        status: 'Pending Approval',
-        created_at: new Date().toISOString(),
-        recipientCount: 150,
-        totalCost: 127.50,
-        practiceName: 'UMass Occupational Therapy',
-        userEmail: 'practice@umass.edu',
-        invoiceNumber: null,
-        files: {
-          letterDocument: 'relocation_notice.docx',
-          recipients: 'patient_addresses.csv',
-          logo: 'practice_logo.png',
-          signature: 'doctor_signature.png'
-        },
-        statusHistory: [
-          { status: 'Quote', timestamp: new Date(Date.now() - 86400000).toISOString() },
-          { status: 'Converted', timestamp: new Date().toISOString() }
-        ],
-        adminNotes: ''
-      },
-      {
-        id: 9999,
-        subject: 'Provider Departure - Dr. Smith',
-        status: 'In Process',
-        created_at: new Date().toISOString(),
-        recipientCount: 250,
-        totalCost: 287.50,
-        practiceName: 'North Valley Clinic',
-        userEmail: 'admin@northvalley.com',
-        invoiceNumber: 'INV-2231',
-        files: {
-          letterDocument: 'departure_notice.pdf',
-          recipients: 'all_patients.csv',
-          letterhead: 'clinic_letterhead.pdf',
-          enclosures: 'provider_directory.pdf'
-        },
-        statusHistory: [
-          { status: 'Quote', timestamp: new Date(Date.now() - 172800000).toISOString() },
-          { status: 'Converted', timestamp: new Date(Date.now() - 86400000).toISOString() },
-          { status: 'In Process', timestamp: new Date().toISOString() }
-        ],
-        adminNotes: 'Large batch - requires special handling'
-      }
-    ];
+      statusHistory: [
+        { status: order.status, timestamp: order.created_at?.toISOString() }
+      ],
+      adminNotes: order.notes || '',
+      production_start_date: order.production_start_date,
+      production_end_date: order.production_end_date,
+      fulfilled_at: order.fulfilled_at
+    }));
 
     res.json({ 
       success: true, 
