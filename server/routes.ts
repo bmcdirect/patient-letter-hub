@@ -301,20 +301,29 @@ router.get('/api/quotes/:id', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
-    const quoteId = req.params.id;
+    let quoteId = req.params.id;
     const userId = req.session.user.id;
+    
+    // Strip Q- prefix if present for consistency
+    if (quoteId.startsWith('Q-')) {
+      quoteId = quoteId.substring(2);
+    }
+    
+    console.log(`GET /api/quotes/:id - Fetching quote ${quoteId} for user ${userId}`);
 
     // Get quote from database for this user
     const [quote] = await db
       .select()
       .from(quotes)
-      .where(eq(quotes.quote_number, quoteId) && eq(quotes.user_id, userId));
+      .where(eq(quotes.quote_number, `Q-${quoteId}`) && eq(quotes.user_id, userId));
+
+    console.log(`Query result:`, quote ? 'Found' : 'Not found');
 
     if (!quote) {
       return res.status(404).json({ success: false, message: 'Quote not found' });
     }
 
-    // Transform to match frontend format
+    // Transform to match frontend format with all expected fields
     const formattedQuote = {
       id: quote.quote_number,
       subject: quote.subject,
@@ -334,7 +343,7 @@ router.get('/api/quotes/:id', async (req, res) => {
       location_id: quote.location_id
     };
 
-    console.log(`Retrieved quote ${quoteId} for user ${userId}`);
+    console.log(`Returning formatted quote:`, formattedQuote);
     res.json({ success: true, quote: formattedQuote });
   } catch (error) {
     console.error('Failed to fetch quote:', error);

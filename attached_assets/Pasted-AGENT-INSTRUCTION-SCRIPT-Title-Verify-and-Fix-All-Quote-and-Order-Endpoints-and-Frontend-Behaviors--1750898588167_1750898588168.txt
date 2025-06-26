@@ -1,0 +1,145 @@
+AGENT INSTRUCTION SCRIPT
+Title: Verify and Fix All Quote and Order Endpoints and Frontend Behaviors
+Scope: /api/quotes/:id, /api/quotes/:id [PUT], /api/orders, /api/orders/:id, /api/orders [GET] + dashboard and confirmation views.
+
+✅ STEP 1: VERIFY BACKEND ENDPOINTS
+1A. GET /api/quotes/:id
+Confirm that this route:
+
+Accepts an ID in format Q-xxxx
+
+Strips the Q- prefix if necessary
+
+Queries the correct quote record from the DB
+
+Returns full JSON object with all expected fields:
+
+json
+Copy
+Edit
+{
+  "id": 3784,
+  "subject": "Departure",
+  "templateType": "provider_departure",
+  "estimatedRecipients": 623,
+  "notes": "Some note...",
+  "location_id": 1,
+  ...
+}
+Fix: If it fails, check schema mapping or data population and confirm the quote ID is handled consistently.
+
+1B. PUT /api/quotes/:id
+Confirm that this updates an existing quote correctly.
+
+Payload should match structure used during quote creation.
+
+Ensure:
+
+Quote is not already converted.
+
+ID matching works (with or without Q- prefix).
+
+Add console.log(req.body) and console.log(updatedRow) to validate DB write.
+
+1C. POST /api/orders (Convert Quote)
+Validate it:
+
+Receives a valid quote ID
+
+Verifies that quote exists and is not already converted
+
+Inserts order in the DB and sets quote.status = 'Converted'
+
+Returns something like:
+
+json
+Copy
+Edit
+{ "success": true, "orderId": "O-3" }
+Fix: The current 500 error likely means the quote isn't being found or the insert is invalid.
+
+1D. GET /api/orders/:id
+Ensure this returns the full order object by numeric ID (O-3 → id=3)
+
+Fix order ID parsing and return meaningful 404 if not found.
+
+1E. GET /api/orders
+Confirm this returns a JSON array of all orders for current user or practice.
+
+Validate response structure:
+
+json
+Copy
+Edit
+[
+  {
+    "order_number": "O-3",
+    "subject": "Provider Departure",
+    "status": "Pending",
+    ...
+  }
+]
+Fix: Likely still returning HTML instead of JSON (check headers and fallback route).
+
+🔧 STEP 2: VERIFY FRONTEND INTEGRATIONS
+2A. quote.html in Edit Mode
+On ?editId=Q-xxxx, confirm:
+
+Data is fetched from /api/quotes/:id
+
+Fields populate correctly (subject, templateType, estimatedRecipients, notes)
+
+calculateCosts() is called after data is loaded
+
+Save button triggers PUT request, not POST
+
+2B. Dashboard
+Under Recent Mailings:
+
+/api/orders must return valid JSON for job list to populate
+
+Fix "Error loading data" if orders are empty or response is bad
+
+Under Your Recent Quotes:
+
+Confirm editing disabled on converted quotes
+
+"Convert to Order" triggers correct POST /api/orders
+
+2C. Confirmation Page
+When redirecting to /confirmation.html?jobId=3:
+
+Fetches from /api/orders/3
+
+Displays full order details
+
+If not found, show a proper "Order not found" message
+
+🛠️ STEP 3: TEST & LOGGING
+Add temporary console.log() or print() statements in each API route handler to:
+
+Output incoming params
+
+Output DB query results
+
+Output response object
+
+Open browser console + Network tab and verify:
+
+Status = 200
+
+Response type = JSON
+
+Response content = valid payload
+
+✅ ACCEPTANCE CRITERIA
+ Quotes can be edited with all fields correctly prefilling and saving
+
+ Quotes can be converted to orders without internal server error
+
+ Orders appear in dashboard under "Recent Mailings"
+
+ Orders are viewable in confirmation.html
+
+ All API routes respond with proper JSON payloads and status codes
+
