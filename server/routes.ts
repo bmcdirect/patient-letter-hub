@@ -791,5 +791,38 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // POST endpoint for adding practice locations
+  app.post('/api/settings/practice/locations', async (req: Request, res: Response) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      
+      if (!req.session.user) {
+        return res.status(401).json({ success: false, message: 'Not authenticated' });
+      }
+
+      const userId = req.session.user.id;
+      const locationData = req.body;
+
+      console.log('Adding practice location for user:', userId, 'Data:', locationData);
+
+      // Insert new practice as a location
+      const result = await db.execute(
+        `INSERT INTO practices (owner_id, name, taxonomy, address, phone, email, city, state, zip_code, default_sender_name) 
+         VALUES ('${userId}', '${locationData.name}', '${locationData.taxonomy || 'Healthcare'}', '${locationData.address_line1}', '${locationData.phone}', '${locationData.email}', '${locationData.city}', '${locationData.state}', '${locationData.zip_code}', '${locationData.contact_first_name} ${locationData.contact_last_name}') 
+         RETURNING id`
+      );
+
+      if (result.rows.length > 0) {
+        res.json({ success: true, message: 'Location added successfully', locationId: result.rows[0].id });
+      } else {
+        res.status(500).json({ success: false, message: 'Failed to add location' });
+      }
+
+    } catch (error) {
+      console.error('Error adding practice location:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
   console.log('All API routes registered successfully');
 }
