@@ -453,17 +453,21 @@ export function registerRoutes(app: Express) {
       }
 
       const userId = req.session.user.id;
-      let quoteId = req.params.id;
+      const quoteId = req.params.id;
       
-      // Handle Q-XXXX format
-      if (quoteId.startsWith('Q-')) {
-        quoteId = quoteId.substring(2);
-      }
+      console.log(`Converting quote ${quoteId} for user ${userId}`);
 
-      // Get quote details
-      const quoteResult = await db.execute(
-        `SELECT * FROM quotes WHERE id = ${quoteId} AND user_id = '${userId}'`
-      );
+      // Find quote by quote_number (Q-XXXX) or by ID
+      let quoteResult;
+      if (quoteId.startsWith('Q-')) {
+        quoteResult = await db.execute(
+          `SELECT * FROM quotes WHERE quote_number = '${quoteId}' AND CAST(user_id AS text) = '${userId}'`
+        );
+      } else {
+        quoteResult = await db.execute(
+          `SELECT * FROM quotes WHERE id = ${quoteId} AND CAST(user_id AS text) = '${userId}'`
+        );
+      }
 
       if (quoteResult.rows.length === 0) {
         return res.status(404).json({ success: false, message: 'Quote not found' });
@@ -490,9 +494,9 @@ export function registerRoutes(app: Express) {
       await db.execute(
         `UPDATE quotes SET 
          status = 'Converted',
-         converted_order_id = ${newOrder.rows[0].id},
+         converted_order_id = '${orderNumber}',
          updated_at = NOW()
-         WHERE id = ${quoteId}`
+         WHERE quote_number = '${quote.quote_number}'`
       );
 
       console.log(`Quote ${quoteNumber} converted to order ${orderNumber}`);
