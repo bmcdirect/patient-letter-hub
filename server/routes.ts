@@ -2,6 +2,7 @@ import express, { type Express, type Request, type Response } from 'express';
 import { db } from './db';
 import { quotes, orders, practices, type InsertQuote, type InsertOrder } from '../shared/schema';
 import { eq, desc, and } from 'drizzle-orm';
+import bcrypt from 'bcryptjs';
 
 // Export a function to register routes
 export function registerRoutes(app: Express) {

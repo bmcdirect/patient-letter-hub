@@ -153,6 +153,11 @@
       </div>
       
       <div class="form-group">
+        <label for="name">Full Name</label>
+        <input type="text" id="name" name="name" required />
+      </div>
+      
+      <div class="form-group">
         <label for="password">Password</label>
         <input type="password" id="password" name="password" required minlength="6" />
         <div class="password-requirements">
@@ -206,7 +211,8 @@
       
       const data = {
         email: formData.get('email'),
-        password: password
+        password: password,
+        name: formData.get('name')
       };
       
       try {
