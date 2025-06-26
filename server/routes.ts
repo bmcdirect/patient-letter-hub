@@ -87,6 +87,66 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.post('/api/auth/register', async (req: Request, res: Response) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      const { email, password, name } = req.body;
+
+      if (!email || !password || !name) {
+        return res.status(400).json({ success: false, message: 'Missing required fields.' });
+      }
+
+      // Check if user already exists
+      const existingUserResult = await db.execute(
+        `SELECT id FROM users WHERE email = '${email}' LIMIT 1`
+      );
+
+      if (existingUserResult.rows.length > 0) {
+        return res.status(409).json({ success: false, message: 'Email already in use.' });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create new user
+      const createUserResult = await db.execute(
+        `INSERT INTO users (email, password_hash, name, is_admin) 
+         VALUES ('${email}', '${hashedPassword}', '${name}', false) 
+         RETURNING id, email, name, is_admin`
+      );
+
+      if (createUserResult.rows.length === 0) {
+        return res.status(500).json({ success: false, message: 'Failed to create user.' });
+      }
+
+      const newUser = createUserResult.rows[0];
+
+      // Auto login on success
+      req.session.user = {
+        id: newUser.id.toString(),
+        email: newUser.email,
+        firstName: newUser.name,
+        lastName: ''
+      };
+      req.session.userId = newUser.id.toString();
+
+      console.log(`New user registered: ${email} with ID ${newUser.id}`);
+      res.json({ 
+        success: true, 
+        user: { 
+          id: newUser.id.toString(),
+          email: newUser.email, 
+          name: newUser.name,
+          is_admin: newUser.is_admin
+        } 
+      });
+
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ success: false, message: 'Registration failed.' });
+    }
+  });
+
   // === QUOTES ENDPOINTS ===
   app.get('/api/quotes', async (req: Request, res: Response) => {
     try {
