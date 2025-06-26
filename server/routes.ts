@@ -39,12 +39,22 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ success: false, message: 'Email and password are required' });
       }
 
-      const userId = email.includes('admin') ? '1' : '2';
+      // Check if user exists in database first
+      const userResult = await db.execute(
+        `SELECT id, email, is_admin FROM users WHERE email = '${email}' LIMIT 1`
+      );
+      
+      if (userResult.rows.length === 0) {
+        return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      }
+      
+      const dbUser = userResult.rows[0];
+      const userId = dbUser.id.toString();
       const testUser = {
         id: userId,
         email: email,
-        firstName: 'Test',
-        lastName: 'User'
+        firstName: 'User',
+        lastName: ''
       };
 
       req.session.user = testUser;
@@ -56,7 +66,7 @@ export function registerRoutes(app: Express) {
         user: { 
           id: userId, 
           email: email, 
-          is_admin: email.includes('admin') 
+          is_admin: dbUser.is_admin || false 
         } 
       });
     } catch (error) {
