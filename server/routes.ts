@@ -348,6 +348,61 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Delete quote
+  app.delete('/api/quotes/:id', async (req: Request, res: Response) => {
+    try {
+      console.log(`DELETE /api/quotes/${req.params.id}`);
+      
+      if (!req.session.user) {
+        return res.status(401).json({ success: false, message: 'Not authenticated' });
+      }
+
+      const userId = req.session.user.id;
+      const quoteId = req.params.id;
+
+      console.log(`Deleting quote ${quoteId} for user ${userId}`);
+
+      // Handle both Q-XXXX and numeric formats
+      let quoteNumber = quoteId;
+      if (!quoteNumber.startsWith('Q-')) {
+        quoteNumber = `Q-${quoteId}`;
+      }
+
+      // Find the quote by quote_number and user_id
+      const [existingQuote] = await db
+        .select()
+        .from(quotes)
+        .where(and(
+          eq(quotes.quote_number, quoteNumber),
+          eq(quotes.user_id, userId)
+        ));
+
+      if (!existingQuote) {
+        return res.status(404).json({ success: false, message: 'Quote not found' });
+      }
+
+      // Check if quote has been converted to an order
+      if (existingQuote.status === 'Converted') {
+        return res.status(400).json({ success: false, message: 'Cannot delete converted quotes' });
+      }
+
+      // Delete the quote
+      await db
+        .delete(quotes)
+        .where(and(
+          eq(quotes.quote_number, quoteNumber),
+          eq(quotes.user_id, userId)
+        ));
+
+      console.log(`Successfully deleted quote ${quoteNumber}`);
+      res.json({ success: true, message: 'Quote deleted successfully' });
+
+    } catch (error) {
+      console.error('Error deleting quote:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
   app.post('/api/quotes/:id/convert', async (req: Request, res: Response) => {
     try {
       res.setHeader('Content-Type', 'application/json');
