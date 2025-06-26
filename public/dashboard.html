@@ -79,10 +79,43 @@
       border: none;
       border-radius: 4px;
       cursor: pointer;
+      margin-right: 0.25rem;
     }
 
     .action-button:hover {
       background: #16325c;
+    }
+
+    .status-tag {
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .status-pending {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .status-processing {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .status-fulfilled {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .status-quote {
+      background: #e0e7ff;
+      color: #3730a3;
+    }
+
+    .status-converted {
+      background: #d1fae5;
+      color: #065f46;
     }
 
     .quick-actions {
@@ -183,155 +216,9 @@
       <h2>Compliance Alerts</h2>
       <p>No active alerts.</p>
     </div>
-
-    <!-- Quick Actions with templates temporarily disabled -->
-    <!--
-    <div class="section">
-      <h2>Quick Actions</h2>
-      <div class="quick-actions">
-        <button class="quick-action" onclick="startNewJob('doctor_departure')">Doctor Departure</button>
-        <button class="quick-action" onclick="startNewJob('location_change')">Location Change</button>
-        <button class="quick-action" onclick="startNewJob('hipaa_breach')">HIPAA Breach</button>
-      </div>
-    </div>
-    -->
   </div>
 
-  <script>
-    // Template functionality temporarily disabled
-    // function startNewJob(templateType) {
-    //   window.location.href = `/order.html?template=${encodeURIComponent(templateType)}`;
-    // }
-
-    // Dashboard data loading is handled by dashboard.js
-
-    async function loadQuotes() {
-      try {
-        const res = await fetch("/api/quotes", {
-          headers: { Accept: "application/json" }
-        });
-        
-        // Check if response is JSON
-        const contentType = res.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          throw new Error("Non-JSON response from server");
-        }
-        
-        if (!res.ok) {
-          throw new Error("Failed to load quotes");
-        }
-        
-        const data = await res.json();
-        
-        if (!data.success) {
-          throw new Error(data.message || "Failed to load quotes");
-        }
-        const table = document.getElementById("quotes-table");
-        table.innerHTML = "";
-
-        if (!data.success || !Array.isArray(data.quotes) || data.quotes.length === 0) {
-          table.innerHTML = '<tr><td colspan="8">No quotes found.</td></tr>';
-          return;
-        }
-
-        for (const quote of data.quotes) {
-          const row = document.createElement("tr");
-          const isConverted = quote.status === 'Converted';
-          
-          row.innerHTML = `
-            <td>${quote.id}</td>
-            <td>${quote.subject}</td>
-            <td>${quote.practiceLocation}</td>
-            <td>${formatTemplateType(quote.templateType)}</td>
-            <td>${quote.estimatedRecipients}</td>
-            <td>$${quote.totalCost.toFixed(2)}</td>
-            <td>
-              <span class="${isConverted ? 'status-converted' : 'status-quote'}">${quote.status}</span>
-            </td>
-            <td>
-              ${!isConverted ? `<button class="action-button" onclick="convertQuote('${quote.id}')">Convert to Order</button>` : ''}
-              <button class="action-button" onclick="editQuote('${quote.id}')">Edit</button>
-            </td>
-          `;
-          table.appendChild(row);
-        }
-      } catch (err) {
-        console.error("Failed to load quotes", err);
-        const table = document.getElementById("quotes-table");
-        table.innerHTML = '<tr><td colspan="8">Error loading quotes.</td></tr>';
-      }
-    }
-
-    function formatTemplateType(type) {
-      const types = {
-        'practice_relocation': 'Practice Relocation',
-        'provider_departure': 'Provider Departure',
-        'practice_closing': 'Practice Closing',
-        'hipaa_breach': 'HIPAA Breach',
-        'custom': 'Custom Letter'
-      };
-      return types[type] || type;
-    }
-
-    async function convertQuote(quoteId) {
-      try {
-        const res = await fetch(`/api/quotes/${quoteId}/convert`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        const result = await res.json();
-        if (result.success) {
-          alert(`Quote ${quoteId} converted to order successfully!`);
-          window.location.href = `/confirmation.html?jobId=${result.orderId}`;
-        } else {
-          alert('Failed to convert quote: ' + (result.message || 'Unknown error'));
-        }
-      } catch (err) {
-        console.error('Error converting quote:', err);
-        alert('Error converting quote. Please try again.');
-      }
-    }
-
-    function editQuote(quoteId) {
-      // Find the quote in the current loaded data
-      let quotes = [];
-      try {
-        // Get quotes from the table data that was loaded
-        const tableBody = document.getElementById('quotes-table-body');
-        if (tableBody) {
-          // Check status from the table display
-          const rows = tableBody.querySelectorAll('tr');
-          for (const row of rows) {
-            const idCell = row.cells[0];
-            const statusCell = row.cells[6];
-            if (idCell && idCell.textContent.includes(quoteId.split('-')[1])) {
-              const statusText = statusCell.querySelector('.status-tag')?.textContent;
-              if (statusText === 'Converted') {
-                alert('Cannot edit converted quotes');
-                return;
-              }
-              break;
-            }
-          }
-        }
-      } catch (e) {
-        console.log('Could not check quote status from table');
-      }
-      
-      window.location.href = `/quote.html?editId=${quoteId}`;
-    }
-
-    function duplicateJob(jobId) {
-      alert("TODO: Duplicate job " + jobId);
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      loadDashboardData();
-      loadQuotes();
-    });
-  </script>
+  <script src="/dashboard.js"></script>
 
 </body>
 </html>
-
