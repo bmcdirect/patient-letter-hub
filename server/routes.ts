@@ -57,12 +57,17 @@ export function registerRoutes(app: Express) {
 
   app.post('/api/auth/register', async (req: Request, res: Response) => {
     try {
-      const { email, firstName, lastName, password } = req.body;
+      const { 
+        email, firstName, lastName, password,
+        practiceName, prefix, middleInitial, suffix,
+        address1, address2, city, state, zipCode, officeNumber
+      } = req.body;
       
-      if (!email || !firstName || !lastName || !password) {
+      // Validate required fields
+      if (!email || !firstName || !lastName || !password || !practiceName || !address1 || !city || !state || !zipCode || !officeNumber) {
         return res.status(400).json({ 
           success: false, 
-          message: 'All fields are required: email, firstName, lastName, password' 
+          message: 'Please fill in all required fields marked with *' 
         });
       }
 
@@ -95,6 +100,15 @@ export function registerRoutes(app: Express) {
       }
 
       const newUser = result.rows[0];
+      const userId = newUser.id;
+
+      // Create practice profile for the new user
+      const fullAddress = `${address1}${address2 ? ', ' + address2 : ''}, ${city}, ${state} ${zipCode}`;
+      
+      await db.execute(
+        `INSERT INTO practices (owner_id, name, contact_prefix, contact_first_name, contact_middle_initial, contact_last_name, contact_suffix, phone, email, main_address, main_city, main_state, main_zip) 
+         VALUES ('${userId}', '${practiceName}', '${prefix || ''}', '${firstName}', '${middleInitial || ''}', '${lastName}', '${suffix || ''}', '${officeNumber}', '${email}', '${fullAddress}', '${city}', '${state}', '${zipCode}')`
+      );
 
       // Store user in session
       req.session.user = {
@@ -103,10 +117,11 @@ export function registerRoutes(app: Express) {
         is_admin: false
       };
 
-      console.log(`New user registered: ${email} with ID ${newUser.id}`);
+      console.log(`New user registered: ${email} with ID ${newUser.id} and practice: ${practiceName}`);
 
       res.json({
         success: true,
+        message: 'Account and practice profile created successfully!',
         user: {
           id: String(newUser.id),
           email: newUser.email,

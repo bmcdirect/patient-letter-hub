@@ -296,10 +296,23 @@
       }
       
       const data = {
+        // User account data
         email: formData.get('email'),
         firstName: formData.get('firstName'),
         lastName: formData.get('lastName'),
-        password: password
+        password: password,
+        
+        // Practice data
+        practiceName: formData.get('practiceName'),
+        prefix: formData.get('prefix'),
+        middleInitial: formData.get('middleInitial'),
+        suffix: formData.get('suffix'),
+        address1: formData.get('address1'),
+        address2: formData.get('address2'),
+        city: formData.get('city'),
+        state: formData.get('state'),
+        zipCode: formData.get('zipCode'),
+        officeNumber: formData.get('officeNumber')
       };
       
       try {
