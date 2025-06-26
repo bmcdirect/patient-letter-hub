@@ -149,6 +149,61 @@ function populatePracticeForm() {
 function renderLocations() {
   const container = document.getElementById('locationsContainer');
   
+  if (!container) {
+    console.error('Locations container not found');
+    return;
+  }
+
+  console.log('Rendering locations:', locations);
+
+  if (!locations || locations.length === 0) {
+    container.innerHTML = `
+      <div class="no-locations">
+        <h3>No Locations Added</h3>
+        <p>Complete the practice information form to create your main location, then add additional locations as needed.</p>
+        <button class="add-location-btn" onclick="showLocationForm()">Add New Location</button>
+      </div>
+    `;
+    return;
+  }
+
+  const locationsHTML = locations.map(location => {
+    const locationName = location.name || location.label || 'Unnamed Location';
+    const suffix = location.location_suffix || `${location.practice_id}.${location.location_number || 0}`;
+    const isDefault = location.is_default;
+    const isActive = location.active !== false;
+    
+    return `
+      <div class="location-card ${isDefault ? 'default-location' : ''} ${!isActive ? 'inactive-location' : ''}">
+        <div class="location-header">
+          <h4>${escapeHtml(locationName)} (${suffix})</h4>
+          ${isDefault ? '<span class="default-badge">Default</span>' : ''}
+          ${!isActive ? '<span class="inactive-badge">Inactive</span>' : ''}
+        </div>
+        <div class="location-details">
+          <p><strong>Contact:</strong> ${escapeHtml(location.contact_name || ((location.contact_first_name || '') + ' ' + (location.contact_last_name || '')).trim() || 'Not set')}</p>
+          <p><strong>Phone:</strong> ${escapeHtml(location.phone || 'Not set')}</p>
+          <p><strong>Email:</strong> ${escapeHtml(location.email || 'Not set')}</p>
+          <p><strong>Address:</strong> ${escapeHtml(location.address_line1 || location.address || 'Not set')}</p>
+          <p><strong>City, State ZIP:</strong> ${escapeHtml(location.city || 'Not set')}, ${escapeHtml(location.state || 'Not set')} ${escapeHtml(location.zip_code || 'Not set')}</p>
+        </div>
+        <div class="location-actions">
+          <button class="edit-btn" onclick="editLocation(${location.id})">Edit</button>
+          ${!isDefault ? `<button class="default-btn" onclick="setDefaultLocation(${location.id})">Set as Default</button>` : ''}
+          <button class="toggle-btn" onclick="toggleLocationStatus(${location.id})">${isActive ? 'Deactivate' : 'Activate'}</button>
+          ${!isDefault ? `<button class="delete-btn" onclick="deleteLocation(${location.id})">Delete</button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="locations-list">
+      ${locationsHTML}
+      <button class="add-location-btn" onclick="showLocationForm()">Add New Location</button>
+    </div>
+  `;
+  
   // Create main location from practice if it exists
   let allLocations = [...locations];
   if (currentPractice && currentPractice.main_address) {

@@ -355,13 +355,15 @@
           data.locations.sort((a, b) => {
             if (a.is_default && !b.is_default) return -1;
             if (!a.is_default && b.is_default) return 1;
-            return a.label.localeCompare(b.label);
+            return (a.name || a.label || '').localeCompare(b.name || b.label || '');
           });
 
           data.locations.forEach(loc => {
             const opt = document.createElement('option');
             opt.value = loc.id;
-            opt.textContent = loc.location_suffix ? `${loc.label} (${loc.location_suffix})` : loc.label;
+            const locationName = loc.name || loc.label || 'Unknown Location';
+            const suffix = loc.location_suffix || `${loc.practice_id}.${loc.location_number || 0}`;
+            opt.textContent = `${locationName} (${suffix})`;
             select.appendChild(opt);
           });
 
