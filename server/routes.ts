@@ -792,10 +792,10 @@ export function registerRoutes(app: Express) {
            WHERE owner_id = '${userId}'`
         );
       } else {
-        // Create new practice
+        // Create new practice with required taxonomy field
         await db.execute(
-          `INSERT INTO practices (owner_id, name, default_sender_name, phone, email, address, city, state, zip_code) 
-           VALUES ('${userId}', '${practiceData.name}', '${practiceData.contact_first_name} ${practiceData.contact_last_name}', '${practiceData.phone}', '${practiceData.email}', '${practiceData.main_address}', '${practiceData.main_city}', '${practiceData.main_state}', '${practiceData.main_zip}')`
+          `INSERT INTO practices (user_id, name, taxonomy, npi, address, phone, email, contact_name, contact_phone, created_at, updated_at) 
+           VALUES ('${userId}', '${practiceData.name}', '207Q00000X', '', '${practiceData.mainAddress || ''}', '${practiceData.phone}', '${practiceData.email}', '${practiceData.contactPrefix || ''} ${practiceData.contactFirstName || ''} ${practiceData.contactLastName || ''}', '', NOW(), NOW())`
         );
       }
 
