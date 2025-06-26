@@ -63,8 +63,8 @@
         
         document.getElementById('user-info').textContent = `Logged in as: ${data.user.email}`;
         
-        // Load practices for dropdown
-        await loadPractices();
+        // Load practice locations for dropdown
+        await loadPracticeLocations();
         
         // Setup logout
         document.getElementById('logout-btn').addEventListener('click', async () => {
@@ -193,44 +193,52 @@
       }
     }
 
-    // Load practices for dropdown
-    async function loadPractices() {
+    // Load practice locations for dropdown
+    async function loadPracticeLocations() {
       try {
-        const res = await fetch('/api/practices');
+        const res = await fetch('/api/settings/practice/locations');
         if (res.ok) {
           const data = await res.json();
           if (data.success) {
-            const practiceSelect = document.getElementById('practiceSelect');
+            const locationSelect = document.getElementById('practiceLocation');
             
             // Clear existing options except the first one
-            while (practiceSelect.children.length > 1) {
-              practiceSelect.removeChild(practiceSelect.lastChild);
+            while (locationSelect.children.length > 1) {
+              locationSelect.removeChild(locationSelect.lastChild);
             }
             
-            // Add practice options
-            data.practices.forEach(practice => {
+            // Add location options
+            data.locations.forEach(location => {
               const option = document.createElement('option');
-              option.value = practice.id;
-              option.textContent = practice.name;
-              practiceSelect.appendChild(option);
+              option.value = location.id;
+              option.textContent = `${location.name} (${location.practice_id}.${location.location_number})`;
+              locationSelect.appendChild(option);
             });
           }
         }
       } catch (err) {
-        console.error('Failed to load practices:', err);
+        console.error('Failed to load practice locations:', err);
       }
     }
   </script>
 
   <form id="orderForm" enctype="multipart/form-data">
 
-    <!-- A. Subject Line -->
+    <!-- A. Practice Location Selection -->
+    <div class="section">
+      <label for="practiceLocation">Select Practice Location *</label>
+      <select id="practiceLocation" name="practiceLocation" required>
+        <option value="">Choose a practice location...</option>
+      </select>
+    </div>
+
+    <!-- B. Subject Line -->
     <div class="section">
       <label for="subject">Subject Line *</label>
       <input type="text" id="subject" name="subject" placeholder="Enter the subject for your letter" required>
     </div>
 
-    <!-- B. Upload Letter Document -->
+    <!-- C. Upload Letter Document -->
     <div class="section">
       <h3>📄 Upload Letter Document</h3>
       
@@ -242,7 +250,7 @@
       </div>
     </div>
 
-    <!-- C. Recipient Mailing List -->
+    <!-- D. Recipient Mailing List -->
     <div class="section">
       <label for="recipients">Recipient Mailing List (CSV or Excel) *</label>
       <input type="file" id="recipients" name="recipients" accept=".csv,.xlsx,.xls" required>
@@ -251,19 +259,18 @@
       <a href="/sample/recipients.csv" download>Download Sample CSV</a>
     </div>
 
-    <!-- D. Letter Color -->
+    <!-- E. Letter Color & Additional Services -->
     <div class="section">
-      <label for="colorMode">Letter Color</label>
-      <select id="colorMode" name="colorMode">
-        <option value="bw">Black & White ($0.50 per letter)</option>
-        <option value="color">Color ($0.65 per letter)</option>
-      </select>
-    </div>
-
-    <!-- E. Additional Services -->
-    <div class="section">
-      <h3>Additional Services</h3>
+      <h3>Letter Color & Additional Services</h3>
       <div class="services-grid">
+        <div class="service-option">
+          <label for="colorMode">Letter Color:</label>
+          <select id="colorMode" name="colorMode" style="width: auto; margin-left: 0.5rem;">
+            <option value="bw">Black & White ($0.50 per letter)</option>
+            <option value="color">Color ($0.65 per letter)</option>
+          </select>
+        </div>
+        
         <div class="service-option">
           <input type="checkbox" id="dataCleansing" name="dataCleansing" value="true">
           <label for="dataCleansing">Data Cleansing & De-Duplication ($25)</label>
@@ -278,25 +285,30 @@
           <input type="checkbox" id="firstClassPostage" name="firstClassPostage" value="true">
           <label for="firstClassPostage">Include First Class Postage ($0.68 per recipient)</label>
         </div>
-      </div>
-    </div>
-
-    <!-- Cost Preview -->
-    <div class="section">
-      <div id="cost-preview" style="background: #f8f9fa; padding: 1rem; border-radius: 4px; border-left: 4px solid #0066cc;">
-        <h4 style="margin: 0 0 0.5rem 0; color: #0066cc;">Estimated Cost</h4>
-        <div id="cost-display">Upload recipient list to calculate estimate</div>
-        <div id="cost-breakdown" style="display: none;">
-          <ul id="breakdown-details" style="margin: 0.5rem 0 0 0; font-size: 0.9rem; color: #666;"></ul>
+        
+        <div class="service-option">
+          <label for="additionalEnclosures">Additional Enclosures:</label>
+          <select id="additionalEnclosures" name="additionalEnclosures" style="width: auto; margin-left: 0.5rem;">
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+          </select>
         </div>
       </div>
     </div>
 
-    <!-- Optional uploads moved to expandable section -->
+    <!-- Additional Documents & Branding - Always Visible -->
     <div class="section">
-      <details>
-        <summary style="cursor: pointer; font-weight: bold; padding: 0.5rem 0;">Optional: Additional Documents & Branding</summary>
-        <div class="upload-grid" style="margin-top: 1rem;">
+      <h3>Additional Documents & Branding</h3>
+      <div class="upload-grid" style="margin-top: 1rem;">
           <div class="upload-column">
             <div class="upload-item">
               <label for="letterhead">Practice Letterhead</label>
@@ -343,7 +355,6 @@
             </div>
           </div>
         </div>
-      </details>
     </div>
 
     <div class="section">
@@ -352,62 +363,17 @@
   </form>
 
   <script>
-    // Cost calculation functionality
-    function calculateCost() {
-      const recipientsFile = document.getElementById('recipients').files[0];
-      if (!recipientsFile) {
-        document.getElementById('cost-display').textContent = 'Upload recipient list to calculate estimate';
-        document.getElementById('cost-breakdown').style.display = 'none';
-        return;
-      }
+    // Cost calculation functionality removed as per user request
+    // Cost preview section has been removed from the form
 
-      // Estimate recipient count (placeholder - would parse CSV in real implementation)
-      const estimatedRecipients = 100;
-      
-      const colorMode = document.getElementById('colorMode').value;
-      const dataCleansing = document.getElementById('dataCleansing').checked;
-      const ncoaUpdate = document.getElementById('ncoaUpdate').checked;
-      const firstClassPostage = document.getElementById('firstClassPostage').checked;
-      
-      const baseRate = colorMode === 'color' ? 0.65 : 0.50;
-      let totalCost = estimatedRecipients * baseRate;
-      
-      if (dataCleansing) totalCost += 25;
-      if (ncoaUpdate) totalCost += 50;
-      if (firstClassPostage) totalCost += estimatedRecipients * 0.68;
-      
-      document.getElementById('cost-display').innerHTML = `<strong>Total Estimated Cost: $${totalCost.toFixed(2)}</strong>`;
-      
-      let breakdownHTML = `
-        <li>Base cost: $${baseRate.toFixed(2)} per letter</li>
-        <li>Total recipients: ${estimatedRecipients}</li>
-        <li>Letter cost subtotal: $${(estimatedRecipients * baseRate).toFixed(2)}</li>
-      `;
-      
-      if (firstClassPostage) {
-        breakdownHTML += `<li>First Class Postage: $0.68 × ${estimatedRecipients} = $${(estimatedRecipients * 0.68).toFixed(2)}</li>`;
-      }
-      
-      if (dataCleansing) {
-        breakdownHTML += `<li>Data Cleansing & De-Duplication: $25.00</li>`;
-      }
-      
-      if (ncoaUpdate) {
-        breakdownHTML += `<li>NCOA Move Update: $50.00</li>`;
-      }
-      
-      document.getElementById('breakdown-details').innerHTML = breakdownHTML;
-      document.getElementById('cost-breakdown').style.display = 'block';
-    }
-
-    // Setup cost calculation listeners
-    document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('recipients').addEventListener('change', calculateCost);
-      document.getElementById('colorMode').addEventListener('change', calculateCost);
-      document.getElementById('dataCleansing').addEventListener('change', calculateCost);
-      document.getElementById('ncoaUpdate').addEventListener('change', calculateCost);
-      document.getElementById('firstClassPostage').addEventListener('change', calculateCost);
-    });
+    // Setup cost calculation listeners (removed since cost preview section is removed)
+    // document.addEventListener('DOMContentLoaded', () => {
+    //   document.getElementById('recipients').addEventListener('change', calculateCost);
+    //   document.getElementById('colorMode').addEventListener('change', calculateCost);
+    //   document.getElementById('dataCleansing').addEventListener('change', calculateCost);
+    //   document.getElementById('ncoaUpdate').addEventListener('change', calculateCost);
+    //   document.getElementById('firstClassPostage').addEventListener('change', calculateCost);
+    // });
   </script>
   <script src="/submit_order.js"></script>
 </body>
