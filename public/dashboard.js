@@ -156,6 +156,7 @@ async function loadQuotes() {
             : `<button class="action-button" onclick="convertQuote('${quote.id}')">Convert to Order</button>
                <button class="action-button" onclick="editQuote('${quote.id}')">Edit</button>`
           }
+          <button class="action-button" onclick="deleteQuote('${quote.id}')" style="background: #dc2626;">Delete</button>
         </td>
       `;
       quotesTable.appendChild(row);
@@ -194,6 +195,29 @@ function convertQuote(quoteId) {
 
 function editQuote(quoteId) {
   window.location.href = `/quote.html?editId=${quoteId}`;
+}
+
+function deleteQuote(quoteId) {
+  if (confirm(`Are you sure you want to delete quote ${quoteId}? This action cannot be undone.`)) {
+    fetch(`/api/quotes/${quoteId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert(`Quote ${quoteId} deleted successfully!`);
+        location.reload(); // Refresh to update the quotes list
+      } else {
+        alert(`Error deleting quote: ${data.message}`);
+      }
+    })
+    .catch(err => {
+      console.error('Delete error:', err);
+      alert('Failed to delete quote. Please try again.');
+    });
+  }
 }
 
 // Load quotes when dashboard loads
