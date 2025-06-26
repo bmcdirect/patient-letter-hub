@@ -199,6 +199,9 @@ function editQuote(quoteId) {
 
 function deleteQuote(quoteId) {
   if (confirm(`Are you sure you want to delete quote ${quoteId}? This action cannot be undone.`)) {
+    // First, save the quote to localStorage before deleting
+    saveQuoteToDeletedArchive(quoteId);
+    
     fetch(`/api/quotes/${quoteId}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -219,6 +222,75 @@ function deleteQuote(quoteId) {
     });
   }
 }
+
+function saveQuoteToDeletedArchive(quoteId) {
+  // Find the quote in the current data and save it to localStorage before deletion
+  const quotesTableBody = document.getElementById("quotesTableBody");
+  const rows = quotesTableBody.querySelectorAll('tr');
+  
+  for (let row of rows) {
+    const firstCell = row.querySelector('td');
+    if (firstCell && firstCell.textContent === quoteId) {
+      const cells = row.querySelectorAll('td');
+      const quoteData = {
+        id: cells[0].textContent,
+        subject: cells[1].textContent,
+        practiceLocation: cells[2].textContent,
+        templateType: cells[3].textContent,
+        estimatedRecipients: cells[4].textContent,
+        totalCost: cells[5].textContent,
+        status: 'Deleted',
+        deletedAt: new Date().toISOString()
+      };
+      
+      // Save to localStorage
+      let deletedQuotes = JSON.parse(localStorage.getItem('deletedQuotes') || '[]');
+      deletedQuotes.push(quoteData);
+      localStorage.setItem('deletedQuotes', JSON.stringify(deletedQuotes));
+      break;
+    }
+  }
+}
+
+function loadDeletedQuotesFromStorage() {
+  const deletedQuotes = JSON.parse(localStorage.getItem('deletedQuotes') || '[]');
+  const archiveTableBody = document.getElementById("archiveTableBody");
+  
+  for (const quote of deletedQuotes) {
+    const row = document.createElement("tr");
+    
+    row.innerHTML = `
+      <td>${quote.id}</td>
+      <td>${quote.subject}</td>
+      <td>${quote.practiceLocation}</td>
+      <td>${quote.templateType}</td>
+      <td>${quote.estimatedRecipients}</td>
+      <td>${quote.totalCost}</td>
+      <td><span class="status-tag" style="background: #ef4444;">Deleted</span></td>
+      <td>-</td>
+    `;
+    
+    archiveTableBody.appendChild(row);
+  }
+}
+
+// Toggle archive visibility
+document.addEventListener('DOMContentLoaded', function() {
+  const toggleButton = document.getElementById('toggleArchive');
+  const archiveContainer = document.getElementById('archiveTableContainer');
+  
+  if (toggleButton && archiveContainer) {
+    toggleButton.addEventListener('click', function() {
+      if (archiveContainer.style.display === 'none') {
+        archiveContainer.style.display = 'block';
+        toggleButton.textContent = 'Hide Archive';
+      } else {
+        archiveContainer.style.display = 'none';
+        toggleButton.textContent = 'Show Archive';
+      }
+    });
+  }
+});
 
 // Load quotes when dashboard loads
 document.addEventListener("DOMContentLoaded", () => {
