@@ -64,7 +64,7 @@
         document.getElementById('user-info').textContent = `Logged in as: ${data.user.email}`;
         
         // Load practice locations for dropdown
-        await loadPracticeLocations();
+        await loadPracticeInfo();
         
         // Setup logout
         document.getElementById('logout-btn').addEventListener('click', async () => {
@@ -193,43 +193,53 @@
       }
     }
 
-    // Load practice locations for dropdown
-    async function loadPracticeLocations() {
+    // Load practice information for display
+    async function loadPracticeInfo() {
       try {
-        const res = await fetch('/api/settings/practice/locations');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            const locationSelect = document.getElementById('practiceLocation');
-            
-            // Clear existing options except the first one
-            while (locationSelect.children.length > 1) {
-              locationSelect.removeChild(locationSelect.lastChild);
-            }
-            
-            // Add location options
-            data.locations.forEach(location => {
-              const option = document.createElement('option');
-              option.value = location.id;
-              option.textContent = `${location.name} (${location.practice_id}.${location.location_number})`;
-              locationSelect.appendChild(option);
-            });
-          }
+        const res = await fetch('/api/settings/practice');
+        const result = await res.json();
+        
+        const display = document.getElementById('practiceLocationDisplay');
+        
+        if (result.success && result.practice) {
+          const practice = result.practice;
+          const contactName = [practice.contact_prefix, practice.contact_first_name, practice.contact_last_name].filter(Boolean).join(' ');
+          
+          display.innerHTML = `
+            <strong>${practice.name}</strong><br>
+            ${contactName ? `${contactName}<br>` : ''}
+            ${practice.main_address || 'No address on file'}<br>
+            ${practice.phone ? `Phone: ${practice.phone}<br>` : ''}
+            ${practice.email ? `Email: ${practice.email}` : ''}
+          `;
+        } else {
+          display.innerHTML = `
+            <div style="color: #dc3545;">
+              <strong>No practice information found</strong><br>
+              <a href="/settings.html" style="color: #007bff;">Set up your practice profile</a>
+            </div>
+          `;
         }
       } catch (err) {
-        console.error('Failed to load practice locations:', err);
+        console.error('Failed to load practice info:', err);
+        document.getElementById('practiceLocationDisplay').innerHTML = `
+          <div style="color: #dc3545;">Error loading practice information</div>
+        `;
       }
     }
   </script>
 
   <form id="orderForm" enctype="multipart/form-data" onsubmit="submitOrder(event)">
 
-    <!-- A. Practice Location Selection -->
+    <!-- A. Practice Location Display -->
     <div class="section">
-      <label for="practiceLocation">Select Practice Location *</label>
-      <select id="practiceLocation" name="practiceLocation" required>
-        <option value="">Choose a practice location...</option>
-      </select>
+      <label>Practice Location</label>
+      <div id="practiceLocationDisplay" style="padding: 0.75rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; color: #495057; margin-top: 0.3rem;">
+        Loading practice information...
+      </div>
+      <div style="margin-top: 0.5rem; font-size: 0.9rem; color: #6c757d;">
+        <a href="/settings.html" style="color: #007bff; text-decoration: none;">Manage Practice Settings</a>
+      </div>
     </div>
 
     <!-- B. Subject Line -->
