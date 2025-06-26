@@ -144,15 +144,16 @@
       <table>
         <thead>
           <tr>
-            <th>Job ID</th>
+            <th>Order ID</th>
             <th>Subject</th>
             <th>Status</th>
             <th>Created</th>
+            <th>Cost</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody id="mailings-table">
-          <tr><td colspan="5">Loading...</td></tr>
+          <tr><td colspan="6">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -202,68 +203,7 @@
     //   window.location.href = `/order.html?template=${encodeURIComponent(templateType)}`;
     // }
 
-    async function loadDashboardData() {
-      try {
-        const res = await fetch("/api/orders", {
-          headers: { Accept: "application/json" }
-        });
-        
-        // Check if response is JSON
-        const contentType = res.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          throw new Error("Non-JSON response from server");
-        }
-        
-        if (!res.ok) {
-          throw new Error("Failed to load orders");
-        }
-        
-        const data = await res.json();
-        
-        if (!data.success) {
-          throw new Error(data.message || "Failed to load orders");
-        }
-        
-        const table = document.getElementById("mailings-table");
-        table.innerHTML = "";
-        
-        const orders = data.orders || [];
-
-        if (orders.length === 0) {
-          table.innerHTML = '<tr><td colspan="5">No mailings found.</td></tr>';
-          return;
-        }
-
-        let pending = 0, inPrint = 0, delivered = 0;
-
-        for (const job of data) {
-          const row = document.createElement("tr");
-          row.innerHTML = `
-            <td>${job.jobId}</td>
-            <td>${job.subject || 'Untitled'}</td>
-            <td>${job.status || 'Pending'}</td>
-            <td>${new Date(job.createdAt).toLocaleDateString()}</td>
-            <td>
-              <button class="action-button" onclick="duplicateJob(${job.jobId})">Duplicate</button>
-              <button class="action-button" onclick="window.open('/confirmation.html?jobId=${job.jobId}', '_blank')">View</button>
-            </td>
-          `;
-          table.appendChild(row);
-
-          if (job.status === "Pending") pending++;
-          else if (job.status === "In Print") inPrint++;
-          else if (job.status === "Delivered") delivered++;
-        }
-
-        document.getElementById("stat-pending").textContent = pending;
-        document.getElementById("stat-inprint").textContent = inPrint;
-        document.getElementById("stat-delivered").textContent = delivered;
-      } catch (err) {
-        console.error("Failed to load orders", err);
-        const table = document.getElementById("mailings-table");
-        table.innerHTML = '<tr><td colspan="5">Error loading data.</td></tr>';
-      }
-    }
+    // Dashboard data loading is handled by dashboard.js
 
     async function loadQuotes() {
       try {
