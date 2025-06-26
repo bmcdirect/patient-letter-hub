@@ -77,11 +77,24 @@ export function registerRoutes(app: Express) {
       const userId = req.session.user.id;
       console.log(`Fetching quotes for user ${userId}`);
 
-      const userQuotes = await db
-        .select()
-        .from(quotes)
-        .where(eq(quotes.user_id, userId))
-        .orderBy(desc(quotes.created_at));
+      // Use a retry mechanism for database queries
+      let userQuotes;
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          userQuotes = await db
+            .select()
+            .from(quotes)
+            .where(eq(quotes.user_id, userId))
+            .orderBy(desc(quotes.created_at));
+          break;
+        } catch (error) {
+          retries--;
+          if (retries === 0) throw error;
+          console.log(`Database query failed, retrying... (${retries} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
 
       console.log(`Found ${userQuotes.length} quotes`);
 
@@ -427,11 +440,24 @@ export function registerRoutes(app: Express) {
 
       const userId = req.session.user.id;
 
-      const userOrders = await db
-        .select()
-        .from(orders)
-        .where(eq(orders.user_id, userId))
-        .orderBy(desc(orders.created_at));
+      // Use a retry mechanism for database queries
+      let userOrders;
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          userOrders = await db
+            .select()
+            .from(orders)
+            .where(eq(orders.user_id, userId))
+            .orderBy(desc(orders.created_at));
+          break;
+        } catch (error) {
+          retries--;
+          if (retries === 0) throw error;
+          console.log(`Database query failed, retrying... (${retries} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
 
       console.log(`Found ${userOrders.length} orders for user ${userId}`);
 
