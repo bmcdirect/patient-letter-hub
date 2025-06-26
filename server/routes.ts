@@ -308,16 +308,16 @@ export function registerRoutes(app: Express) {
       let result;
       if (quoteId.startsWith('Q-')) {
         result = await db.execute(
-          `SELECT q.*, COALESCE(p.name, 'Default Practice') as practice_name 
+          `SELECT q.*, COALESCE(p.name, 'Main Practice') as practice_name 
            FROM quotes q 
-           LEFT JOIN practices_new p ON CAST(q.practice_location_id AS text) = CAST(p.id AS text)
+           LEFT JOIN practices p ON q.practice_id = p.id
            WHERE q.quote_number = '${quoteId}' AND CAST(q.user_id AS text) = '${userId}'`
         );
       } else {
         result = await db.execute(
-          `SELECT q.*, COALESCE(p.name, 'Default Practice') as practice_name 
+          `SELECT q.*, COALESCE(p.name, 'Main Practice') as practice_name 
            FROM quotes q 
-           LEFT JOIN practices_new p ON CAST(q.practice_location_id AS text) = CAST(p.id AS text)
+           LEFT JOIN practices p ON q.practice_id = p.id
            WHERE q.id = ${quoteId} AND CAST(q.user_id AS text) = '${userId}'`
         );
       }
