@@ -1,6 +1,6 @@
 import express, { type Express, type Request, type Response } from 'express';
 import { db } from './db';
-import { quotes, orders, type InsertQuote, type InsertOrder } from '../shared/schema';
+import { quotes, orders, practices, type InsertQuote, type InsertOrder } from '../shared/schema';
 import { eq, desc, and } from 'drizzle-orm';
 
 // Export a function to register routes
@@ -627,11 +627,11 @@ export function registerRoutes(app: Express) {
 
       const userId = req.session.user.id;
 
-      // Get user's main practice data
+      // Get user's main practice data  
       const userPractices = await db
         .select()
         .from(practices)
-        .where(eq(practices.user_id, userId))
+        .where(eq(practices.ownerId, userId))
         .limit(1);
 
       const practice = userPractices.length > 0 ? userPractices[0] : null;
@@ -660,7 +660,7 @@ export function registerRoutes(app: Express) {
       const userPractices = await db
         .select()
         .from(practices)
-        .where(eq(practices.user_id, userId));
+        .where(eq(practices.ownerId, userId));
 
       // Format locations data to match expected structure
       const locations = userPractices.map((practice, index) => ({
