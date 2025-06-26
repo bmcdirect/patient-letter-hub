@@ -253,10 +253,16 @@ export function registerRoutes(app: Express) {
       const quoteCount = await db.execute('SELECT COUNT(*) as count FROM quotes');
       const quoteNumber = `Q-${(parseInt(quoteCount.rows[0].count) + 1001).toString()}`;
 
-      // Insert quote
+      // Get user's practice ID
+      const practiceResult = await db.execute(
+        `SELECT id FROM practices WHERE owner_id = '${userId}' LIMIT 1`
+      );
+      const practiceId = practiceResult.rows.length > 0 ? practiceResult.rows[0].id : null;
+
+      // Insert quote with practice_id
       const result = await db.execute(
-        `INSERT INTO quotes (user_id, quote_number, subject, template_type, color_mode, estimated_recipients, enclosures, notes, data_cleansing, ncoa_update, first_class_postage, total_cost, status, created_at) 
-         VALUES ('${userId}', '${quoteNumber}', '${subject}', '${templateType}', '${colorMode}', ${recipients}, ${enclosures || 0}, '${notes || ''}', ${dataCleansing || false}, ${ncoaUpdate || false}, ${firstClassPostage || false}, ${totalCost.toFixed(2)}, 'Quote', NOW()) 
+        `INSERT INTO quotes (user_id, practice_id, quote_number, subject, template_type, color_mode, estimated_recipients, enclosures, notes, data_cleansing, ncoa_update, first_class_postage, total_cost, status, created_at) 
+         VALUES ('${userId}', ${practiceId}, '${quoteNumber}', '${subject}', '${templateType}', '${colorMode}', ${recipients}, ${enclosures || 0}, '${notes || ''}', ${dataCleansing || false}, ${ncoaUpdate || false}, ${firstClassPostage || false}, ${totalCost.toFixed(2)}, 'Quote', NOW()) 
          RETURNING id`
       );
 
