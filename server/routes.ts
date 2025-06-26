@@ -480,7 +480,7 @@ export function registerRoutes(app: Express) {
       // Create order from quote
       const newOrder = await db.execute(
         `INSERT INTO orders (user_id, order_number, practice_id, subject, template_type, color_mode, estimated_recipients, recipient_count, enclosures, notes, data_cleansing, ncoa_update, first_class_postage, total_cost, status, production_start_date, production_end_date) 
-         VALUES ('${userId}', '${orderNumber}', '${quote.practice_id}', '${quote.subject}', '${quote.template_type}', '${quote.color_mode}', ${quote.estimated_recipients}, ${quote.estimated_recipients}, ${quote.enclosures}, '${quote.notes}', ${quote.data_cleansing}, ${quote.ncoa_update}, ${quote.first_class_postage}, ${quote.total_cost}, 'Pending Approval', '${new Date().toISOString().split('T')[0]}', '${new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}') 
+         VALUES ('${userId}', '${orderNumber}', ${quote.practice_id || 'NULL'}, '${quote.subject}', '${quote.template_type}', '${quote.color_mode}', ${quote.estimated_recipients}, ${quote.estimated_recipients}, ${quote.enclosures}, '${quote.notes || ''}', ${quote.data_cleansing}, ${quote.ncoa_update}, ${quote.first_class_postage}, ${quote.total_cost}, 'Pending Approval', '${new Date().toISOString().split('T')[0]}', '${new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}') 
          RETURNING id`
       );
 
