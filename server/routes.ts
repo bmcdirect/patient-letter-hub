@@ -869,10 +869,10 @@ export function registerRoutes(app: Express) {
 
       const locationData = req.body;
 
-      // Insert new practice location
+      // Insert new practice location with required taxonomy field
       const result = await db.execute(
-        `INSERT INTO practices (owner_id, name, default_sender_name, phone, email, address, city, state, zip_code) 
-         VALUES ('${userId}', '${locationData.name}', '${locationData.contact_first_name} ${locationData.contact_last_name}', '${locationData.phone}', '${locationData.email}', '${locationData.address_line1}', '${locationData.city}', '${locationData.state}', '${locationData.zip_code}') 
+        `INSERT INTO practices (user_id, name, taxonomy, npi, address, phone, email, contact_name, contact_phone, created_at, updated_at, city, state, zip_code) 
+         VALUES ('${userId}', '${locationData.name}', '207Q00000X', '', '${locationData.address}', '${locationData.phone}', '', '${locationData.contactPrefix || ''} ${locationData.contactFirstName || ''} ${locationData.contactLastName || ''}', '', NOW(), NOW(), '${locationData.city}', '${locationData.state}', '${locationData.zipCode}') 
          RETURNING id`
       );
 
