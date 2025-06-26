@@ -277,31 +277,40 @@ export function registerRoutes(app: Express) {
       }
 
       const userId = req.session.user.id;
-      let quoteId = req.params.id;
+      const quoteId = req.params.id;
       
-      // Handle Q-XXXX format
-      if (quoteId.startsWith('Q-')) {
-        quoteId = quoteId.substring(2);
-      }
+      console.log(`Fetching quote ${quoteId} for user ${userId}`);
 
-      const result = await db.execute(
-        `SELECT q.*, p.name as practice_name 
-         FROM quotes q 
-         LEFT JOIN practices p ON q.practice_id = p.id 
-         WHERE q.id = ${quoteId} AND q.user_id = '${userId}'`
-      );
+      // Find quote by quote_number (Q-XXXX) or by ID
+      let result;
+      if (quoteId.startsWith('Q-')) {
+        result = await db.execute(
+          `SELECT q.*, COALESCE(p.name, 'Default Practice') as practice_name 
+           FROM quotes q 
+           LEFT JOIN practices_new p ON CAST(q.practice_location_id AS text) = CAST(p.id AS text)
+           WHERE q.quote_number = '${quoteId}' AND CAST(q.user_id AS text) = '${userId}'`
+        );
+      } else {
+        result = await db.execute(
+          `SELECT q.*, COALESCE(p.name, 'Default Practice') as practice_name 
+           FROM quotes q 
+           LEFT JOIN practices_new p ON CAST(q.practice_location_id AS text) = CAST(p.id AS text)
+           WHERE q.id = ${quoteId} AND CAST(q.user_id AS text) = '${userId}'`
+        );
+      }
 
       if (result.rows.length === 0) {
         return res.status(404).json({ success: false, message: 'Quote not found' });
       }
 
-      const quote = result.rows[0];
+      const quote = result.rows[0] as any;
       res.json({
         success: true,
         quote: {
           id: quote.id,
-          location_id: quote.location_id,
+          quoteNumber: quote.quote_number,
           subject: quote.subject,
+          practiceLocation: quote.practice_name,
           templateType: quote.template_type,
           colorMode: quote.color_mode,
           estimatedRecipients: quote.estimated_recipients,
@@ -310,7 +319,9 @@ export function registerRoutes(app: Express) {
           dataCleansing: quote.data_cleansing,
           ncoaUpdate: quote.ncoa_update,
           firstClassPostage: quote.first_class_postage,
-          totalCost: parseFloat(quote.total_cost)
+          totalCost: parseFloat(quote.total_cost),
+          status: quote.status,
+          createdAt: quote.created_at
         }
       });
     } catch (error) {
