@@ -22,7 +22,9 @@
       border-radius: 12px;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
       width: 100%;
-      max-width: 400px;
+      max-width: 800px;
+      max-height: 90vh;
+      overflow-y: auto;
     }
     
     .logo {
@@ -147,35 +149,114 @@
     <div id="message-container"></div>
     
     <form id="register-form">
-      <div class="form-group">
-        <label for="email">Email Address</label>
-        <input type="email" id="email" name="email" required />
-      </div>
-      
-      <div class="form-group">
-        <label for="firstName">First Name</label>
-        <input type="text" id="firstName" name="firstName" required />
-      </div>
-      
-      <div class="form-group">
-        <label for="lastName">Last Name</label>
-        <input type="text" id="lastName" name="lastName" required />
-      </div>
-      
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required minlength="6" />
-        <div class="password-requirements">
-          Minimum 6 characters required
+      <!-- Practice Information Section -->
+      <div class="form-section">
+        <h3>Practice Information</h3>
+        <div class="form-group">
+          <label for="practiceName">Practice Name *</label>
+          <input type="text" id="practiceName" name="practiceName" required />
         </div>
       </div>
-      
-      <div class="form-group">
-        <label for="confirmPassword">Confirm Password</label>
-        <input type="password" id="confirmPassword" name="confirmPassword" required />
+
+      <!-- Contact Information Section -->
+      <div class="form-section">
+        <h3>Primary Contact</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="prefix">Prefix</label>
+            <select id="prefix" name="prefix">
+              <option value="">Select...</option>
+              <option value="Dr.">Dr.</option>
+              <option value="Mr.">Mr.</option>
+              <option value="Ms.">Ms.</option>
+              <option value="Mrs.">Mrs.</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="firstName">First Name *</label>
+            <input type="text" id="firstName" name="firstName" required />
+          </div>
+          <div class="form-group">
+            <label for="middleInitial">MI</label>
+            <input type="text" id="middleInitial" name="middleInitial" maxlength="1" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="lastName">Last Name *</label>
+            <input type="text" id="lastName" name="lastName" required />
+          </div>
+          <div class="form-group">
+            <label for="suffix">Suffix</label>
+            <select id="suffix" name="suffix">
+              <option value="">Select...</option>
+              <option value="Jr.">Jr.</option>
+              <option value="Sr.">Sr.</option>
+              <option value="II">II</option>
+              <option value="III">III</option>
+              <option value="IV">IV</option>
+            </select>
+          </div>
+        </div>
       </div>
-      
-      <button type="submit" class="register-btn">Create Account</button>
+
+      <!-- Practice Address Section -->
+      <div class="form-section">
+        <h3>Practice Address</h3>
+        <div class="form-group">
+          <label for="address1">Address Line 1 *</label>
+          <input type="text" id="address1" name="address1" required />
+        </div>
+        <div class="form-group">
+          <label for="address2">Address Line 2</label>
+          <input type="text" id="address2" name="address2" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="city">City *</label>
+            <input type="text" id="city" name="city" required />
+          </div>
+          <div class="form-group">
+            <label for="state">State *</label>
+            <input type="text" id="state" name="state" required maxlength="2" placeholder="CA" />
+          </div>
+          <div class="form-group">
+            <label for="zipCode">ZIP Code *</label>
+            <input type="text" id="zipCode" name="zipCode" required pattern="[0-9]{5}(-[0-9]{4})?" placeholder="12345" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Contact Details Section -->
+      <div class="form-section">
+        <h3>Contact Information</h3>
+        <div class="form-group">
+          <label for="email">Email Address *</label>
+          <input type="email" id="email" name="email" required />
+        </div>
+        <div class="form-group">
+          <label for="officeNumber">Office Phone Number *</label>
+          <input type="tel" id="officeNumber" name="officeNumber" required placeholder="(555) 123-4567" />
+        </div>
+      </div>
+
+      <!-- Account Security Section -->
+      <div class="form-section">
+        <h3>Account Security</h3>
+        <div class="form-group">
+          <label for="password">Password *</label>
+          <input type="password" id="password" name="password" required minlength="6" />
+          <div class="password-requirements">
+            Minimum 6 characters required
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="confirmPassword">Confirm Password *</label>
+          <input type="password" id="confirmPassword" name="confirmPassword" required />
+        </div>
+      </div>
+
+      <button type="submit" class="register-btn">Create Account & Practice Profile</button>
     </form>
     
     <div class="login-link">
