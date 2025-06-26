@@ -222,7 +222,7 @@
     }
   </script>
 
-  <form id="orderForm" enctype="multipart/form-data">
+  <form id="orderForm" enctype="multipart/form-data" onsubmit="submitOrder(event)">
 
     <!-- A. Practice Location Selection -->
     <div class="section">
@@ -358,7 +358,7 @@
     </div>
 
     <div class="section">
-      <button type="submit" id="submitBtn">Generate Proof</button>
+      <button type="submit" id="submitBtn" onclick="submitOrder(event)">Generate Proof</button>
     </div>
   </form>
 

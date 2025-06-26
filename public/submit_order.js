@@ -45,9 +45,9 @@ async function submitOrder(event) {
       // Show success message
       showMessage('Order created successfully! Redirecting to confirmation...', 'success');
       
-      // Redirect to confirmation page
+      // Redirect to dashboard to see the order
       setTimeout(() => {
-        window.location.href = `/?confirmation=${result.orderId}`;
+        window.location.href = `/dashboard.html`;
       }, 1500);
     } else {
       throw new Error(result.message || 'Failed to create order');
