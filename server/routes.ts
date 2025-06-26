@@ -627,19 +627,19 @@ export function registerRoutes(app: Express) {
 
       const userId = req.session.user.id;
 
-      // Get user's main practice data  
-      const userPractices = await db
-        .select()
-        .from(practices)
-        .where(eq(practices.ownerId, userId))
-        .limit(1);
+      // Get user's main practice data using raw SQL
+      const result = await db.execute(`
+        SELECT * FROM practices 
+        WHERE owner_id = $1 
+        LIMIT 1
+      `, [userId]);
 
-      const practice = userPractices.length > 0 ? userPractices[0] : null;
+      const practice = result.rows.length > 0 ? result.rows[0] : null;
 
       res.json({
         success: true,
         practice: practice,
-        locations: [] // Will be populated by separate endpoint
+        locations: []
       });
 
     } catch (error) {
@@ -656,27 +656,27 @@ export function registerRoutes(app: Express) {
 
       const userId = req.session.user.id;
 
-      // Get user's practice locations
-      const userPractices = await db
-        .select()
-        .from(practices)
-        .where(eq(practices.ownerId, userId));
+      // Get user's practice locations using raw SQL
+      const result = await db.execute(`
+        SELECT * FROM practices 
+        WHERE owner_id = $1
+      `, [userId]);
 
       // Format locations data to match expected structure
-      const locations = userPractices.map((practice, index) => ({
+      const locations = result.rows.map((practice: any, index: number) => ({
         id: practice.id,
         practice_id: practice.id,
         location_number: index === 0 ? 0 : practice.id,
         name: practice.name,
-        contact_prefix: practice.contact_prefix || '',
-        contact_first_name: practice.contact_first_name || '',
-        contact_middle_initial: practice.contact_middle_initial || '',
-        contact_last_name: practice.contact_last_name || '',
-        contact_suffix: practice.contact_suffix || '',
+        contact_prefix: practice.default_sender_name ? practice.default_sender_name.split(' ')[0] : '',
+        contact_first_name: practice.default_sender_name ? practice.default_sender_name.split(' ')[1] || '' : '',
+        contact_middle_initial: '',
+        contact_last_name: practice.default_sender_name ? practice.default_sender_name.split(' ').slice(2).join(' ') : '',
+        contact_suffix: '',
         phone: practice.phone || '',
         email: practice.email || '',
-        address_line1: practice.address_line1 || '',
-        address_line2: practice.address_line2 || '',
+        address_line1: practice.address || '',
+        address_line2: '',
         city: practice.city || '',
         state: practice.state || '',
         zip_code: practice.zip_code || '',
