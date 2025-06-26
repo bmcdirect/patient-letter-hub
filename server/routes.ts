@@ -64,6 +64,29 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.post('/api/auth/logout', async (req: Request, res: Response) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      
+      // Destroy the session completely
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destruction error:', err);
+          return res.status(500).json({ success: false, message: 'Logout failed' });
+        }
+        
+        // Clear the session cookie
+        res.clearCookie('sessionId');
+        console.log('User logged out successfully');
+        res.json({ success: true, message: 'Logged out successfully' });
+      });
+      
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
   // === QUOTES ENDPOINTS ===
   app.get('/api/quotes', async (req: Request, res: Response) => {
     try {
