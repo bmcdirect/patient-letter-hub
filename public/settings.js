@@ -489,3 +489,54 @@ document.addEventListener('DOMContentLoaded', function() {
     loadPracticeData();
   });
 });
+async function loadLocations() {
+  const container = document.getElementById('locationsContainer');
+  container.innerHTML = '<div class="loading">Loading locations...</div>';
+
+  try {
+    const res = await fetch('/api/settings/practice/locations');
+    const data = await res.json();
+
+    if (!data.success || !Array.isArray(data.locations)) {
+      container.innerHTML = '<div class="error">Failed to load locations.</div>';
+      return;
+    }
+
+    if (data.locations.length === 0) {
+      container.innerHTML = '<div class="empty-state"><h3>No locations found</h3></div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    data.locations.forEach(loc => {
+      const card = document.createElement('div');
+      card.className = 'location-card' + (loc.is_default ? ' default' : '') + (loc.active ? '' : ' inactive');
+
+      card.innerHTML = `
+        <div class="location-header">
+          <div class="location-title">${loc.name}</div>
+          <div class="location-badges">
+            ${loc.is_default ? '<span class="badge default">Default</span>' : ''}
+            ${!loc.active ? '<span class="badge inactive">Inactive</span>' : ''}
+          </div>
+        </div>
+        <div class="location-details">
+          ${loc.address_line1}, ${loc.city}, ${loc.state} ${loc.zip_code} <br/>
+          Contact: ${loc.contact_prefix || ''} ${loc.contact_first_name} ${loc.contact_last_name}
+        </div>
+        <div class="location-actions">
+          <button class="button secondary" onclick="editLocation(${loc.id})">Edit</button>
+          <button class="button danger" onclick="deleteLocation(${loc.id})">Delete</button>
+        </div>
+      `;
+
+      container.appendChild(card);
+    });
+  } catch (err) {
+    container.innerHTML = '<div class="error">Error loading locations.</div>';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadLocations();
+});
