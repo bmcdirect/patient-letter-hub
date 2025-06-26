@@ -239,8 +239,8 @@ export function registerRoutes(app: Express) {
 
       // Insert quote
       const result = await db.execute(
-        `INSERT INTO quotes (user_id, quote_number, practice_location_id, subject, template_type, color_mode, estimated_recipients, enclosures, notes, data_cleansing, ncoa_update, first_class_postage, total_cost, status) 
-         VALUES ('${userId}', '${quoteNumber}', NULL, '${subject}', '${templateType}', '${colorMode}', ${recipients}, ${enclosures || 0}, '${notes || ''}', ${dataCleansing || false}, ${ncoaUpdate || false}, ${firstClassPostage || false}, ${totalCost.toFixed(2)}, 'Quote') 
+        `INSERT INTO quotes (user_id, quote_number, subject, template_type, color_mode, estimated_recipients, enclosures, notes, data_cleansing, ncoa_update, first_class_postage, total_cost, status, created_at) 
+         VALUES ('${userId}', '${quoteNumber}', '${subject}', '${templateType}', '${colorMode}', ${recipients}, ${enclosures || 0}, '${notes || ''}', ${dataCleansing || false}, ${ncoaUpdate || false}, ${firstClassPostage || false}, ${totalCost.toFixed(2)}, 'Quote', NOW()) 
          RETURNING id`
       );
 
