@@ -856,52 +856,16 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Additional location creation endpoint commented out - using single main address only
+  /*
   app.post('/api/settings/practice/locations', async (req: Request, res: Response) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      
-      if (!req.session?.user) {
-        return res.status(401).json({ success: false, message: 'Unauthorized' });
-      }
-
-      const userId = req.session.user.id;
-      console.log('Adding practice location for user:', userId, 'Data:', req.body);
-
-      const locationData = req.body;
-
-      // Get user's main practice ID first
-      const practiceResult = await db.execute(
-        `SELECT id FROM practices WHERE owner_id = '${userId}' LIMIT 1`
-      );
-      
-      if (practiceResult.rows.length === 0) {
-        return res.status(400).json({ success: false, message: 'No practice found. Please create a practice first.' });
-      }
-      
-      const practiceId = practiceResult.rows[0].id;
-      
-      // Insert into practice_locations table
-      const result = await db.execute(
-        `INSERT INTO practice_locations (practice_id, label, contact_name, phone, email, address, city, state, zip_code, is_default, active) 
-         VALUES (${practiceId}, '${locationData.name}', '${locationData.contactPrefix || ''} ${locationData.contactFirstName || ''} ${locationData.contactLastName || ''}', '${locationData.phone}', '', '${locationData.address}', '${locationData.city}', '${locationData.state}', '${locationData.zipCode}', ${locationData.isDefault || false}, ${locationData.active !== false}) 
-         RETURNING id`
-      );
-
-      if (result.rows.length === 0) {
-        return res.status(500).json({ success: false, message: 'Failed to create location' });
-      }
-
-      res.json({
-        success: true,
-        message: 'Location added successfully',
-        locationId: result.rows[0].id
-      });
-
-    } catch (error) {
-      console.error('Error adding practice location:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
+    res.setHeader('Content-Type', 'application/json');
+    res.status(400).json({ 
+      success: false, 
+      message: 'Additional locations are no longer supported. Please use the main practice address.' 
+    });
   });
+  */
 
   console.log('All API routes registered successfully');
 }
