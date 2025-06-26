@@ -206,16 +206,14 @@ function renderLocations() {
     return `
       <div class="location-card ${location.is_default ? 'default' : ''} ${!location.active ? 'inactive' : ''}">
         <div class="location-header">
-          <div class="location-title">${displayLabel}</div>
-          <div class="location-badges">${badges.join('')}</div>
+          <div class="location-title">${escapeHtml(displayName)}</div>
+          <div class="location-badges">${badges}</div>
         </div>
         <div class="location-details">
-          <strong>Contact:</strong> ${escapeHtml(location.contact_name)}
-          ${location.contact_title ? ` (${escapeHtml(location.contact_title)})` : ''}<br>
+          <strong>Contact:</strong> ${escapeHtml(fullName)}<br>
           ${location.phone ? `<strong>Phone:</strong> ${escapeHtml(location.phone)}<br>` : ''}
           ${location.email ? `<strong>Email:</strong> ${escapeHtml(location.email)}<br>` : ''}
           <strong>Address:</strong> ${escapeHtml(fullAddress)}<br>
-          ${location.notes ? `<strong>Notes:</strong> ${escapeHtml(location.notes)}` : ''}
         </div>
         <div class="location-actions">
           ${location.id !== 'main' ? `
