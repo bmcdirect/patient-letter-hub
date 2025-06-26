@@ -1,0 +1,95 @@
+ Agent Instructions: Fix 4 Persistent Bugs in PatientLetterHub
+Overview:
+Fix the following 4 critical bugs in the PatientLetterHub project. Ensure the changes are committed, persistent, and tested across login sessions.
+
+🛠️ Bug #1 – Order Confirmation Fails (Unable to Load Order)
+File: confirmation.html
+Issue: When converting a quote to an order, /confirmation.html?jobId=123 displays “Order not found”.
+
+Fix Instructions:
+
+Confirm the jobId parameter is being extracted from the URL.
+
+Update /confirmation.html to send a proper GET request to /api/orders/:id.
+
+Ensure GET /api/orders/:id endpoint exists and returns JSON like:
+
+json
+Copy
+Edit
+{
+  "success": true,
+  "order": {
+    "id": 3,
+    "quote_id": "Q-2882",
+    "subject": "...",
+    ...
+  }
+}
+Return a proper error if order doesn't exist or doesn't belong to current user.
+
+🛠️ Bug #2 – Dashboard “Recent Mailings” Error Loading Data
+File: dashboard.html
+Issue: Section for recent orders shows “Error loading data”.
+
+Fix Instructions:
+
+Verify /api/orders returns all orders for the logged-in user, filtered by user ID.
+
+Confirm response is in JSON and not HTML (fix Content-Type if needed).
+
+In dashboard.html, make sure the fetch call to /api/orders:
+
+Includes cookies or auth headers.
+
+Parses JSON and populates the Recent Mailings section.
+
+Handle null or missing orders gracefully on the frontend.
+
+🛠️ Bug #3 – Editing a Quote Loads Wrong Values / Fails
+File: quote.html
+Issue: Edit button loads incorrect data (e.g. 75 recipients), and shows:
+❌ calculateCosts is not defined or ❌ Network error
+
+Fix Instructions:
+
+Check if ?editId=Q-XXXX is handled on page load.
+
+Ensure correct GET /api/quotes/:id exists and loads the full quote object.
+
+Prefill the form using the response.
+
+Fix JS to:
+
+Load all quote fields (recipients, notes, services, etc.)
+
+Recalculate costs after fields load
+
+Avoid calling calculateCosts() if it’s not defined (should be calculateCost())
+
+🛠️ Bug #4 – Ensure Quotes and Orders Have IDs Like Q-2882 / O-1003
+Issue: Orders and quotes should use human-readable IDs like Q-2882 or O-1003.
+
+Fix Instructions:
+
+For quotes:
+
+Add a quote_number field like Q-XXXX.
+
+Use an incrementer or prefix ID during POST /api/quotes.
+
+For orders:
+
+Add an order_number field like O-XXXX during quote conversion.
+
+Show this number on the dashboard and confirmation page.
+
+Update both user and admin dashboards to use quote_number and order_number as the display ID fields.
+
+✅ Additional Requirements
+Test each feature using the test user and admin accounts.
+
+Make sure all fixes are committed and persistent.
+
+Keep file and function names consistent with current project structure.
+

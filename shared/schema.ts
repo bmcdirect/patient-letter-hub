@@ -278,9 +278,11 @@ export const quotes = pgTable("quotes", {
 // Modern orders table for persistent storage
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
+  order_number: varchar("order_number", { length: 20 }).notNull().unique(),
   user_id: varchar("user_id", { length: 50 }).notNull(),
   practice_id: integer("practice_id"),
   quote_id: integer("quote_id"),
+  quote_number: varchar("quote_number", { length: 20 }),
   subject: varchar("subject", { length: 255 }).notNull(),
   template_type: varchar("template_type", { length: 100 }),
   color_mode: varchar("color_mode", { length: 20 }),
