@@ -1,73 +1,53 @@
-import express, { type Express, type Request, type Response } from 'express';
+import { Request, Response } from 'express';
+import { Express } from 'express';
 import { db } from './db';
-import { quotes, orders, practices, type InsertQuote, type InsertOrder } from '../shared/schema';
-import { eq, desc, and } from 'drizzle-orm';
+import { users, practices, quotes, orders } from '../shared/schema';
+import { eq, desc } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import { requireAuth, requireAdmin } from './middleware/auth';
 
-// Export a function to register routes
 export function registerRoutes(app: Express) {
   console.log('Registering API routes...');
-  
-  // === AUTH ENDPOINTS ===
-  app.get('/api/auth/user', async (req: Request, res: Response) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      if (!req.session?.user) {
-        return res.status(401).json({ success: false, message: 'Not authenticated' });
-      }
-      const user = req.session.user;
-      res.json({ 
-        success: true, 
-        user: { 
-          id: user.id, 
-          email: user.email,
-          is_admin: false // Default to false for type safety
-        } 
-      });
-    } catch (error) {
-      console.error('Error getting user:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  });
 
+  // === AUTHENTICATION ENDPOINTS ===
   app.post('/api/auth/login', async (req: Request, res: Response) => {
     try {
-      res.setHeader('Content-Type', 'application/json');
       const { email, password } = req.body;
       
       if (!email || !password) {
         return res.status(400).json({ success: false, message: 'Email and password are required' });
       }
 
-      // Check if user exists in database first
-      const userResult = await db.execute(
-        `SELECT id, email, is_admin FROM users WHERE email = '${email}' LIMIT 1`
-      );
+      // Query database for user
+      const result = await db.execute(`SELECT id, email, password_hash, is_admin FROM users WHERE email = '${email}'`);
       
-      if (userResult.rows.length === 0) {
-        return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      if (result.rows.length === 0) {
+        return res.status(401).json({ success: false, message: 'Invalid email or password' });
       }
+
+      const dbUser = result.rows[0];
+      const isValidPassword = await bcrypt.compare(password, dbUser.password_hash);
       
-      const dbUser = userResult.rows[0];
-      const userId = dbUser.id.toString();
-      const testUser = {
-        id: userId,
-        email: email,
-        firstName: 'User',
-        lastName: ''
+      if (!isValidPassword) {
+        return res.status(401).json({ success: false, message: 'Invalid email or password' });
+      }
+
+      // Store user in session
+      req.session.user = {
+        id: String(dbUser.id),
+        email: dbUser.email,
+        is_admin: dbUser.is_admin
       };
 
-      req.session.user = testUser;
-      req.session.userId = userId;
+      console.log(`User ${email} logged in with ID ${dbUser.id}`);
 
-      console.log(`User ${email} logged in with ID ${userId}`);
-      res.json({ 
-        success: true, 
-        user: { 
-          id: userId, 
-          email: email, 
-          is_admin: dbUser.is_admin || false 
-        } 
+      res.json({
+        success: true,
+        user: {
+          id: String(dbUser.id),
+          email: dbUser.email,
+          is_admin: dbUser.is_admin
+        }
       });
     } catch (error) {
       console.error('Login error:', error);
@@ -75,310 +55,151 @@ export function registerRoutes(app: Express) {
     }
   });
 
-  app.post('/api/auth/logout', async (req: Request, res: Response) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      
-      // Destroy the session completely
-      req.session.destroy((err) => {
-        if (err) {
-          console.error('Session destruction error:', err);
-          return res.status(500).json({ success: false, message: 'Logout failed' });
-        }
-        
-        // Clear the session cookie
-        res.clearCookie('sessionId');
-        console.log('User logged out successfully');
-        res.json({ success: true, message: 'Logged out successfully' });
-      });
-      
-    } catch (error) {
-      console.error('Logout error:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  });
-
   app.post('/api/auth/register', async (req: Request, res: Response) => {
     try {
-      res.setHeader('Content-Type', 'application/json');
-      const { email, password, name } = req.body;
-
-      if (!email || !password || !name) {
-        return res.status(400).json({ success: false, message: 'Missing required fields.' });
+      const { email, firstName, lastName, password } = req.body;
+      
+      if (!email || !firstName || !lastName || !password) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'All fields are required: email, firstName, lastName, password' 
+        });
       }
 
-      // Password validation
       if (password.length < 6) {
-        return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Password must be at least 6 characters long' 
+        });
       }
 
       // Check if user already exists
-      const existingUserResult = await db.execute(
-        `SELECT id FROM users WHERE email = '${email}' LIMIT 1`
-      );
-
-      if (existingUserResult.rows.length > 0) {
-        return res.status(409).json({ success: false, message: 'Email already in use.' });
+      const existingUser = await db.execute(`SELECT id FROM users WHERE email = '${email}'`);
+      
+      if (existingUser.rows.length > 0) {
+        return res.status(400).json({ success: false, message: 'User with this email already exists' });
       }
 
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Create new user - check if name column exists first
-      const createUserResult = await db.execute(
-        `INSERT INTO users (email, password_hash, is_admin) 
-         VALUES ('${email}', '${hashedPassword}', false) 
+      // Insert new user
+      const result = await db.execute(
+        `INSERT INTO users (email, first_name, last_name, password_hash, is_admin) 
+         VALUES ('${email}', '${firstName}', '${lastName}', '${hashedPassword}', false) 
          RETURNING id, email, is_admin`
       );
 
-      if (createUserResult.rows.length === 0) {
-        return res.status(500).json({ success: false, message: 'Failed to create user.' });
+      if (result.rows.length === 0) {
+        return res.status(500).json({ success: false, message: 'Failed to create user' });
       }
 
-      const newUser = createUserResult.rows[0];
+      const newUser = result.rows[0];
 
-      // Auto login on success
+      // Store user in session
       req.session.user = {
-        id: newUser.id.toString(),
+        id: String(newUser.id),
         email: newUser.email,
-        firstName: name,
-        lastName: ''
+        is_admin: false
       };
-      req.session.userId = newUser.id.toString();
 
       console.log(`New user registered: ${email} with ID ${newUser.id}`);
-      res.json({ 
-        success: true, 
-        user: { 
-          id: newUser.id.toString(),
-          email: newUser.email, 
-          name: name,
-          is_admin: newUser.is_admin
-        } 
-      });
 
+      res.json({
+        success: true,
+        user: {
+          id: String(newUser.id),
+          email: newUser.email,
+          is_admin: false
+        }
+      });
     } catch (error) {
       console.error('Registration error:', error);
-      res.status(500).json({ success: false, message: 'Registration failed.' });
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
+  });
+
+  app.get('/api/auth/user', (req: Request, res: Response) => {
+    if (req.session?.user) {
+      res.json({ success: true, user: req.session.user });
+    } else {
+      res.status(401).json({ success: false, message: 'Not authenticated' });
+    }
+  });
+
+  app.post('/api/auth/logout', (req: Request, res: Response) => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('Logout error:', err);
+        return res.status(500).json({ success: false, message: 'Logout failed' });
+      }
+      res.clearCookie('sessionId');
+      res.json({ success: true, message: 'Logged out successfully' });
+    });
   });
 
   // === QUOTES ENDPOINTS ===
   app.get('/api/quotes', async (req: Request, res: Response) => {
     try {
       res.setHeader('Content-Type', 'application/json');
-      console.log('GET /api/quotes - Fetching quotes');
       
       if (!req.session?.user) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
 
       const userId = req.session.user.id;
-      console.log(`Fetching quotes for user ${userId}`);
-
-      // Use a retry mechanism for database queries
       let userQuotes;
       let retries = 3;
+      
       while (retries > 0) {
         try {
-          userQuotes = await db
-            .select()
-            .from(quotes)
-            .where(eq(quotes.user_id, userId))
-            .orderBy(desc(quotes.created_at));
+          userQuotes = await db.execute(
+            `SELECT q.*, p.name as practice_name 
+             FROM quotes q 
+             LEFT JOIN practices p ON q.practice_id = p.id 
+             WHERE q.user_id = '${userId}' 
+             ORDER BY q.created_at DESC`
+          );
           break;
         } catch (error) {
           retries--;
           if (retries === 0) throw error;
-          console.log(`Database query failed, retrying... (${retries} attempts left)`);
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
 
       if (!userQuotes) {
-        userQuotes = [];
+        userQuotes = { rows: [] };
       }
 
-      console.log(`Found ${userQuotes.length} quotes`);
-
-      const formattedQuotes = userQuotes.map(quote => ({
-        id: quote.quote_number,
+      const formattedQuotes = userQuotes.rows.map((quote: any) => ({
+        id: quote.id,
+        quoteNumber: quote.quote_number,
         subject: quote.subject,
-        practiceLocation: `Practice Location (${quote.location_id})`,
-        templateType: quote.template_type,
-        estimatedRecipients: quote.estimated_recipients,
-        totalCost: parseFloat(quote.total_cost || '0'),
+        practice_name: quote.practice_name || 'Unassigned',
+        estimated_recipients: quote.estimated_recipients,
+        totalEstimate: parseFloat(quote.total_cost),
+        created_at: quote.created_at,
         status: quote.status,
-        createdAt: quote.created_at?.toISOString(),
-        convertedOrderId: quote.converted_order_id
+        converted_order_id: quote.converted_order_id
       }));
 
-      res.json({ success: true, quotes: formattedQuotes });
-    } catch (error) {
-      console.error('Failed to fetch quotes:', error);
-      res.status(500).json({ success: false, message: 'Internal Server Error' });
-    }
-  });
-
-  app.get('/api/quotes/:id', async (req: Request, res: Response) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      console.log(`GET /api/quotes/${req.params.id}`);
-      
-      if (!req.session?.user) {
-        return res.status(401).json({ success: false, message: 'Unauthorized' });
-      }
-
-      let quoteId = req.params.id;
-      const userId = req.session.user.id;
-      
-      if (quoteId.startsWith('Q-')) {
-        quoteId = quoteId.substring(2);
-      }
-      
-      const [quote] = await db
-        .select()
-        .from(quotes)
-        .where(and(
-          eq(quotes.quote_number, `Q-${quoteId}`),
-          eq(quotes.user_id, userId)
-        ));
-
-      if (!quote) {
-        return res.status(404).json({ success: false, message: 'Quote not found' });
-      }
-
-      const formattedQuote = {
-        id: quote.quote_number,
-        subject: quote.subject,
-        practiceLocation: `Practice Location (${quote.location_id})`,
-        templateType: quote.template_type,
-        estimatedRecipients: quote.estimated_recipients,
-        totalCost: parseFloat(quote.total_cost || '0'),
-        status: quote.status,
-        createdAt: quote.created_at?.toISOString(),
-        convertedOrderId: quote.converted_order_id,
-        colorMode: quote.color_mode,
-        enclosures: quote.enclosures,
-        dataCleansing: quote.data_cleansing,
-        ncoaUpdate: quote.ncoa_update,
-        firstClassPostage: quote.first_class_postage,
-        notes: quote.notes,
-        location_id: quote.location_id
-      };
-
-      res.json({ success: true, quote: formattedQuote });
-    } catch (error) {
-      console.error('Failed to fetch quote:', error);
-      res.status(500).json({ success: false, message: 'Internal Server Error' });
-    }
-  });
-
-  app.put('/api/quotes/:id', async (req: Request, res: Response) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      console.log(`PUT /api/quotes/${req.params.id}`);
-      
-      if (!req.session?.user) {
-        return res.status(401).json({ success: false, message: 'Unauthorized' });
-      }
-
-      let quoteId = req.params.id;
-      const userId = req.session.user.id;
-      
-      if (quoteId.startsWith('Q-')) {
-        quoteId = quoteId.substring(2);
-      }
-
-      const {
-        location_id,
-        subject,
-        templateType,
-        colorMode,
-        estimatedRecipients,
-        enclosures,
-        dataCleansing,
-        ncoaUpdate,
-        firstClassPostage,
-        notes
-      } = req.body;
-
-      if (!location_id || !subject || !templateType || !colorMode || !estimatedRecipients) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Missing required fields' 
-        });
-      }
-
-      const [existingQuote] = await db
-        .select()
-        .from(quotes)
-        .where(and(
-          eq(quotes.quote_number, `Q-${quoteId}`),
-          eq(quotes.user_id, userId)
-        ));
-
-      if (!existingQuote) {
-        return res.status(404).json({ success: false, message: 'Quote not found' });
-      }
-
-      if (existingQuote.status === 'Converted') {
-        return res.status(400).json({ success: false, message: 'Cannot edit converted quotes' });
-      }
-
-      const recipientCount = parseInt(estimatedRecipients) || 0;
-      const enclosureCount = parseInt(enclosures) || 0;
-      const baseRate = colorMode === 'color' ? 0.65 : 0.50;
-      let totalCost = recipientCount * (baseRate + (enclosureCount * 0.10));
-      
-      if (dataCleansing === 'true' || dataCleansing === true) totalCost += 25;
-      if (ncoaUpdate === 'true' || ncoaUpdate === true) totalCost += 50;
-      if (firstClassPostage === 'true' || firstClassPostage === true) totalCost += recipientCount * 0.68;
-
-      const [updatedQuote] = await db
-        .update(quotes)
-        .set({
-          location_id: location_id,
-          subject: subject,
-          template_type: templateType,
-          color_mode: colorMode,
-          estimated_recipients: recipientCount,
-          enclosures: enclosureCount,
-          data_cleansing: dataCleansing === 'true' || dataCleansing === true,
-          ncoa_update: ncoaUpdate === 'true' || ncoaUpdate === true,
-          first_class_postage: firstClassPostage === 'true' || firstClassPostage === true,
-          notes: notes || '',
-          total_cost: totalCost.toFixed(2),
-          updated_at: new Date()
-        })
-        .where(and(
-          eq(quotes.quote_number, `Q-${quoteId}`),
-          eq(quotes.user_id, userId)
-        ))
-        .returning();
-
-      if (!updatedQuote) {
-        return res.status(500).json({ success: false, message: 'Failed to update quote' });
-      }
-
-      res.json({ 
-        success: true, 
-        quote: updatedQuote,
-        message: 'Quote updated successfully' 
+      res.json({
+        success: true,
+        quotes: formattedQuotes
       });
     } catch (error) {
-      console.error('Error updating quote:', error);
-      res.status(500).json({ success: false, message: 'Internal Server Error' });
+      console.error('Error fetching quotes:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   });
 
   app.post('/api/quotes', async (req: Request, res: Response) => {
     try {
       res.setHeader('Content-Type', 'application/json');
-      console.log('POST /api/quotes - Creating new quote');
       
       if (!req.session?.user) {
-        return res.status(401).json({ success: false, message: 'Unauthorized' });
+        return res.status(401).json({ success: false, message: 'Not authenticated' });
       }
 
       const userId = req.session.user.id;
@@ -389,113 +210,234 @@ export function registerRoutes(app: Express) {
         colorMode,
         estimatedRecipients,
         enclosures,
+        notes,
         dataCleansing,
         ncoaUpdate,
-        firstClassPostage,
-        notes
+        firstClassPostage
       } = req.body;
 
-      if (!location_id || !subject || !templateType || !colorMode || !estimatedRecipients) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Missing required fields' 
+      // Validate required fields
+      if (!location_id || !subject || !estimatedRecipients) {
+        return res.status(400).json({
+          success: false,
+          message: 'Missing required fields: location_id, subject, estimatedRecipients'
         });
       }
 
-      const recipientCount = parseInt(estimatedRecipients) || 0;
-      const enclosureCount = parseInt(enclosures) || 0;
+      // Calculate cost
+      const recipients = parseInt(estimatedRecipients);
       const baseRate = colorMode === 'color' ? 0.65 : 0.50;
-      let totalCost = recipientCount * (baseRate + (enclosureCount * 0.10));
+      let totalCost = recipients * baseRate;
       
-      if (dataCleansing === 'true' || dataCleansing === true) totalCost += 25;
-      if (ncoaUpdate === 'true' || ncoaUpdate === true) totalCost += 50;
-      if (firstClassPostage === 'true' || firstClassPostage === true) totalCost += recipientCount * 0.68;
+      if (dataCleansing) totalCost += 25;
+      if (ncoaUpdate) totalCost += 50;
+      if (firstClassPostage) totalCost += recipients * 0.68;
 
-      const quoteNumber = `Q-${Math.floor(Math.random() * 9000) + 1000}`;
+      // Generate quote number
+      const quoteCount = await db.execute('SELECT COUNT(*) as count FROM quotes');
+      const quoteNumber = `Q-${(parseInt(quoteCount.rows[0].count) + 1001).toString()}`;
 
-      const [newQuote] = await db
-        .insert(quotes)
-        .values({
+      // Insert quote
+      const result = await db.execute(
+        `INSERT INTO quotes (user_id, quote_number, practice_id, location_id, subject, template_type, color_mode, estimated_recipients, enclosures, notes, data_cleansing, ncoa_update, first_class_postage, total_cost, status) 
+         VALUES ('${userId}', '${quoteNumber}', '${location_id}', '${location_id}', '${subject}', '${templateType}', '${colorMode}', ${recipients}, ${enclosures || 0}, '${notes || ''}', ${dataCleansing || false}, ${ncoaUpdate || false}, ${firstClassPostage || false}, ${totalCost.toFixed(2)}, 'Quote') 
+         RETURNING id`
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(500).json({ success: false, message: 'Failed to create quote' });
+      }
+
+      const quoteId = result.rows[0].id;
+      console.log(`Quote created successfully: ${quoteNumber} for user ${userId}`);
+
+      res.json({
+        success: true,
+        message: 'Quote created successfully',
+        quoteId: quoteNumber,
+        quote: {
+          id: quoteId,
           quote_number: quoteNumber,
-          user_id: userId,
-          location_id: location_id,
           subject: subject,
-          template_type: templateType,
-          color_mode: colorMode,
-          estimated_recipients: recipientCount,
-          enclosures: enclosureCount,
-          data_cleansing: dataCleansing === 'true' || dataCleansing === true,
-          ncoa_update: ncoaUpdate === 'true' || ncoaUpdate === true,
-          first_class_postage: firstClassPostage === 'true' || firstClassPostage === true,
-          notes: notes || '',
-          total_cost: totalCost.toFixed(2),
-          status: 'Quote'
-        })
-        .returning();
-
-      console.log(`Created quote ${quoteNumber} for user ${userId}`);
-
-      res.json({ 
-        success: true, 
-        quote: newQuote,
-        quoteNumber: quoteNumber,
-        message: 'Quote created successfully' 
+          total_cost: totalCost.toFixed(2)
+        }
       });
     } catch (error) {
       console.error('Error creating quote:', error);
-      res.status(500).json({ success: false, message: 'Internal Server Error' });
+      res.status(500).json({ success: false, message: 'Internal server error: ' + error.message });
     }
   });
 
-  // Delete quote
-  app.delete('/api/quotes/:id', async (req: Request, res: Response) => {
+  app.get('/api/quotes/:id', async (req: Request, res: Response) => {
     try {
-      console.log(`DELETE /api/quotes/${req.params.id}`);
+      res.setHeader('Content-Type', 'application/json');
       
-      if (!req.session.user) {
-        return res.status(401).json({ success: false, message: 'Not authenticated' });
+      if (!req.session?.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
 
       const userId = req.session.user.id;
-      const quoteId = req.params.id;
-
-      console.log(`Deleting quote ${quoteId} for user ${userId}`);
-
-      // Handle both Q-XXXX and numeric formats
-      let quoteNumber = quoteId;
-      if (!quoteNumber.startsWith('Q-')) {
-        quoteNumber = `Q-${quoteId}`;
+      let quoteId = req.params.id;
+      
+      // Handle Q-XXXX format
+      if (quoteId.startsWith('Q-')) {
+        quoteId = quoteId.substring(2);
       }
 
-      // Find the quote by quote_number and user_id
-      const [existingQuote] = await db
-        .select()
-        .from(quotes)
-        .where(and(
-          eq(quotes.quote_number, quoteNumber),
-          eq(quotes.user_id, userId)
-        ));
+      const result = await db.execute(
+        `SELECT q.*, p.name as practice_name 
+         FROM quotes q 
+         LEFT JOIN practices p ON q.practice_id = p.id 
+         WHERE q.id = ${quoteId} AND q.user_id = '${userId}'`
+      );
 
-      if (!existingQuote) {
+      if (result.rows.length === 0) {
         return res.status(404).json({ success: false, message: 'Quote not found' });
       }
 
-      // Check if quote has been converted to an order
-      if (existingQuote.status === 'Converted') {
+      const quote = result.rows[0];
+      res.json({
+        success: true,
+        quote: {
+          id: quote.id,
+          location_id: quote.location_id,
+          subject: quote.subject,
+          templateType: quote.template_type,
+          colorMode: quote.color_mode,
+          estimatedRecipients: quote.estimated_recipients,
+          enclosures: quote.enclosures,
+          notes: quote.notes,
+          dataCleansing: quote.data_cleansing,
+          ncoaUpdate: quote.ncoa_update,
+          firstClassPostage: quote.first_class_postage,
+          totalCost: parseFloat(quote.total_cost)
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching quote:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  app.put('/api/quotes/:id', async (req: Request, res: Response) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      
+      if (!req.session?.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      const userId = req.session.user.id;
+      let quoteId = req.params.id;
+      
+      // Handle Q-XXXX format
+      if (quoteId.startsWith('Q-')) {
+        quoteId = quoteId.substring(2);
+      }
+
+      const {
+        location_id,
+        subject,
+        templateType,
+        colorMode,
+        estimatedRecipients,
+        enclosures,
+        notes,
+        dataCleansing,
+        ncoaUpdate,
+        firstClassPostage
+      } = req.body;
+
+      // Check if quote exists and belongs to user
+      const existingQuote = await db.execute(
+        `SELECT id, status FROM quotes WHERE id = ${quoteId} AND user_id = '${userId}'`
+      );
+
+      if (existingQuote.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Quote not found' });
+      }
+
+      if (existingQuote.rows[0].status === 'Converted') {
+        return res.status(400).json({ success: false, message: 'Cannot edit converted quotes' });
+      }
+
+      // Calculate new cost
+      const recipients = parseInt(estimatedRecipients);
+      const baseRate = colorMode === 'color' ? 0.65 : 0.50;
+      let totalCost = recipients * baseRate;
+      
+      if (dataCleansing) totalCost += 25;
+      if (ncoaUpdate) totalCost += 50;
+      if (firstClassPostage) totalCost += recipients * 0.68;
+
+      // Update quote
+      await db.execute(
+        `UPDATE quotes SET 
+         location_id = '${location_id}',
+         subject = '${subject}',
+         template_type = '${templateType}',
+         color_mode = '${colorMode}',
+         estimated_recipients = ${recipients},
+         enclosures = ${enclosures || 0},
+         notes = '${notes || ''}',
+         data_cleansing = ${dataCleansing || false},
+         ncoa_update = ${ncoaUpdate || false},
+         first_class_postage = ${firstClassPostage || false},
+         total_cost = ${totalCost.toFixed(2)},
+         updated_at = NOW()
+         WHERE id = ${quoteId} AND user_id = '${userId}'`
+      );
+
+      console.log(`Quote ${quoteId} updated successfully`);
+
+      res.json({
+        success: true,
+        message: 'Quote updated successfully'
+      });
+    } catch (error) {
+      console.error('Error updating quote:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  app.delete('/api/quotes/:id', async (req: Request, res: Response) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      
+      if (!req.session?.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      const userId = req.session.user.id;
+      let quoteId = req.params.id;
+      
+      // Handle Q-XXXX format
+      if (quoteId.startsWith('Q-')) {
+        quoteId = quoteId.substring(2);
+      }
+
+      // Check if quote exists and belongs to user
+      const existingQuote = await db.execute(
+        `SELECT id, status FROM quotes WHERE id = ${quoteId} AND user_id = '${userId}'`
+      );
+
+      if (existingQuote.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Quote not found' });
+      }
+
+      if (existingQuote.rows[0].status === 'Converted') {
         return res.status(400).json({ success: false, message: 'Cannot delete converted quotes' });
       }
 
-      // Delete the quote
-      await db
-        .delete(quotes)
-        .where(and(
-          eq(quotes.quote_number, quoteNumber),
-          eq(quotes.user_id, userId)
-        ));
+      // Delete quote
+      await db.execute(`DELETE FROM quotes WHERE id = ${quoteId} AND user_id = '${userId}'`);
 
-      console.log(`Successfully deleted quote ${quoteNumber}`);
-      res.json({ success: true, message: 'Quote deleted successfully' });
+      console.log(`Quote ${quoteId} deleted successfully`);
 
+      res.json({
+        success: true,
+        message: 'Quote deleted successfully'
+      });
     } catch (error) {
       console.error('Error deleting quote:', error);
       res.status(500).json({ success: false, message: 'Internal server error' });
@@ -505,80 +447,61 @@ export function registerRoutes(app: Express) {
   app.post('/api/quotes/:id/convert', async (req: Request, res: Response) => {
     try {
       res.setHeader('Content-Type', 'application/json');
-      console.log(`POST /api/quotes/${req.params.id}/convert`);
       
       if (!req.session?.user) {
-        return res.status(401).json({ success: false, message: 'Not authenticated' });
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
 
-      let quoteNumber = req.params.id;
       const userId = req.session.user.id;
+      let quoteId = req.params.id;
       
-      if (!quoteNumber.startsWith('Q-')) {
-        quoteNumber = `Q-${quoteNumber}`;
+      // Handle Q-XXXX format
+      if (quoteId.startsWith('Q-')) {
+        quoteId = quoteId.substring(2);
       }
 
-      const [quote] = await db
-        .select()
-        .from(quotes)
-        .where(and(
-          eq(quotes.quote_number, quoteNumber),
-          eq(quotes.user_id, userId)
-        ));
+      // Get quote details
+      const quoteResult = await db.execute(
+        `SELECT * FROM quotes WHERE id = ${quoteId} AND user_id = '${userId}'`
+      );
 
-      if (!quote) {
+      if (quoteResult.rows.length === 0) {
         return res.status(404).json({ success: false, message: 'Quote not found' });
       }
 
+      const quote = quoteResult.rows[0];
+      const quoteNumber = quote.quote_number;
+
       if (quote.status === 'Converted') {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Quote already converted'
-        });
+        return res.status(400).json({ success: false, message: 'Quote already converted' });
       }
 
-      const orderNumber = `O-${Math.floor(Math.random() * 9000) + 1000}`;
+      // Generate order number
+      const orderCount = await db.execute('SELECT COUNT(*) as count FROM orders');
+      const orderNumber = `O-${(parseInt(orderCount.rows[0].count) + 1001).toString()}`;
 
-      const [newOrder] = await db
-        .insert(orders)
-        .values({
-          order_number: orderNumber,
-          user_id: userId,
-          quote_id: quote.id,
-          quote_number: quote.quote_number,
-          subject: quote.subject,
-          template_type: quote.template_type,
-          color_mode: quote.color_mode,
-          estimated_recipients: quote.estimated_recipients,
-          recipient_count: quote.estimated_recipients,
-          enclosures: quote.enclosures,
-          notes: quote.notes,
-          data_cleansing: quote.data_cleansing,
-          ncoa_update: quote.ncoa_update,
-          first_class_postage: quote.first_class_postage,
-          total_cost: quote.total_cost,
-          status: 'Pending Approval',
-          production_start_date: new Date().toISOString().split('T')[0],
-          production_end_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-        })
-        .returning();
+      // Create order from quote
+      const newOrder = await db.execute(
+        `INSERT INTO orders (user_id, order_number, practice_id, subject, template_type, color_mode, estimated_recipients, recipient_count, enclosures, notes, data_cleansing, ncoa_update, first_class_postage, total_cost, status, production_start_date, production_end_date) 
+         VALUES ('${userId}', '${orderNumber}', '${quote.practice_id}', '${quote.subject}', '${quote.template_type}', '${quote.color_mode}', ${quote.estimated_recipients}, ${quote.estimated_recipients}, ${quote.enclosures}, '${quote.notes}', ${quote.data_cleansing}, ${quote.ncoa_update}, ${quote.first_class_postage}, ${quote.total_cost}, 'Pending Approval', '${new Date().toISOString().split('T')[0]}', '${new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}') 
+         RETURNING id`
+      );
 
-      await db
-        .update(quotes)
-        .set({ 
-          status: 'Converted',
-          converted_order_id: newOrder.id,
-          updated_at: new Date()
-        })
-        .where(eq(quotes.id, quote.id));
+      await db.execute(
+        `UPDATE quotes SET 
+         status = 'Converted',
+         converted_order_id = ${newOrder.rows[0].id},
+         updated_at = NOW()
+         WHERE id = ${quoteId}`
+      );
 
       console.log(`Quote ${quoteNumber} converted to order ${orderNumber}`);
 
       res.json({
         success: true,
         message: 'Quote converted to order successfully',
-        orderId: newOrder.order_number,
-        order: newOrder
+        orderId: orderNumber,
+        order: newOrder.rows[0]
       });
     } catch (error) {
       console.error('Error converting quote to order:', error);
@@ -603,11 +526,13 @@ export function registerRoutes(app: Express) {
       let retries = 3;
       while (retries > 0) {
         try {
-          userOrders = await db
-            .select()
-            .from(orders)
-            .where(eq(orders.user_id, userId))
-            .orderBy(desc(orders.created_at));
+          userOrders = await db.execute(
+            `SELECT o.*, p.name as practice_name 
+             FROM orders o 
+             LEFT JOIN practices p ON o.practice_id = p.id 
+             WHERE o.user_id = '${userId}' 
+             ORDER BY o.created_at DESC`
+          );
           break;
         } catch (error) {
           retries--;
@@ -618,213 +543,34 @@ export function registerRoutes(app: Express) {
       }
 
       if (!userOrders) {
-        userOrders = [];
+        userOrders = { rows: [] };
       }
 
-      console.log(`Found ${userOrders.length} orders for user ${userId}`);
+      console.log(`Found ${userOrders.rows.length} orders for user ${userId}`);
 
-      const formattedOrders = userOrders.map(order => ({
-        id: order.order_number || `O-${order.id}`,
-        order_number: order.order_number,
+      const formattedOrders = userOrders.rows.map((order: any) => ({
         jobId: order.id,
+        orderId: order.order_number,
         subject: order.subject,
+        practiceName: order.practice_name || 'Unassigned',
         status: order.status,
-        createdAt: order.created_at?.toISOString(),
-        recipientCount: order.recipient_count || order.estimated_recipients,
-        cost: parseFloat(order.total_cost || '0'),
-        practiceLocation: 'Practice Location',
-        colorMode: order.color_mode,
-        dataCleansing: order.data_cleansing,
-        ncoaUpdate: order.ncoa_update,
-        firstClassPostage: order.first_class_postage,
-        quote_id: order.quote_number,
-        templateType: order.template_type,
-        enclosures: order.enclosures,
-        notes: order.notes
-      }));
-
-      res.json({ success: true, orders: formattedOrders });
-    } catch (error) {
-      console.error('Failed to fetch orders:', error);
-      res.status(500).json({ success: false, message: 'Internal Server Error' });
-    }
-  });
-
-  app.get('/api/orders/:id', async (req: Request, res: Response) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      console.log(`GET /api/orders/${req.params.id}`);
-      
-      if (!req.session?.user) {
-        return res.status(401).json({ success: false, message: 'Unauthorized' });
-      }
-
-      let orderId = req.params.id;
-      const userId = req.session.user.id;
-      
-      let orderQuery;
-      if (orderId.startsWith('O-')) {
-        orderQuery = and(
-          eq(orders.order_number, orderId),
-          eq(orders.user_id, userId)
-        );
-      } else {
-        orderQuery = and(
-          eq(orders.id, parseInt(orderId)),
-          eq(orders.user_id, userId)
-        );
-      }
-
-      const [order] = await db
-        .select()
-        .from(orders)
-        .where(orderQuery);
-
-      if (!order) {
-        return res.status(404).json({ 
-          success: false, 
-          message: 'Order not found' 
-        });
-      }
-
-      const formattedOrder = {
-        id: order.order_number,
-        order_number: order.order_number,
-        jobId: order.id,
-        subject: order.subject,
-        status: order.status,
-        createdAt: order.created_at?.toISOString(),
-        recipientCount: order.recipient_count || order.estimated_recipients,
-        cost: parseFloat(order.total_cost || '0'),
-        practiceLocation: 'Practice Location',
-        colorMode: order.color_mode,
-        dataCleansing: order.data_cleansing,
-        ncoaUpdate: order.ncoa_update,
-        firstClassPostage: order.first_class_postage,
-        quote_id: order.quote_number,
-        templateType: order.template_type,
-        enclosures: order.enclosures,
-        notes: order.notes
-      };
-
-      res.json({ 
-        success: true, 
-        order: formattedOrder 
-      });
-    } catch (error) {
-      console.error('Error getting order:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  });
-
-  // Practice settings endpoints
-  app.get('/api/settings/practice', async (req: Request, res: Response) => {
-    try {
-      if (!req.session.user) {
-        return res.status(401).json({ success: false, message: 'Not authenticated' });
-      }
-
-      const userId = req.session.user.id;
-
-      // Get user's main practice data using raw SQL
-      const result = await db.execute(
-        `SELECT * FROM practices WHERE owner_id = '${userId}' LIMIT 1`
-      );
-
-      const practice = result.rows.length > 0 ? result.rows[0] : null;
-
-      res.json({
-        success: true,
-        practice: practice,
-        locations: []
-      });
-
-    } catch (error) {
-      console.error('Error fetching practice data:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  });
-
-  app.get('/api/settings/practice/locations', async (req: Request, res: Response) => {
-    try {
-      if (!req.session.user) {
-        return res.status(401).json({ success: false, message: 'Not authenticated' });
-      }
-
-      const userId = req.session.user.id;
-
-      // Get user's practice locations using raw SQL
-      const result = await db.execute(
-        `SELECT * FROM practices WHERE owner_id = '${userId}'`
-      );
-
-      // Format locations data to match expected structure
-      const locations = result.rows.map((practice: any, index: number) => ({
-        id: practice.id,
-        practice_id: practice.id,
-        location_number: index === 0 ? 0 : practice.id,
-        name: practice.name,
-        contact_prefix: practice.default_sender_name ? practice.default_sender_name.split(' ')[0] : '',
-        contact_first_name: practice.default_sender_name ? practice.default_sender_name.split(' ')[1] || '' : '',
-        contact_middle_initial: '',
-        contact_last_name: practice.default_sender_name ? practice.default_sender_name.split(' ').slice(2).join(' ') : '',
-        contact_suffix: '',
-        phone: practice.phone || '',
-        email: practice.email || '',
-        address_line1: practice.address || '',
-        address_line2: '',
-        city: practice.city || '',
-        state: practice.state || '',
-        zip_code: practice.zip_code || '',
-        is_default: index === 0,
-        active: true
+        recipients: order.recipient_count || order.estimated_recipients,
+        totalCost: parseFloat(order.total_cost || '0'),
+        createdAt: order.created_at,
+        fulfilledAt: order.fulfilled_at
       }));
 
       res.json({
         success: true,
-        locations: locations
+        orders: formattedOrders
       });
 
     } catch (error) {
-      console.error('Error fetching practice locations:', error);
+      console.error('Error fetching orders:', error);
       res.status(500).json({ success: false, message: 'Internal server error' });
     }
   });
 
-  // POST endpoint for adding practice locations
-  app.post('/api/settings/practice/locations', async (req: Request, res: Response) => {
-    try {
-      res.setHeader('Content-Type', 'application/json');
-      
-      if (!req.session.user) {
-        return res.status(401).json({ success: false, message: 'Not authenticated' });
-      }
-
-      const userId = req.session.user.id;
-      const locationData = req.body;
-
-      console.log('Adding practice location for user:', userId, 'Data:', locationData);
-
-      // Insert new practice as a location
-      const result = await db.execute(
-        `INSERT INTO practices (owner_id, name, taxonomy, address, phone, email, city, state, zip_code, default_sender_name) 
-         VALUES ('${userId}', '${locationData.name}', '${locationData.taxonomy || 'Healthcare'}', '${locationData.address_line1}', '${locationData.phone}', '${locationData.email}', '${locationData.city}', '${locationData.state}', '${locationData.zip_code}', '${locationData.contact_first_name} ${locationData.contact_last_name}') 
-         RETURNING id`
-      );
-
-      if (result.rows.length > 0) {
-        res.json({ success: true, message: 'Location added successfully', locationId: result.rows[0].id });
-      } else {
-        res.status(500).json({ success: false, message: 'Failed to add location' });
-      }
-
-    } catch (error) {
-      console.error('Error adding practice location:', error);
-      res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-  });
-
-  // POST endpoint for creating orders
   app.post('/api/orders', async (req: Request, res: Response) => {
     try {
       res.setHeader('Content-Type', 'application/json');
@@ -902,6 +648,227 @@ export function registerRoutes(app: Express) {
     } catch (error) {
       console.error('Error creating order:', error);
       res.status(500).json({ success: false, message: 'Internal server error: ' + error.message });
+    }
+  });
+
+  app.get('/api/orders/:id', async (req: Request, res: Response) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      
+      if (!req.session?.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      const userId = req.session.user.id;
+      let orderId = req.params.id;
+      
+      // Handle O-XXXX format
+      if (orderId.startsWith('O-')) {
+        orderId = orderId.substring(2);
+      }
+
+      const result = await db.execute(
+        `SELECT o.*, p.name as practice_name 
+         FROM orders o 
+         LEFT JOIN practices p ON o.practice_id = p.id 
+         WHERE o.id = ${orderId} AND o.user_id = '${userId}'`
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Order not found' });
+      }
+
+      const order = result.rows[0];
+      res.json({
+        success: true,
+        jobId: order.id,
+        orderId: order.order_number,
+        subject: order.subject,
+        status: order.status,
+        createdAt: order.created_at,
+        practice: order.practice_name,
+        recipients: order.recipient_count || order.estimated_recipients,
+        totalCost: parseFloat(order.total_cost || '0')
+      });
+    } catch (error) {
+      console.error('Error fetching order:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  // === PRACTICE SETTINGS ENDPOINTS ===
+  app.get('/api/settings/practice', async (req: Request, res: Response) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      
+      if (!req.session?.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      const userId = req.session.user.id;
+      
+      const result = await db.execute(
+        `SELECT * FROM practices WHERE owner_id = '${userId}' ORDER BY id LIMIT 1`
+      );
+
+      if (result.rows.length === 0) {
+        return res.json({
+          success: true,
+          practice: null
+        });
+      }
+
+      const practice = result.rows[0];
+      res.json({
+        success: true,
+        practice: {
+          id: practice.id,
+          name: practice.name,
+          contact_prefix: practice.default_sender_name ? practice.default_sender_name.split(' ')[0] : '',
+          contact_first_name: practice.default_sender_name ? practice.default_sender_name.split(' ')[1] || '' : '',
+          contact_last_name: practice.default_sender_name ? practice.default_sender_name.split(' ').slice(2).join(' ') : '',
+          phone: practice.phone,
+          email: practice.email,
+          main_address: practice.address,
+          main_city: practice.city,
+          main_state: practice.state,
+          main_zip: practice.zip_code
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching practice:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  app.post('/api/settings/practice', async (req: Request, res: Response) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      
+      if (!req.session?.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      const userId = req.session.user.id;
+      const practiceData = req.body;
+
+      // Check if practice exists
+      const existing = await db.execute(
+        `SELECT id FROM practices WHERE owner_id = '${userId}' LIMIT 1`
+      );
+
+      if (existing.rows.length > 0) {
+        // Update existing practice
+        await db.execute(
+          `UPDATE practices SET 
+           name = '${practiceData.name}',
+           default_sender_name = '${practiceData.contact_first_name} ${practiceData.contact_last_name}',
+           phone = '${practiceData.phone}',
+           email = '${practiceData.email}',
+           address = '${practiceData.main_address}',
+           city = '${practiceData.main_city}',
+           state = '${practiceData.main_state}',
+           zip_code = '${practiceData.main_zip}'
+           WHERE owner_id = '${userId}'`
+        );
+      } else {
+        // Create new practice
+        await db.execute(
+          `INSERT INTO practices (owner_id, name, default_sender_name, phone, email, address, city, state, zip_code) 
+           VALUES ('${userId}', '${practiceData.name}', '${practiceData.contact_first_name} ${practiceData.contact_last_name}', '${practiceData.phone}', '${practiceData.email}', '${practiceData.main_address}', '${practiceData.main_city}', '${practiceData.main_state}', '${practiceData.main_zip}')`
+        );
+      }
+
+      res.json({
+        success: true,
+        message: 'Practice information saved successfully'
+      });
+    } catch (error) {
+      console.error('Error saving practice:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  app.get('/api/settings/practice/locations', async (req: Request, res: Response) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      
+      if (!req.session?.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      const userId = req.session.user.id;
+      
+      const result = await db.execute(
+        `SELECT * FROM practices WHERE owner_id = '${userId}' ORDER BY id`
+      );
+
+      // Format locations data to match expected structure
+      const locations = result.rows.map((practice: any, index: number) => ({
+        id: practice.id,
+        practice_id: practice.id,
+        location_number: index === 0 ? 0 : practice.id,
+        name: practice.name,
+        contact_prefix: practice.default_sender_name ? practice.default_sender_name.split(' ')[0] : '',
+        contact_first_name: practice.default_sender_name ? practice.default_sender_name.split(' ')[1] || '' : '',
+        contact_middle_initial: '',
+        contact_last_name: practice.default_sender_name ? practice.default_sender_name.split(' ').slice(2).join(' ') : '',
+        contact_suffix: '',
+        phone: practice.phone || '',
+        email: practice.email || '',
+        address_line1: practice.address || '',
+        address_line2: '',
+        city: practice.city || '',
+        state: practice.state || '',
+        zip_code: practice.zip_code || '',
+        is_default: index === 0,
+        active: true
+      }));
+
+      res.json({
+        success: true,
+        locations: locations
+      });
+
+    } catch (error) {
+      console.error('Error fetching practice locations:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  app.post('/api/settings/practice/locations', async (req: Request, res: Response) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      
+      if (!req.session?.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      const userId = req.session.user.id;
+      console.log('Adding practice location for user:', userId, 'Data:', req.body);
+
+      const locationData = req.body;
+
+      // Insert new practice location
+      const result = await db.execute(
+        `INSERT INTO practices (owner_id, name, default_sender_name, phone, email, address, city, state, zip_code) 
+         VALUES ('${userId}', '${locationData.name}', '${locationData.contact_first_name} ${locationData.contact_last_name}', '${locationData.phone}', '${locationData.email}', '${locationData.address_line1}', '${locationData.city}', '${locationData.state}', '${locationData.zip_code}') 
+         RETURNING id`
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(500).json({ success: false, message: 'Failed to create location' });
+      }
+
+      res.json({
+        success: true,
+        message: 'Location added successfully',
+        locationId: result.rows[0].id
+      });
+
+    } catch (error) {
+      console.error('Error adding practice location:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
     }
   });
 
