@@ -102,12 +102,13 @@ export function registerRoutes(app: Express) {
       const newUser = result.rows[0];
       const userId = newUser.id;
 
-      // Create practice profile for the new user
+      // Create practice profile for the new user using existing table structure
       const fullAddress = `${address1}${address2 ? ', ' + address2 : ''}, ${city}, ${state} ${zipCode}`;
+      const fullContactName = `${prefix || ''} ${firstName} ${middleInitial || ''} ${lastName} ${suffix || ''}`.replace(/\s+/g, ' ').trim();
       
       await db.execute(
-        `INSERT INTO practices (owner_id, name, contact_prefix, contact_first_name, contact_middle_initial, contact_last_name, contact_suffix, phone, email, main_address, main_city, main_state, main_zip) 
-         VALUES ('${userId}', '${practiceName}', '${prefix || ''}', '${firstName}', '${middleInitial || ''}', '${lastName}', '${suffix || ''}', '${officeNumber}', '${email}', '${fullAddress}', '${city}', '${state}', '${zipCode}')`
+        `INSERT INTO practices (owner_id, name, address, city, state, zip_code, phone, email, default_sender_name, taxonomy, npi) 
+         VALUES ('${userId}', '${practiceName}', '${fullAddress}', '${city}', '${state}', '${zipCode}', '${officeNumber}', '${email}', '${fullContactName}', '207Q00000X', '')`
       );
 
       // Store user in session
@@ -754,14 +755,54 @@ export function registerRoutes(app: Express) {
       }
 
       const practice = result.rows[0];
+      
+      // Parse the contact name back into components for the settings form
+      const nameParts = (practice.default_sender_name || '').split(' ').filter(Boolean);
+      const prefixes = ['Dr.', 'Mr.', 'Ms.', 'Mrs.'];
+      const suffixes = ['Jr.', 'Sr.', 'II', 'III', 'IV'];
+      
+      let prefix = '', firstName = '', middleInitial = '', lastName = '', suffix = '';
+      
+      if (nameParts.length > 0) {
+        let startIndex = 0;
+        
+        // Check for prefix
+        if (prefixes.includes(nameParts[0])) {
+          prefix = nameParts[0];
+          startIndex = 1;
+        }
+        
+        // Check for suffix at the end
+        if (nameParts.length > startIndex && suffixes.includes(nameParts[nameParts.length - 1])) {
+          suffix = nameParts[nameParts.length - 1];
+          nameParts.pop();
+        }
+        
+        // Assign remaining parts
+        if (nameParts.length > startIndex) {
+          firstName = nameParts[startIndex] || '';
+          if (nameParts.length > startIndex + 1) {
+            // Check if next part is single letter (middle initial)
+            if (nameParts[startIndex + 1].length === 1) {
+              middleInitial = nameParts[startIndex + 1];
+              lastName = nameParts.slice(startIndex + 2).join(' ');
+            } else {
+              lastName = nameParts.slice(startIndex + 1).join(' ');
+            }
+          }
+        }
+      }
+      
       res.json({
         success: true,
         practice: {
           id: practice.id,
           name: practice.name,
-          contact_prefix: practice.default_sender_name ? practice.default_sender_name.split(' ')[0] : '',
-          contact_first_name: practice.default_sender_name ? practice.default_sender_name.split(' ')[1] || '' : '',
-          contact_last_name: practice.default_sender_name ? practice.default_sender_name.split(' ').slice(2).join(' ') : '',
+          contact_prefix: prefix,
+          contact_first_name: firstName,
+          contact_middle_initial: middleInitial,
+          contact_last_name: lastName,
+          contact_suffix: suffix,
           phone: practice.phone,
           email: practice.email,
           main_address: practice.address,
