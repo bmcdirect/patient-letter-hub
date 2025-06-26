@@ -824,5 +824,86 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // POST endpoint for creating orders
+  app.post('/api/orders', async (req: Request, res: Response) => {
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      console.log('POST /api/orders - Creating new order');
+      
+      if (!req.session?.user) {
+        return res.status(401).json({ success: false, message: 'Not authenticated' });
+      }
+
+      const userId = req.session.user.id;
+      console.log('Creating order for user:', userId);
+
+      // Extract form data - handle both JSON and FormData
+      let orderData;
+      if (req.headers['content-type']?.includes('application/json')) {
+        orderData = req.body;
+      } else {
+        // Handle FormData from the order form
+        orderData = {
+          practiceLocation: req.body.practiceLocation || '5', // Default to main practice
+          subject: req.body.subject || 'New Letter Order',
+          letterDocument: req.body.letterDocument,
+          recipientList: req.body.recipientList,
+          letterColor: req.body.letterColor || 'black',
+          enclosures: parseInt(req.body.enclosures) || 0,
+          dataCleansing: req.body.dataCleansing === 'on',
+          ncoaUpdate: req.body.ncoaUpdate === 'on',
+          firstClassPostage: req.body.firstClassPostage === 'on'
+        };
+      }
+
+      console.log('Order data:', orderData);
+
+      // Generate order number
+      const orderCount = await db.execute('SELECT COUNT(*) as count FROM orders');
+      const orderNumber = `O-${(parseInt(orderCount.rows[0].count) + 1001).toString()}`;
+
+      // Calculate estimated cost
+      const estimatedRecipients = 100; // Default estimate
+      const baseRate = orderData.letterColor === 'color' ? 0.65 : 0.50;
+      let totalCost = estimatedRecipients * baseRate;
+      
+      if (orderData.dataCleansing) totalCost += 25;
+      if (orderData.ncoaUpdate) totalCost += 50;
+      if (orderData.firstClassPostage) totalCost += estimatedRecipients * 0.68;
+
+      // Insert order into database
+      const result = await db.execute(
+        `INSERT INTO orders (user_id, order_number, practice_id, subject, template_type, color_mode, estimated_recipients, recipient_count, enclosures, data_cleansing, ncoa_update, first_class_postage, total_cost, status, production_start_date, production_end_date) 
+         VALUES ('${userId}', '${orderNumber}', '${orderData.practiceLocation}', '${orderData.subject}', 'custom', '${orderData.letterColor}', ${estimatedRecipients}, ${estimatedRecipients}, ${orderData.enclosures}, ${orderData.dataCleansing}, ${orderData.ncoaUpdate}, ${orderData.firstClassPostage}, ${totalCost.toFixed(2)}, 'Pending', '${new Date().toISOString().split('T')[0]}', '${new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}') 
+         RETURNING id`
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(500).json({ success: false, message: 'Failed to create order' });
+      }
+
+      const orderId = result.rows[0].id;
+      console.log(`Order created successfully with ID: ${orderId}, Order Number: ${orderNumber}`);
+
+      res.json({
+        success: true,
+        message: 'Order created successfully',
+        orderId: orderNumber,
+        jobId: orderId,
+        order: {
+          id: orderId,
+          order_number: orderNumber,
+          subject: orderData.subject,
+          status: 'Pending',
+          total_cost: totalCost.toFixed(2)
+        }
+      });
+
+    } catch (error) {
+      console.error('Error creating order:', error);
+      res.status(500).json({ success: false, message: 'Internal server error: ' + error.message });
+    }
+  });
+
   console.log('All API routes registered successfully');
 }
