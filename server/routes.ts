@@ -617,12 +617,24 @@ export function registerRoutes(app: Express) {
       if (orderData.ncoaUpdate) totalCost += 50;
       if (orderData.firstClassPostage) totalCost += estimatedRecipients * 0.68;
 
-      // Insert order into database
-      const result = await db.execute(
-        `INSERT INTO orders (user_id, order_number, practice_id, subject, template_type, color_mode, estimated_recipients, recipient_count, enclosures, data_cleansing, ncoa_update, first_class_postage, total_cost, status, production_start_date, production_end_date) 
-         VALUES ('${userId}', '${orderNumber}', '${orderData.practiceLocation}', '${orderData.subject}', 'custom', '${orderData.letterColor}', ${estimatedRecipients}, ${estimatedRecipients}, ${orderData.enclosures}, ${orderData.dataCleansing}, ${orderData.ncoaUpdate}, ${orderData.firstClassPostage}, ${totalCost.toFixed(2)}, 'Pending', '${new Date().toISOString().split('T')[0]}', '${new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}') 
-         RETURNING id`
-      );
+      // Insert order into database with retry logic
+      let result;
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          result = await db.execute(
+            `INSERT INTO orders (user_id, order_number, practice_id, subject, template_type, color_mode, estimated_recipients, recipient_count, enclosures, data_cleansing, ncoa_update, first_class_postage, total_cost, status, production_start_date, production_end_date) 
+             VALUES ('${userId}', '${orderNumber}', '${orderData.practiceLocation}', '${orderData.subject}', 'custom', '${orderData.letterColor}', ${estimatedRecipients}, ${estimatedRecipients}, ${orderData.enclosures}, ${orderData.dataCleansing}, ${orderData.ncoaUpdate}, ${orderData.firstClassPostage}, ${totalCost.toFixed(2)}, 'Pending', '${new Date().toISOString().split('T')[0]}', '${new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}') 
+             RETURNING id`
+          );
+          break;
+        } catch (error) {
+          retries--;
+          console.log(`Database insertion failed, retrying... (${retries} attempts left)`, error);
+          if (retries === 0) throw error;
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
 
       if (result.rows.length === 0) {
         return res.status(500).json({ success: false, message: 'Failed to create order' });
