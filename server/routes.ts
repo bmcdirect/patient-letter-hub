@@ -869,10 +869,21 @@ export function registerRoutes(app: Express) {
 
       const locationData = req.body;
 
-      // Insert new practice location with required taxonomy field  
+      // Get user's main practice ID first
+      const practiceResult = await db.execute(
+        `SELECT id FROM practices WHERE owner_id = '${userId}' LIMIT 1`
+      );
+      
+      if (practiceResult.rows.length === 0) {
+        return res.status(400).json({ success: false, message: 'No practice found. Please create a practice first.' });
+      }
+      
+      const practiceId = practiceResult.rows[0].id;
+      
+      // Insert into practice_locations table
       const result = await db.execute(
-        `INSERT INTO practices (owner_id, name, taxonomy, npi, address, phone, email, default_sender_name, created_at, updated_at, city, state, zip_code) 
-         VALUES ('${userId}', '${locationData.name}', '207Q00000X', '', '${locationData.address}', '${locationData.phone}', '', '${locationData.contactPrefix || ''} ${locationData.contactFirstName || ''} ${locationData.contactLastName || ''}', NOW(), NOW(), '${locationData.city}', '${locationData.state}', '${locationData.zipCode}') 
+        `INSERT INTO practice_locations (practice_id, label, contact_name, phone, email, address, city, state, zip_code, is_default, active) 
+         VALUES (${practiceId}, '${locationData.name}', '${locationData.contactPrefix || ''} ${locationData.contactFirstName || ''} ${locationData.contactLastName || ''}', '${locationData.phone}', '', '${locationData.address}', '${locationData.city}', '${locationData.state}', '${locationData.zipCode}', ${locationData.isDefault || false}, ${locationData.active !== false}) 
          RETURNING id`
       );
 
