@@ -651,11 +651,9 @@ export function registerRoutes(app: Express) {
       const userId = req.session.user.id;
 
       // Get user's main practice data using raw SQL
-      const result = await db.execute(`
-        SELECT * FROM practices 
-        WHERE owner_id = $1 
-        LIMIT 1
-      `, [userId]);
+      const result = await db.execute(
+        `SELECT * FROM practices WHERE owner_id = '${userId}' LIMIT 1`
+      );
 
       const practice = result.rows.length > 0 ? result.rows[0] : null;
 
@@ -680,10 +678,9 @@ export function registerRoutes(app: Express) {
       const userId = req.session.user.id;
 
       // Get user's practice locations using raw SQL
-      const result = await db.execute(`
-        SELECT * FROM practices 
-        WHERE owner_id = $1
-      `, [userId]);
+      const result = await db.execute(
+        `SELECT * FROM practices WHERE owner_id = '${userId}'`
+      );
 
       // Format locations data to match expected structure
       const locations = result.rows.map((practice: any, index: number) => ({
