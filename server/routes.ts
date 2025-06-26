@@ -457,17 +457,10 @@ export function registerRoutes(app: Express) {
       
       console.log(`Converting quote ${quoteId} for user ${userId}`);
 
-      // Find quote by quote_number (Q-XXXX) or by ID
-      let quoteResult;
-      if (quoteId.startsWith('Q-')) {
-        quoteResult = await db.execute(
-          `SELECT * FROM quotes WHERE quote_number = '${quoteId}' AND CAST(user_id AS text) = '${userId}'`
-        );
-      } else {
-        quoteResult = await db.execute(
-          `SELECT * FROM quotes WHERE id = ${quoteId} AND CAST(user_id AS text) = '${userId}'`
-        );
-      }
+      // Find quote by quote_number (Q-XXXX) or by ID  
+      const quoteResult = await db.execute(
+        `SELECT * FROM quotes WHERE quote_number = '${quoteId}' AND CAST(user_id AS text) = '${userId}' AND status = 'Quote'`
+      );
 
       if (quoteResult.rows.length === 0) {
         return res.status(404).json({ success: false, message: 'Quote not found' });
