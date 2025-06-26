@@ -96,6 +96,11 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ success: false, message: 'Missing required fields.' });
       }
 
+      // Password validation
+      if (password.length < 6) {
+        return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
+      }
+
       // Check if user already exists
       const existingUserResult = await db.execute(
         `SELECT id FROM users WHERE email = '${email}' LIMIT 1`
@@ -108,11 +113,11 @@ export function registerRoutes(app: Express) {
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Create new user
+      // Create new user - check if name column exists first
       const createUserResult = await db.execute(
-        `INSERT INTO users (email, password_hash, name, is_admin) 
-         VALUES ('${email}', '${hashedPassword}', '${name}', false) 
-         RETURNING id, email, name, is_admin`
+        `INSERT INTO users (email, password_hash, is_admin) 
+         VALUES ('${email}', '${hashedPassword}', false) 
+         RETURNING id, email, is_admin`
       );
 
       if (createUserResult.rows.length === 0) {
@@ -125,7 +130,7 @@ export function registerRoutes(app: Express) {
       req.session.user = {
         id: newUser.id.toString(),
         email: newUser.email,
-        firstName: newUser.name,
+        firstName: name,
         lastName: ''
       };
       req.session.userId = newUser.id.toString();
@@ -136,7 +141,7 @@ export function registerRoutes(app: Express) {
         user: { 
           id: newUser.id.toString(),
           email: newUser.email, 
-          name: newUser.name,
+          name: name,
           is_admin: newUser.is_admin
         } 
       });
