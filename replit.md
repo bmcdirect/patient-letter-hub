@@ -168,6 +168,7 @@ Changelog:
 - June 26, 2025. Practice information loading fixed - added missing /api/settings/practice and /api/settings/practice/locations endpoints to server routes, implemented proper JSON responses for practice data retrieval, resolved routing conflicts that were causing HTML responses instead of API data, ensured practice information loads correctly on dashboard and settings pages
 - June 26, 2025. Order form redesigned with practice location dropdown - added practice location selection above subject line, merged Letter Color with Additional Services section, added enclosures counter (0-10), removed estimated cost section, made Additional Documents & Branding permanently visible, created Sunshine Dental test practice for validation
 - June 26, 2025. Fixed critical SQL parameter syntax error - corrected parameterized query syntax in practice endpoints from $1 placeholder to direct string interpolation for Neon database compatibility, resolved "there is no parameter $1" errors causing 500 internal server errors on practice data loading
+- June 26, 2025. Order creation workflow investigation and fixes - identified authentication issues preventing order submission, fixed password hashing for existing users, enhanced form submission handlers with proper onclick events, added database retry logic for connection stability, verified complete order creation workflow from form submission to dashboard display, resolved "Connection terminated unexpectedly" errors through improved error handling and user session management
 ```
 
 ## User Preferences
