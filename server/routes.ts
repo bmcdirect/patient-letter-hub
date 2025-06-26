@@ -618,5 +618,82 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  // Practice settings endpoints
+  app.get('/api/settings/practice', async (req: Request, res: Response) => {
+    try {
+      if (!req.session.user) {
+        return res.status(401).json({ success: false, message: 'Not authenticated' });
+      }
+
+      const userId = req.session.user.id;
+
+      // Get user's main practice data
+      const userPractices = await db
+        .select()
+        .from(practices)
+        .where(eq(practices.user_id, userId))
+        .limit(1);
+
+      const practice = userPractices.length > 0 ? userPractices[0] : null;
+
+      res.json({
+        success: true,
+        practice: practice,
+        locations: [] // Will be populated by separate endpoint
+      });
+
+    } catch (error) {
+      console.error('Error fetching practice data:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
+  app.get('/api/settings/practice/locations', async (req: Request, res: Response) => {
+    try {
+      if (!req.session.user) {
+        return res.status(401).json({ success: false, message: 'Not authenticated' });
+      }
+
+      const userId = req.session.user.id;
+
+      // Get user's practice locations
+      const userPractices = await db
+        .select()
+        .from(practices)
+        .where(eq(practices.user_id, userId));
+
+      // Format locations data to match expected structure
+      const locations = userPractices.map((practice, index) => ({
+        id: practice.id,
+        practice_id: practice.id,
+        location_number: index === 0 ? 0 : practice.id,
+        name: practice.name,
+        contact_prefix: practice.contact_prefix || '',
+        contact_first_name: practice.contact_first_name || '',
+        contact_middle_initial: practice.contact_middle_initial || '',
+        contact_last_name: practice.contact_last_name || '',
+        contact_suffix: practice.contact_suffix || '',
+        phone: practice.phone || '',
+        email: practice.email || '',
+        address_line1: practice.address_line1 || '',
+        address_line2: practice.address_line2 || '',
+        city: practice.city || '',
+        state: practice.state || '',
+        zip_code: practice.zip_code || '',
+        is_default: index === 0,
+        active: true
+      }));
+
+      res.json({
+        success: true,
+        locations: locations
+      });
+
+    } catch (error) {
+      console.error('Error fetching practice locations:', error);
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  });
+
   console.log('All API routes registered successfully');
 }
