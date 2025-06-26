@@ -275,7 +275,7 @@ function loadDeletedQuotesFromStorage() {
 }
 
 // Toggle archive visibility
-document.addEventListener('DOMContentLoaded', function() {
+function setupArchiveToggle() {
   const toggleButton = document.getElementById('toggleArchive');
   const archiveContainer = document.getElementById('archiveTableContainer');
   
@@ -290,6 +290,11 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+}
+
+// Setup on page load
+document.addEventListener('DOMContentLoaded', function() {
+  setupArchiveToggle();
 });
 
 // Load quotes when dashboard loads

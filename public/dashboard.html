@@ -210,6 +210,34 @@
           <tr><td colspan="8">Loading...</td></tr>
         </tbody>
       </table>
+
+      <!-- Archive Section -->
+      <div class="archive-section" style="margin-top: 30px;">
+        <div class="archive-header" style="display: flex; align-items: center; margin-bottom: 10px;">
+          <h3 style="margin: 0; margin-right: 10px;">Deleted and Converted Quotes Archive</h3>
+          <button id="toggleArchive" class="action-button" style="background: #6b7280; padding: 5px 10px; font-size: 12px;">Show Archive</button>
+        </div>
+        
+        <div id="archiveTableContainer" style="display: none;">
+          <table id="archiveTable">
+            <thead>
+              <tr>
+                <th>Quote ID</th>
+                <th>Subject</th>
+                <th>Practice Location</th>
+                <th>Template Type</th>
+                <th>Recipients</th>
+                <th>Total Cost</th>
+                <th>Archive Status</th>
+                <th>Order Number</th>
+              </tr>
+            </thead>
+            <tbody id="archiveTableBody">
+              <!-- Archived quotes will be loaded here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <div class="section">
