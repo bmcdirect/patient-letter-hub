@@ -96,6 +96,10 @@ export function registerRoutes(app: Express) {
         }
       }
 
+      if (!userQuotes) {
+        userQuotes = [];
+      }
+
       console.log(`Found ${userQuotes.length} quotes`);
 
       const formattedQuotes = userQuotes.map(quote => ({
@@ -457,6 +461,10 @@ export function registerRoutes(app: Express) {
           console.log(`Database query failed, retrying... (${retries} attempts left)`);
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
+      }
+
+      if (!userOrders) {
+        userOrders = [];
       }
 
       console.log(`Found ${userOrders.length} orders for user ${userId}`);
