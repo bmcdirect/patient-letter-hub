@@ -217,10 +217,10 @@ export function registerRoutes(app: Express) {
       } = req.body;
 
       // Validate required fields
-      if (!location_id || !subject || !estimatedRecipients) {
+      if (!subject || !estimatedRecipients) {
         return res.status(400).json({
           success: false,
-          message: 'Missing required fields: location_id, subject, estimatedRecipients'
+          message: 'Missing required fields: subject, estimatedRecipients'
         });
       }
 
@@ -239,8 +239,8 @@ export function registerRoutes(app: Express) {
 
       // Insert quote
       const result = await db.execute(
-        `INSERT INTO quotes (user_id, quote_number, practice_id, location_id, subject, template_type, color_mode, estimated_recipients, enclosures, notes, data_cleansing, ncoa_update, first_class_postage, total_cost, status) 
-         VALUES ('${userId}', '${quoteNumber}', '${location_id}', '${location_id}', '${subject}', '${templateType}', '${colorMode}', ${recipients}, ${enclosures || 0}, '${notes || ''}', ${dataCleansing || false}, ${ncoaUpdate || false}, ${firstClassPostage || false}, ${totalCost.toFixed(2)}, 'Quote') 
+        `INSERT INTO quotes (user_id, quote_number, practice_location_id, subject, template_type, color_mode, estimated_recipients, enclosures, notes, data_cleansing, ncoa_update, first_class_postage, total_cost, status) 
+         VALUES ('${userId}', '${quoteNumber}', NULL, '${subject}', '${templateType}', '${colorMode}', ${recipients}, ${enclosures || 0}, '${notes || ''}', ${dataCleansing || false}, ${ncoaUpdate || false}, ${firstClassPostage || false}, ${totalCost.toFixed(2)}, 'Quote') 
          RETURNING id`
       );
 
