@@ -78,6 +78,12 @@ class QuoteStore {
     return [...this.quotes];
   }
 
+  addQuote(quote: any) {
+    this.quotes.push(quote);
+    this.notifyListeners();
+    return quote;
+  }
+
   convertQuoteToOrder(quoteId: number, orderId: number) {
     const quoteIndex = this.quotes.findIndex(quote => quote.id === quoteId);
     if (quoteIndex !== -1) {

@@ -26,6 +26,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, Package, Upload, RefreshCw, FileText, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { orderStore } from "@/lib/orderStore";
+import { quoteStore } from "@/lib/quoteStore";
 
 const orderSchema = z.object({
   subject: z.string().min(1, "Subject is required"),
@@ -190,17 +192,61 @@ export default function Order() {
   const saveDraftMutation = useMutation({
     mutationFn: async (data: OrderFormData) => {
       setIsSavingDraft(true);
-      // Mock save draft API call
+      // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const orderNumber = isEditing ? `O-${orderId}` : `O-${Date.now().toString().slice(-4)}`;
+      const totalCost = calculateCost(data);
+      let result;
       
-      return {
-        id: isEditing ? orderId : Math.floor(Math.random() * 1000),
-        orderNumber,
-        status: "Draft",
-        action: isEditing ? "updated" : "saved",
-      };
+      if (isEditing) {
+        // Update existing order
+        orderStore.updateOrderStatus(parseInt(orderId!), "draft");
+        result = {
+          id: parseInt(orderId!),
+          orderNumber: `O-${orderId}`,
+          status: "Draft",
+          action: "updated",
+        };
+      } else {
+        // Create new draft order
+        const orderNumber = `O-${2006 + orderStore.getOrders().length}`;
+        const newOrder = {
+          id: 106 + orderStore.getOrders().length,
+          order_number: orderNumber,
+          user_id: "user123",
+          practice_id: parseInt(data.practiceId) || 1,
+          quote_id: isFromQuote ? parseInt(quoteId!) : null,
+          subject: data.subject,
+          template_type: data.templateType,
+          color_mode: data.colorMode,
+          recipient_count: data.recipientCount,
+          total_cost: totalCost.toFixed(2),
+          status: "draft",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          practice_name: "User Practice",
+          practice_email: "user@practice.com",
+          notes: data.notes || "",
+          letter_content: data.letterContent,
+          enclosures: data.enclosures,
+          data_cleansing: data.dataCleansing,
+          ncoa_update: data.ncoaUpdate,
+          first_class_postage: data.firstClassPostage
+        };
+        
+        console.log("Adding new draft order to store:", newOrder);
+        orderStore.addOrder(newOrder);
+        console.log("Updated order store:", orderStore.getOrders());
+        
+        result = {
+          id: newOrder.id,
+          orderNumber,
+          status: "Draft",
+          action: "saved",
+        };
+      }
+      
+      return result;
     },
     onSuccess: (result) => {
       toast({
@@ -224,19 +270,63 @@ export default function Order() {
   const submitOrderMutation = useMutation({
     mutationFn: async (data: OrderFormData) => {
       setIsSubmitting(true);
-      // Mock order submission - simulate API delay
+      // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const orderNumber = isEditing ? `O-${orderId}` : `O-${Date.now().toString().slice(-4)}`;
       const totalCost = calculateCost(data);
+      let result;
       
-      return {
-        id: isEditing ? orderId : Math.floor(Math.random() * 1000),
-        orderNumber,
-        totalCost,
-        status: "In Progress",
-        action: isEditing ? "updated and submitted" : "submitted",
-      };
+      if (isEditing) {
+        // Update existing order status to in-progress
+        orderStore.updateOrderStatus(parseInt(orderId!), "in-progress");
+        result = {
+          id: parseInt(orderId!),
+          orderNumber: `O-${orderId}`,
+          totalCost,
+          status: "In Progress",
+          action: "updated and submitted",
+        };
+      } else {
+        // Create new order with in-progress status
+        const orderNumber = `O-${2006 + orderStore.getOrders().length}`;
+        const newOrder = {
+          id: 106 + orderStore.getOrders().length,
+          order_number: orderNumber,
+          user_id: "user123",
+          practice_id: parseInt(data.practiceId) || 1,
+          quote_id: isFromQuote ? parseInt(quoteId!) : null,
+          subject: data.subject,
+          template_type: data.templateType,
+          color_mode: data.colorMode,
+          recipient_count: data.recipientCount,
+          total_cost: totalCost.toFixed(2),
+          status: "in-progress",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          practice_name: "User Practice",
+          practice_email: "user@practice.com",
+          notes: data.notes || "",
+          letter_content: data.letterContent,
+          enclosures: data.enclosures,
+          data_cleansing: data.dataCleansing,
+          ncoa_update: data.ncoaUpdate,
+          first_class_postage: data.firstClassPostage
+        };
+        
+        console.log("Adding new production order to store:", newOrder);
+        orderStore.addOrder(newOrder);
+        console.log("Updated order store:", orderStore.getOrders());
+        
+        result = {
+          id: newOrder.id,
+          orderNumber,
+          totalCost,
+          status: "In Progress",
+          action: "submitted",
+        };
+      }
+      
+      return result;
     },
     onSuccess: (result) => {
       toast({

@@ -25,6 +25,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { quoteStore } from "@/lib/quoteStore";
 
 const quoteSchema = z.object({
   subject: z.string().min(1, "Subject is required"),
@@ -77,14 +78,42 @@ export default function Quote() {
   const createQuoteMutation = useMutation({
     mutationFn: async (data: QuoteFormData) => {
       setIsSubmitting(true);
-      // Mock quote creation - simulate API delay
+      // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      const quoteNumber = `Q-${Date.now().toString().slice(-4)}`;
+      const quoteNumber = `Q-${1005 + quoteStore.getQuotes().length}`;
       const totalCost = calculateCost(data);
       
+      // Create new quote object matching store structure
+      const newQuote = {
+        id: 5 + quoteStore.getQuotes().length,
+        quote_number: quoteNumber,
+        user_id: "user123",
+        practice_id: parseInt(data.practiceId) || 1,
+        subject: data.subject,
+        template_type: data.templateType,
+        color_mode: data.colorMode,
+        estimated_recipients: data.estimatedRecipients,
+        total_cost: totalCost.toFixed(2),
+        status: "pending",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        practice_name: "User Practice", // Default - would come from practice lookup
+        practice_email: "user@practice.com",
+        notes: data.notes || "",
+        enclosures: data.enclosures,
+        data_cleansing: data.dataCleansing,
+        ncoa_update: data.ncoaUpdate,
+        first_class_postage: data.firstClassPostage
+      };
+      
+      // Add to quote store with console logging
+      console.log("Adding new quote to store:", newQuote);
+      quoteStore.addQuote(newQuote);
+      console.log("Updated quote store:", quoteStore.getQuotes());
+      
       return {
-        id: Math.floor(Math.random() * 1000),
+        id: newQuote.id,
         quoteNumber,
         totalCost,
         status: "Quote",
