@@ -80,9 +80,8 @@ export async function setupAuth(app: Express) {
           // Create new test user with auto-generated ID
           const newUser = await db.execute(
             `INSERT INTO users (email, password_hash, first_name, last_name) 
-             VALUES ($1, $2, $3, $4) 
-             RETURNING id, email, first_name, last_name`,
-            ['test123@patientletterhub.com', 'dummy_hash', 'Test', 'User']
+             VALUES ('test123@patientletterhub.com', 'dummy_hash', 'Test', 'User')
+             RETURNING id, email, first_name, last_name`
           );
           testUser = newUser.rows[0];
           console.log("Created new test user:", testUser.id);
@@ -95,8 +94,8 @@ export async function setupAuth(app: Express) {
       req.login({
         id: testUser.id,
         email: testUser.email,
-        firstName: testUser.firstName,
-        lastName: testUser.lastName
+        firstName: testUser.first_name,
+        lastName: testUser.last_name
       }, (err) => {
         if (err) {
           console.error("Login error:", err);
