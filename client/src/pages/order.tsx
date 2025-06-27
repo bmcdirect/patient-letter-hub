@@ -236,6 +236,13 @@ export default function Order() {
         
         console.log("Adding new draft order to store:", newOrder);
         orderStore.addOrder(newOrder);
+        
+        // If this order was created from a quote, mark the quote as converted
+        if (isFromQuote) {
+          quoteStore.convertQuoteToOrder(parseInt(quoteId!), newOrder.id);
+          console.log("Converted quote", quoteId, "to order", newOrder.id);
+        }
+        
         console.log("Updated order store:", orderStore.getOrders());
         
         result = {
@@ -315,6 +322,13 @@ export default function Order() {
         
         console.log("Adding new production order to store:", newOrder);
         orderStore.addOrder(newOrder);
+        
+        // If this order was created from a quote, mark the quote as converted
+        if (isFromQuote) {
+          quoteStore.convertQuoteToOrder(parseInt(quoteId!), newOrder.id);
+          console.log("Converted quote", quoteId, "to order", newOrder.id);
+        }
+        
         console.log("Updated order store:", orderStore.getOrders());
         
         result = {
