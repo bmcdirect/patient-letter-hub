@@ -67,7 +67,12 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
+    // Convert string ID to integer for database query
+    const numericId = parseInt(id, 10);
+    if (isNaN(numericId)) {
+      return undefined;
+    }
+    const [user] = await db.select().from(users).where(eq(users.id, numericId));
     return user;
   }
 

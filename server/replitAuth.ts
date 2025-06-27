@@ -58,7 +58,7 @@ export async function setupAuth(app: Express) {
       }
     } catch (error) {
       console.error("Error during user deserialization:", error);
-      cb(error);
+      cb(error, null);
     }
   });
 

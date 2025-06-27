@@ -39,7 +39,13 @@ export function registerRoutes(app: Express) {
   });
 
   app.get("/api/auth/user", (req: Request, res: Response) => {
-    if (req.session?.user) return res.json({ success: true, user: req.session.user });
+    // Check both passport (req.user) and session-based auth
+    if (req.user) {
+      return res.json({ success: true, user: req.user });
+    }
+    if (req.session?.user) {
+      return res.json({ success: true, user: req.session.user });
+    }
     return res.status(401).json({ success: false, message: "Not logged in" });
   });
 
