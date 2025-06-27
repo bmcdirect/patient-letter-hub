@@ -41,10 +41,10 @@ export default function Header({ user, practices, selectedPractice }: HeaderProp
           </div>
           
           <div className="flex items-center space-x-4">
-            {/* Credit Balance */}
+            {/* Customer Name */}
             <div className="bg-white/10 rounded-lg px-3 py-1.5 text-sm">
-              <span className="opacity-80">Credits:</span>
-              <span className="font-semibold ml-1">{user?.creditBalance?.toLocaleString() || '0'}</span>
+              <span className="opacity-80">Customer:</span>
+              <span className="font-semibold ml-1">Dr. Sarah Johnson</span>
             </div>
             
             {/* User Profile */}

@@ -682,26 +682,59 @@ export default function Order() {
               </CardContent>
             </Card>
 
-            {/* Submit Button */}
-            <div className="flex justify-end">
+            {/* Action Buttons */}
+            <div className="flex justify-between items-center">
               <Button
-                type="submit"
+                type="button"
+                variant="outline"
                 size="lg"
-                disabled={isSubmitting}
-                className="bg-primary-blue hover:bg-blue-800"
+                disabled={isSavingDraft || isSubmitting}
+                onClick={onSaveDraft}
+                className="text-gray-700 border-gray-300 hover:bg-gray-50"
               >
-                {isSubmitting ? (
+                {isSavingDraft ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Creating Order...
+                    Saving Draft...
                   </>
                 ) : (
                   <>
-                    <Package className="h-4 w-4 mr-2" />
-                    Create Order
+                    <Save className="h-4 w-4 mr-2" />
+                    Save as Draft
                   </>
                 )}
               </Button>
+
+              <div className="flex items-center space-x-4">
+                {isEditing && existingOrder && (
+                  <div className="text-sm text-gray-600">
+                    {existingOrder.status === "Draft" ? (
+                      <span className="text-orange-600 font-medium">• Draft Order</span>
+                    ) : (
+                      <span className="text-red-600 font-medium">• Cannot edit: Order {existingOrder.status}</span>
+                    )}
+                  </div>
+                )}
+                
+                <Button
+                  type="submit"
+                  size="lg"
+                  disabled={isSubmitting || isSavingDraft || (isEditing && existingOrder?.status !== "Draft")}
+                  className="bg-primary-blue hover:bg-blue-800"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Submitting for Production...
+                    </>
+                  ) : (
+                    <>
+                      <Package className="h-4 w-4 mr-2" />
+                      {isEditing ? "Update & Submit for Production" : "Submit for Production"}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
         </Form>

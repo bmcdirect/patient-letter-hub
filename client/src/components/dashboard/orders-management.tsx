@@ -34,7 +34,8 @@ import {
   RefreshCw,
   Filter,
   X,
-  Package
+  Package,
+  Edit2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -240,6 +241,11 @@ export default function OrdersManagement({ userId }: OrdersManagementProps) {
   const OrderActions = ({ order }: { order: Order }) => {
     const canComplete = order.status === "In Progress";
     const canCancel = order.status === "In Progress";
+    const canEdit = order.status === "Draft";
+
+    const handleEditOrder = (orderId: number) => {
+      window.location.href = `/order?editOrder=${orderId}`;
+    };
 
     return (
       <div className="flex items-center space-x-2">
@@ -251,6 +257,18 @@ export default function OrdersManagement({ userId }: OrdersManagementProps) {
         >
           <Eye className="h-4 w-4" />
         </Button>
+
+        {canEdit && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleEditOrder(order.id)}
+            title="Edit Draft Order"
+            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+          >
+            <Edit2 className="h-4 w-4" />
+          </Button>
+        )}
         
         {canComplete && (
           <Button

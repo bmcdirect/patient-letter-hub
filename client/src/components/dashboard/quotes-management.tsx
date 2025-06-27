@@ -276,15 +276,10 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
           <Button
             size="sm"
             className="bg-primary-blue hover:bg-blue-800"
-            onClick={() => convertToOrderMutation.mutate(quote.id)}
-            disabled={convertToOrderMutation.isPending}
+            onClick={() => window.location.href = `/order?fromQuote=${quote.id}`}
             title="Convert to Order"
           >
-            {convertToOrderMutation.isPending ? (
-              <RefreshCw className="h-4 w-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4" />
-            )}
+            <CheckCircle2 className="h-4 w-4" />
           </Button>
         )}
 
