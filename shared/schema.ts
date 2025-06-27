@@ -223,14 +223,13 @@ export const lettersRelations = relations(letters, ({ one, many }) => ({
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
-  createdAt: true,
-  updatedAt: true,
+  id: true,
+  created_at: true,
 });
 
 export const insertPracticeSchema = createInsertSchema(practices).omit({
   id: true,
-  createdAt: true,
-  updatedAt: true,
+  created_at: true,
 });
 
 export const insertTemplateSchema = createInsertSchema(templates).omit({
