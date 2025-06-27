@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,8 @@ import {
   Trash2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { orderStore } from "@/lib/orderStore";
+import { quoteStore } from "@/lib/quoteStore";
 
 interface Quote {
   id: number;
@@ -67,8 +69,21 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
   const [showArchived, setShowArchived] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [showQuoteDetails, setShowQuoteDetails] = useState(false);
+  const [storeQuotes, setStoreQuotes] = useState<any[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Subscribe to quote store changes
+  React.useEffect(() => {
+    const unsubscribe = quoteStore.subscribe(() => {
+      setStoreQuotes(quoteStore.getQuotes());
+    });
+    
+    // Initialize with current quotes
+    setStoreQuotes(quoteStore.getQuotes());
+    
+    return unsubscribe;
+  }, []);
 
   // Mock data for testing the table structure
   const mockQuotes: Quote[] = [

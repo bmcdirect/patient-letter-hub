@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -199,17 +199,19 @@ export default function OrdersManagement({ userId }: OrdersManagementProps) {
     return true;
   });
 
-  // Complete order mutation (mock handler)
+  // Complete order mutation
   const completeOrderMutation = useMutation({
     mutationFn: async (orderId: number) => {
-      // Mock completion - simulate API delay
+      // Update order status in store
+      orderStore.updateOrderStatus(orderId, "Completed");
       await new Promise(resolve => setTimeout(resolve, 1000));
       return { success: true };
     },
     onSuccess: (data, orderId) => {
+      const orderNumber = `O-${orderId < 10 ? 2000 + orderId : orderId}`;
       toast({
         title: "Order Completed",
-        description: `Order O-${2000 + orderId} has been marked as completed`,
+        description: `Order ${orderNumber} has been marked as completed`,
       });
       refetch();
     },
@@ -222,10 +224,11 @@ export default function OrdersManagement({ userId }: OrdersManagementProps) {
     },
   });
 
-  // Cancel order mutation (mock handler)
+  // Cancel order mutation
   const cancelOrderMutation = useMutation({
     mutationFn: async (orderId: number) => {
-      // Mock cancellation - simulate API delay
+      // Update order status in store
+      orderStore.updateOrderStatus(orderId, "Cancelled");
       await new Promise(resolve => setTimeout(resolve, 500));
       return { success: true };
     },
