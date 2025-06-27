@@ -1,7 +1,7 @@
 import {
   users,
   practices,
-  templates,
+
   letterJobs,
   addresses,
   letters,
@@ -11,8 +11,7 @@ import {
   type UpsertUser,
   type Practice,
   type InsertPractice,
-  type Template,
-  type InsertTemplate,
+
   type LetterJob,
   type InsertLetterJob,
   type Address,

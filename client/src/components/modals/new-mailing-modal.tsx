@@ -20,10 +20,7 @@ interface NewMailingModalProps {
 export default function NewMailingModal({ open, onOpenChange, onTemplateSelect }: NewMailingModalProps) {
   const [selectedType, setSelectedType] = useState<'guided' | 'custom' | null>(null);
 
-  const { data: templates = [] } = useQuery({
-    queryKey: ["/api/templates"],
-    enabled: open,
-  });
+  // Templates removed - keeping only custom mailing functionality
 
   const handleTemplateSelect = (template: any) => {
     onTemplateSelect(template);
@@ -83,31 +80,7 @@ export default function NewMailingModal({ open, onOpenChange, onTemplateSelect }
           <div>
             <h4 className="text-lg font-medium text-dark-navy mb-4">Choose Mailing Type</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card 
-                className={`cursor-pointer transition-all hover:shadow-md ${
-                  selectedType === 'guided' ? 'border-primary-blue bg-blue-50' : 'border-gray-200'
-                }`}
-                onClick={() => setSelectedType('guided')}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-center space-x-4 mb-3">
-                    <div className="w-12 h-12 bg-primary-blue/10 rounded-full flex items-center justify-center">
-                      <Wand2 className="h-6 w-6 text-primary-blue" />
-                    </div>
-                    <div>
-                      <h5 className="font-semibold text-dark-navy">Guided Templates</h5>
-                      <p className="text-sm text-gray-600">Pre-built compliance templates</p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    Use our legally-reviewed templates for common events like practice closure, 
-                    relocation, HIPAA breach notifications, and more.
-                  </p>
-                  <div className="mt-3">
-                    <Badge className="bg-green-100 text-green-800">Recommended</Badge>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Guided templates removed - only custom mailing available */}
 
               <Card 
                 className={`cursor-pointer transition-all hover:shadow-md ${
@@ -137,41 +110,7 @@ export default function NewMailingModal({ open, onOpenChange, onTemplateSelect }
             </div>
           </div>
 
-          {/* Guided Templates */}
-          {selectedType === 'guided' && (
-            <div>
-              <h4 className="text-lg font-medium text-dark-navy mb-4">Select Event Type</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {templates.map((template: any) => {
-                  const Icon = getTemplateIcon(template.eventType);
-                  return (
-                    <Card
-                      key={template.id}
-                      className="cursor-pointer hover:border-primary-blue hover:shadow-sm transition-all"
-                      onClick={() => handleTemplateSelect(template)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start space-x-3">
-                          <Icon className="h-5 w-5 text-teal-accent mt-1 flex-shrink-0" />
-                          <div className="flex-1">
-                            <h5 className="font-medium text-dark-navy">
-                              {getEventTypeLabel(template.eventType)}
-                            </h5>
-                            <p className="text-sm text-gray-600 mt-1">{template.name}</p>
-                            <div className="mt-2">
-                              <Badge variant="secondary" className="text-xs">
-                                {template.disciplineList?.join(' • ') || 'All Disciplines'}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* Templates removed - redirecting directly to order form */}
 
           {/* Custom Letter */}
           {selectedType === 'custom' && (
