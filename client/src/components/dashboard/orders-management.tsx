@@ -87,8 +87,8 @@ export default function OrdersManagement({ userId }: OrdersManagementProps) {
     return unsubscribe;
   }, []);
 
-  // Mock data for testing the table structure
-  const mockOrders: Order[] = [
+  // Use store orders as primary data source
+  const mockOrders: Order[] = storeOrders.length > 0 ? storeOrders : [
     {
       id: 1,
       order_number: "O-2001",
@@ -180,12 +180,12 @@ export default function OrdersManagement({ userId }: OrdersManagementProps) {
     }
   ];
 
-  // Fetch orders data (combining mock data with store orders)
+  // Fetch orders data from store only
   const { data: allOrders = [], isLoading, refetch } = useQuery({
     queryKey: ["/api/orders", statusFilter, storeOrders.length],
     queryFn: async () => {
-      // Combine mock orders with store orders
-      return [...mockOrders, ...storeOrders];
+      // Use only store orders (fresh reset data)
+      return storeOrders;
     }
   });
 
