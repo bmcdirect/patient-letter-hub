@@ -5,11 +5,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing";
+import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Templates from "@/pages/templates";
 import Tracking from "@/pages/tracking";
 import Billing from "@/pages/billing";
 import Settings from "@/pages/settings";
+import Order from "@/pages/order";
+import Quote from "@/pages/quote";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -27,6 +30,8 @@ function Router() {
           <Route path="/tracking" component={Tracking} />
           <Route path="/billing" component={Billing} />
           <Route path="/settings" component={Settings} />
+          <Route path="/order" component={Order} />
+          <Route path="/quote" component={Quote} />
         </>
       )}
       <Route component={NotFound} />
