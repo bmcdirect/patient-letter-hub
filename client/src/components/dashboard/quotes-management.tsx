@@ -138,13 +138,12 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
     }
   ];
 
-  // Fetch quotes data (using mock data for now)
-  const { data: allQuotes = mockQuotes, isLoading, refetch } = useQuery({
-    queryKey: ["/api/quotes", statusFilter, showArchived],
+  // Fetch quotes data (combining mock data with store quotes)
+  const { data: allQuotes = [], isLoading, refetch } = useQuery({
+    queryKey: ["/api/quotes", statusFilter, showArchived, storeQuotes.length],
     queryFn: async () => {
-      // For now, return mock data
-      // TODO: Replace with real API call
-      return mockQuotes;
+      // Use quotes from store instead of mock data
+      return storeQuotes.length > 0 ? storeQuotes : mockQuotes;
     }
   });
 
@@ -163,19 +162,36 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
     return true;
   });
 
-  // Convert quote to order mutation (mock handler)
+  // Convert quote to order mutation
   const convertToOrderMutation = useMutation({
     mutationFn: async (quoteId: number) => {
-      // Mock conversion - simulate API delay
+      const quote = quoteStore.getQuote(quoteId);
+      if (!quote) throw new Error("Quote not found");
+
+      // Create new order from quote data
+      const newOrder = orderStore.addOrder({
+        quote_id: quoteId,
+        practice_id: quote.practice_id,
+        subject: quote.subject,
+        template_type: quote.template_type,
+        color_mode: quote.color_mode,
+        recipient_count: quote.estimated_recipients,
+        total_cost: quote.total_cost,
+        practice_name: quote.practice_name,
+        practice_email: quote.practice_email
+      });
+
+      // Update quote status to converted
+      const updatedQuote = quoteStore.convertQuoteToOrder(quoteId, newOrder.id);
+      
       await new Promise(resolve => setTimeout(resolve, 1000));
-      return { orderId: `O-${1000 + quoteId}`, success: true };
+      return { orderId: newOrder.order_number, orderDbId: newOrder.id, success: true };
     },
     onSuccess: (data, quoteId) => {
       toast({
         title: "Quote Converted",
-        description: `Quote Q-${1000 + quoteId} successfully converted to order ${data.orderId}`,
+        description: `Quote successfully converted to order ${data.orderId}`,
       });
-      // Update mock data to reflect conversion
       refetch();
     },
     onError: (error) => {

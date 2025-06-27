@@ -46,6 +46,16 @@ type OrderFormData = z.infer<typeof orderSchema>;
 export default function Order() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<{[key: string]: File | null}>({
+    letterDocument: null,
+    recipientList: null,
+    letterhead: null,
+    logo: null,
+    envelopeArtwork: null,
+    signature: null,
+    enclosures: null,
+    zipFile: null
+  });
   const [location] = useLocation();
   const { toast } = useToast();
 
@@ -155,6 +165,14 @@ export default function Order() {
       });
     }
   }, [existingOrder, quoteData, form, isEditing, isFromQuote]);
+
+  // File upload handler
+  const handleFileUpload = (fieldName: string, file: File | null) => {
+    setUploadedFiles(prev => ({
+      ...prev,
+      [fieldName]: file
+    }));
+  };
 
   // Calculate estimated cost
   const calculateCost = (data: OrderFormData) => {
@@ -596,18 +614,34 @@ export default function Order() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Letter Document *</label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center relative">
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        onChange={(e) => handleFileUpload('letterDocument', e.target.files?.[0] || null)}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
                       <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-600">Upload your letter content</p>
+                      <p className="text-sm text-gray-600">
+                        {uploadedFiles.letterDocument ? uploadedFiles.letterDocument.name : "Upload your letter content"}
+                      </p>
                       <p className="text-xs text-gray-500">PDF, DOC, DOCX (Max 10MB)</p>
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Recipient List *</label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center relative">
+                      <input
+                        type="file"
+                        accept=".csv,.xlsx,.xls"
+                        onChange={(e) => handleFileUpload('recipientList', e.target.files?.[0] || null)}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
                       <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm text-gray-600">Upload recipient addresses</p>
+                      <p className="text-sm text-gray-600">
+                        {uploadedFiles.recipientList ? uploadedFiles.recipientList.name : "Upload recipient addresses"}
+                      </p>
                       <p className="text-xs text-gray-500">CSV, Excel (Max 5MB)</p>
                     </div>
                   </div>
@@ -616,25 +650,49 @@ export default function Order() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Practice Letterhead</label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center relative">
+                      <input
+                        type="file"
+                        accept=".pdf,.png,.jpg,.jpeg"
+                        onChange={(e) => handleFileUpload('letterhead', e.target.files?.[0] || null)}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
                       <Upload className="h-6 w-6 text-gray-400 mx-auto mb-1" />
-                      <p className="text-xs text-gray-600">Optional letterhead</p>
+                      <p className="text-xs text-gray-600">
+                        {uploadedFiles.letterhead ? uploadedFiles.letterhead.name : "Optional letterhead"}
+                      </p>
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Logo/Signature</label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center relative">
+                      <input
+                        type="file"
+                        accept=".pdf,.png,.jpg,.jpeg"
+                        onChange={(e) => handleFileUpload('signature', e.target.files?.[0] || null)}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
                       <Upload className="h-6 w-6 text-gray-400 mx-auto mb-1" />
-                      <p className="text-xs text-gray-600">Optional signature</p>
+                      <p className="text-xs text-gray-600">
+                        {uploadedFiles.signature ? uploadedFiles.signature.name : "Optional signature"}
+                      </p>
                     </div>
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Enclosures</label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center relative">
+                      <input
+                        type="file"
+                        accept=".pdf,.png,.jpg,.jpeg"
+                        onChange={(e) => handleFileUpload('enclosures', e.target.files?.[0] || null)}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
                       <Upload className="h-6 w-6 text-gray-400 mx-auto mb-1" />
-                      <p className="text-xs text-gray-600">Optional attachments</p>
+                      <p className="text-xs text-gray-600">
+                        {uploadedFiles.enclosures ? uploadedFiles.enclosures.name : "Optional attachments"}
+                      </p>
                     </div>
                   </div>
                 </div>
