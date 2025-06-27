@@ -56,7 +56,7 @@ export default function Landing() {
               Everything You Need for Patient Communications
             </h3>
             <p className="text-lg text-gray-600">
-              From compliance templates to automated mailing, we handle it all.
+              From custom letter creation to automated mailing, we handle it all.
             </p>
           </div>
 
@@ -64,24 +64,24 @@ export default function Landing() {
             <Card>
               <CardHeader>
                 <FileText className="h-10 w-10 text-teal-accent mb-2" />
-                <CardTitle>Guided Templates</CardTitle>
+                <CardTitle>Custom Letters</CardTitle>
                 <CardDescription>
-                  Pre-built, legally-reviewed templates for common healthcare events
+                  Upload your own content and customize every aspect of your mailings
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm text-gray-600">
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span>Practice relocation & closure</span>
+                    <span>Upload custom letter content</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span>HIPAA breach notifications</span>
+                    <span>Personalized branding options</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span>FDA/CDC recall notices</span>
+                    <span>Flexible formatting & design</span>
                   </li>
                 </ul>
               </CardContent>
