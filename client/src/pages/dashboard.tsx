@@ -33,16 +33,26 @@ export default function Dashboard() {
     );
   }
 
+  // Mock practice data for header display
+  const mockSelectedPractice = {
+    id: 1,
+    name: "Sunshine Family Medicine",
+    contact_prefix: "Dr.",
+    contact_first_name: "Sarah",
+    contact_last_name: "Johnson",
+    contact_suffix: "MD"
+  };
+
   return (
     <div className="min-h-screen bg-white">
-      <Header user={user} practices={[]} selectedPractice={null} />
+      <Header user={user} practices={[mockSelectedPractice]} selectedPractice={mockSelectedPractice} />
       
       <div className="flex">
         <Sidebar />
         
         <main className="flex-1 p-8 space-y-12">
-          <OrdersManagement userId={user?.id || "default"} />
-          <QuotesManagement userId={user?.id || "default"} />
+          <OrdersManagement userId={user?.id || "user123"} />
+          <QuotesManagement userId={user?.id || "user123"} />
         </main>
       </div>
     </div>

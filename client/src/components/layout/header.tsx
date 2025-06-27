@@ -44,7 +44,10 @@ export default function Header({ user, practices, selectedPractice }: HeaderProp
             {/* Customer Name */}
             <div className="bg-white/10 rounded-lg px-3 py-1.5 text-sm">
               <span className="opacity-80">Customer:</span>
-              <span className="font-semibold ml-1">Dr. Sarah Johnson</span>
+              <span className="font-semibold ml-1">
+                {selectedPractice?.contact_prefix} {selectedPractice?.contact_first_name} {selectedPractice?.contact_last_name} {selectedPractice?.contact_suffix} 
+                {selectedPractice?.name && ` - ${selectedPractice.name}`}
+              </span>
             </div>
             
             {/* User Profile */}
