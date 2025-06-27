@@ -1,16 +1,14 @@
-import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
-import OrdersManagement from "@/components/dashboard/orders-management";
-import QuotesManagement from "@/components/dashboard/quotes-management";
+import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
-export default function Dashboard() {
+export default function Quote() {
   const { user, isLoading } = useAuth();
   const { toast } = useToast();
 
-  // Redirect to login if not authenticated
   useEffect(() => {
     if (!isLoading && !user) {
       toast({
@@ -40,9 +38,20 @@ export default function Dashboard() {
       <div className="flex">
         <Sidebar />
         
-        <main className="flex-1 p-8 space-y-12">
-          <OrdersManagement userId={user?.id || "default"} />
-          <QuotesManagement userId={user?.id || "default"} />
+        <main className="flex-1 p-8">
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-dark-navy mb-2">Request a Quote</h2>
+            <p className="text-gray-600">Get pricing for your patient letter mailing</p>
+          </div>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center py-12">
+                <h3 className="text-lg font-medium text-dark-navy mb-2">Quote Request Form</h3>
+                <p className="text-gray-600">Quote functionality coming soon.</p>
+              </div>
+            </CardContent>
+          </Card>
         </main>
       </div>
     </div>
