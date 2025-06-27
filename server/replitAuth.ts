@@ -61,8 +61,7 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  // ⚠️ Dev-only GET login route (disabled)
-  /*
+  // GET /api/login route for OAuth initiation (enabled for testing)
   app.get("/api/login", async (req, res) => {
     try {
       console.log("Login attempt started");
@@ -118,7 +117,6 @@ export async function setupAuth(app: Express) {
       res.status(500).json({ error: "Authentication failed" });
     }
   });
-  */
 
   // ⚠️ Dev login route disabled for live authentication testing
   /*
