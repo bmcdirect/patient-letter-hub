@@ -20,10 +20,15 @@ function Router() {
 
   return (
     <Switch>
+      {/* Login route - accessible when not authenticated */}
+      <Route path="/login" component={Login} />
+      
+      {/* Landing page for unauthenticated users */}
       {isLoading || !isAuthenticated ? (
         <Route path="/" component={Landing} />
       ) : (
         <>
+          {/* Authenticated routes */}
           <Route path="/" component={Dashboard} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/templates" component={Templates} />
@@ -34,6 +39,8 @@ function Router() {
           <Route path="/quote" component={Quote} />
         </>
       )}
+      
+      {/* 404 fallback */}
       <Route component={NotFound} />
     </Switch>
   );
