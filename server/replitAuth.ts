@@ -110,7 +110,7 @@ export async function setupAuth(app: Express) {
             return res.status(500).json({ error: "Session save failed" });
           }
           console.log("Session saved, redirecting to dashboard");
-          res.redirect("/");
+          res.redirect("/dashboard");
         });
       });
     } catch (error) {
