@@ -34,10 +34,7 @@ export interface IStorage {
   getUserPractices(userId: string): Promise<Practice[]>;
   getPractice(id: number): Promise<Practice | undefined>;
   
-  // Template operations
-  getTemplates(filters?: { eventType?: string; discipline?: string }): Promise<Template[]>;
-  getTemplate(id: number): Promise<Template | undefined>;
-  createTemplate(template: InsertTemplate): Promise<Template>;
+
   
   // Letter job operations
   createLetterJob(job: InsertLetterJob): Promise<LetterJob>;
@@ -107,29 +104,7 @@ export class DatabaseStorage implements IStorage {
     return practice;
   }
 
-  async getTemplates(filters?: { eventType?: string; discipline?: string }): Promise<Template[]> {
-    let conditions = [eq(templates.isActive, true)];
-    
-    if (filters?.eventType) {
-      conditions.push(eq(templates.eventType, filters.eventType));
-    }
-    
-    return await db
-      .select()
-      .from(templates)
-      .where(and(...conditions))
-      .orderBy(templates.name);
-  }
 
-  async getTemplate(id: number): Promise<Template | undefined> {
-    const [template] = await db.select().from(templates).where(eq(templates.id, id));
-    return template;
-  }
-
-  async createTemplate(template: InsertTemplate): Promise<Template> {
-    const [newTemplate] = await db.insert(templates).values(template).returning();
-    return newTemplate;
-  }
 
   async createLetterJob(job: InsertLetterJob): Promise<LetterJob> {
     const [newJob] = await db.insert(letterJobs).values(job).returning();

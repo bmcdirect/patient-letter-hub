@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 const navigation = [
   { name: 'Dashboard', href: '/', icon: BarChart3 },
   { name: 'New Mailing', href: '/new-mailing', icon: Plus },
-  { name: 'Templates', href: '/templates', icon: FileText },
+
   { name: 'Tracking', href: '/tracking', icon: Truck },
   { name: 'Billing', href: '/billing', icon: CreditCard },
   { name: 'Settings', href: '/settings', icon: Settings },

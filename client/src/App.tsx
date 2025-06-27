@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Landing from "@/pages/landing";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
-import Templates from "@/pages/templates";
+
 import Tracking from "@/pages/tracking";
 import Billing from "@/pages/billing";
 import Settings from "@/pages/settings";
@@ -31,7 +31,7 @@ function Router() {
           {/* Authenticated routes */}
           <Route path="/" component={Dashboard} />
           <Route path="/dashboard" component={Dashboard} />
-          <Route path="/templates" component={Templates} />
+
           <Route path="/tracking" component={Tracking} />
           <Route path="/billing" component={Billing} />
           <Route path="/settings" component={Settings} />
