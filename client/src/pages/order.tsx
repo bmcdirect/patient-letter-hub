@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Package, Upload, RefreshCw } from "lucide-react";
+import { ArrowLeft, Package, Upload, RefreshCw, FileText, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const orderSchema = z.object({
@@ -33,6 +34,7 @@ const orderSchema = z.object({
   colorMode: z.string().min(1, "Color mode is required"),
   recipientCount: z.number().min(1, "Recipient count must be at least 1"),
   enclosures: z.number().min(0, "Enclosures cannot be negative"),
+  letterContent: z.string().min(1, "Letter content is required"),
   notes: z.string().optional(),
   dataCleansing: z.boolean().optional(),
   ncoaUpdate: z.boolean().optional(),
@@ -43,7 +45,16 @@ type OrderFormData = z.infer<typeof orderSchema>;
 
 export default function Order() {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [location] = useLocation();
   const { toast } = useToast();
+
+  // Parse URL parameters to determine mode
+  const urlParams = new URLSearchParams(window.location.search);
+  const quoteId = urlParams.get('fromQuote');
+  const orderId = urlParams.get('editOrder');
+  const isEditing = !!orderId;
+  const isFromQuote = !!quoteId;
 
   const form = useForm<OrderFormData>({
     resolver: zodResolver(orderSchema),
@@ -54,12 +65,96 @@ export default function Order() {
       colorMode: "Color",
       recipientCount: 100,
       enclosures: 0,
+      letterContent: "",
       notes: "",
       dataCleansing: false,
       ncoaUpdate: false,
       firstClassPostage: false,
     },
   });
+
+  // Load existing order data for editing
+  const { data: existingOrder, isLoading: isLoadingOrder } = useQuery({
+    queryKey: ['order', orderId],
+    enabled: isEditing,
+    queryFn: async () => {
+      // Mock API call to fetch existing order
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return {
+        id: orderId,
+        subject: "Practice Relocation Notice - Edit Mode",
+        practiceId: "1",
+        templateType: "relocation",
+        colorMode: "Color",
+        recipientCount: 250,
+        enclosures: 1,
+        letterContent: "Dear Patient,\n\nWe are writing to inform you that our practice will be relocating to a new address effective [DATE].\n\nOur new address will be:\n[NEW ADDRESS]\n\nAll of your medical records will be transferred to our new location, and we will continue to provide the same high-quality care you expect.\n\nPlease update your records with our new contact information.\n\nSincerely,\n[PRACTICE NAME]",
+        notes: "Rush delivery required",
+        dataCleansing: true,
+        ncoaUpdate: false,
+        firstClassPostage: true,
+        status: "Draft",
+        createdAt: new Date('2024-12-26'),
+        updatedAt: new Date('2024-12-27'),
+      };
+    },
+  });
+
+  // Load quote data for conversion
+  const { data: quoteData, isLoading: isLoadingQuote } = useQuery({
+    queryKey: ['quote', quoteId],
+    enabled: isFromQuote,
+    queryFn: async () => {
+      // Mock API call to fetch quote data
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return {
+        id: quoteId,
+        subject: "Patient Notification Letters - From Quote",
+        practiceId: "2",
+        templateType: "custom",
+        colorMode: "Black and White",
+        estimatedRecipients: 150,
+        enclosures: 0,
+        notes: "Standard mailing from quote conversion",
+        dataCleansing: false,
+        ncoaUpdate: true,
+        firstClassPostage: false,
+      };
+    },
+  });
+
+  // Pre-populate form when data is loaded
+  useEffect(() => {
+    if (existingOrder && isEditing) {
+      form.reset({
+        subject: existingOrder.subject,
+        practiceId: existingOrder.practiceId,
+        templateType: existingOrder.templateType,
+        colorMode: existingOrder.colorMode,
+        recipientCount: existingOrder.recipientCount,
+        enclosures: existingOrder.enclosures,
+        letterContent: existingOrder.letterContent,
+        notes: existingOrder.notes || "",
+        dataCleansing: existingOrder.dataCleansing,
+        ncoaUpdate: existingOrder.ncoaUpdate,
+        firstClassPostage: existingOrder.firstClassPostage,
+      });
+    } else if (quoteData && isFromQuote) {
+      form.reset({
+        subject: quoteData.subject,
+        practiceId: quoteData.practiceId,
+        templateType: quoteData.templateType,
+        colorMode: quoteData.colorMode,
+        recipientCount: quoteData.estimatedRecipients,
+        enclosures: quoteData.enclosures,
+        letterContent: "", // Start with empty content for quote conversion
+        notes: quoteData.notes || "",
+        dataCleansing: quoteData.dataCleansing,
+        ncoaUpdate: quoteData.ncoaUpdate,
+        firstClassPostage: quoteData.firstClassPostage,
+      });
+    }
+  }, [existingOrder, quoteData, form, isEditing, isFromQuote]);
 
   // Calculate estimated cost
   const calculateCost = (data: OrderFormData) => {
@@ -73,38 +168,73 @@ export default function Order() {
     return total;
   };
 
-  // Create order mutation
-  const createOrderMutation = useMutation({
+  // Save draft mutation
+  const saveDraftMutation = useMutation({
     mutationFn: async (data: OrderFormData) => {
-      setIsSubmitting(true);
-      // Mock order creation - simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      setIsSavingDraft(true);
+      // Mock save draft API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const orderNumber = `O-${Date.now().toString().slice(-4)}`;
-      const totalCost = calculateCost(data);
+      const orderNumber = isEditing ? `O-${orderId}` : `O-${Date.now().toString().slice(-4)}`;
       
       return {
-        id: Math.floor(Math.random() * 1000),
+        id: isEditing ? orderId : Math.floor(Math.random() * 1000),
         orderNumber,
-        totalCost,
-        status: "In Progress",
+        status: "Draft",
+        action: isEditing ? "updated" : "saved",
       };
     },
     onSuccess: (result) => {
       toast({
-        title: "Order Created Successfully",
-        description: `Order ${result.orderNumber} has been created and is now in progress.`,
+        title: "Draft Saved",
+        description: `Order ${result.orderNumber} has been ${result.action} as draft.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Save Failed",
+        description: "Failed to save draft. Please try again.",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      setIsSavingDraft(false);
+    },
+  });
+
+  // Submit for production mutation
+  const submitOrderMutation = useMutation({
+    mutationFn: async (data: OrderFormData) => {
+      setIsSubmitting(true);
+      // Mock order submission - simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const orderNumber = isEditing ? `O-${orderId}` : `O-${Date.now().toString().slice(-4)}`;
+      const totalCost = calculateCost(data);
+      
+      return {
+        id: isEditing ? orderId : Math.floor(Math.random() * 1000),
+        orderNumber,
+        totalCost,
+        status: "In Progress",
+        action: isEditing ? "updated and submitted" : "submitted",
+      };
+    },
+    onSuccess: (result) => {
+      toast({
+        title: "Order Submitted Successfully",
+        description: `Order ${result.orderNumber} has been ${result.action} for production.`,
       });
       
-      // Redirect to dashboard after successful creation
+      // Redirect to dashboard after successful submission
       setTimeout(() => {
         window.location.href = "/dashboard";
       }, 1500);
     },
     onError: (error) => {
       toast({
-        title: "Order Creation Failed",
-        description: "Failed to create order. Please try again.",
+        title: "Submission Failed",
+        description: "Failed to submit order. Please try again.",
         variant: "destructive",
       });
     },
@@ -113,12 +243,50 @@ export default function Order() {
     },
   });
 
-  const onSubmit = (data: OrderFormData) => {
-    createOrderMutation.mutate(data);
+  const onSubmitForProduction = (data: OrderFormData) => {
+    submitOrderMutation.mutate(data);
+  };
+
+  const onSaveDraft = () => {
+    const data = form.getValues();
+    saveDraftMutation.mutate(data);
   };
 
   const watchedValues = form.watch();
   const estimatedCost = calculateCost(watchedValues);
+
+  // Show loading state while fetching data
+  if ((isEditing && isLoadingOrder) || (isFromQuote && isLoadingQuote)) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-primary-blue" />
+          <p className="text-gray-600">Loading order data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Determine header text based on mode
+  const getHeaderInfo = () => {
+    if (isEditing) {
+      return {
+        title: "Edit Order",
+        subtitle: `Editing order ${orderId} • Status: ${existingOrder?.status || 'Draft'}`,
+      };
+    } else if (isFromQuote) {
+      return {
+        title: "Convert Quote to Order",
+        subtitle: `Converting quote ${quoteId} to production order`,
+      };
+    }
+    return {
+      title: "Create New Order",
+      subtitle: "Set up a new mailing order",
+    };
+  };
+
+  const { title, subtitle } = getHeaderInfo();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -136,9 +304,18 @@ export default function Order() {
                 Back to Dashboard
               </Button>
               <div>
-                <h1 className="text-xl font-semibold text-dark-navy">Create New Order</h1>
-                <p className="text-sm text-gray-600">Set up a new mailing order</p>
+                <h1 className="text-xl font-semibold text-dark-navy">{title}</h1>
+                <p className="text-sm text-gray-600">{subtitle}</p>
+                {isEditing && existingOrder && (
+                  <p className="text-xs text-gray-500">
+                    Created: {existingOrder.createdAt.toLocaleDateString()} • 
+                    Last modified: {existingOrder.updatedAt.toLocaleDateString()}
+                  </p>
+                )}
               </div>
+            </div>
+            <div className="text-sm text-gray-600">
+              Customer: <span className="font-medium">Dr. Sarah Johnson</span>
             </div>
           </div>
         </div>
@@ -147,7 +324,7 @@ export default function Order() {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <form onSubmit={form.handleSubmit(onSubmitForProduction)} className="space-y-8">
             {/* Basic Information */}
             <Card>
               <CardHeader>
@@ -198,6 +375,28 @@ export default function Order() {
                     )}
                   />
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="letterContent"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Letter Content *</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter the complete letter content that will be sent to patients..."
+                          rows={8}
+                          className="min-h-[200px]"
+                          {...field}
+                        />
+                      </FormControl>
+                      <p className="text-sm text-gray-600">
+                        Use placeholders like [PATIENT_NAME], [PRACTICE_NAME], [DATE] for personalization
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}
