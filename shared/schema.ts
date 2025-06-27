@@ -27,38 +27,56 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table (required for Replit Auth)
+// User storage table (updated for routes.ts compatibility)
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().notNull(),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  id: serial("id").primaryKey(),
+  email: varchar("email").unique().notNull(),
+  password_hash: varchar("password_hash").notNull(),
+  first_name: varchar("first_name"),
+  last_name: varchar("last_name"),
+  is_admin: boolean("is_admin").default(false),
+  created_at: timestamp("created_at").defaultNow(),
 });
 
-// Practice information
+// Practice information (updated for routes.ts compatibility)
 export const practices = pgTable("practices", {
   id: serial("id").primaryKey(),
-  ownerId: varchar("owner_id").notNull().references(() => users.id),
+  owner_id: integer("owner_id").notNull().references(() => users.id),
   name: varchar("name").notNull(),
-  taxonomy: varchar("taxonomy").notNull(), // Medical, Dental, etc.
-  npi: varchar("npi"),
-  address: text("address").notNull(),
   phone: varchar("phone"),
-  logoUrl: varchar("logo_url"),
-  defaultSenderName: varchar("default_sender_name"),
-  signatureImageUrl: varchar("signature_image_url"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  email: varchar("email"),
+  main_address: text("main_address"),
+  city: varchar("city"),
+  state: varchar("state"),
+  zip_code: varchar("zip_code"),
+  taxonomy_code: varchar("taxonomy_code"),
+  npi_number: varchar("npi_number"),
+  operating_hours: text("operating_hours"),
+  emr_id: varchar("emr_id"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+// Practice locations (for routes.ts compatibility)
+export const practice_locations = pgTable("practice_locations", {
+  id: serial("id").primaryKey(),
+  practice_id: integer("practice_id").notNull().references(() => practices.id),
+  label: varchar("label").notNull(),
+  contact_name: varchar("contact_name"),
+  phone: varchar("phone"),
+  email: varchar("email"),
+  address_line1: text("address_line1"),
+  city: varchar("city"),
+  state: varchar("state"),
+  zip_code: varchar("zip_code"),
+  is_default: boolean("is_default").default(false),
+  created_at: timestamp("created_at").defaultNow(),
 });
 
 // Practice members and roles
 export const practiceMembers = pgTable("practice_members", {
   id: serial("id").primaryKey(),
   practiceId: integer("practice_id").notNull().references(() => practices.id),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  userId: integer("user_id").notNull().references(() => users.id),
   role: varchar("role").notNull(), // Owner, Manager, Billing
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -167,7 +185,7 @@ export const usersRelations = relations(users, ({ many, one }) => ({
 
 export const practicesRelations = relations(practices, ({ one, many }) => ({
   owner: one(users, {
-    fields: [practices.ownerId],
+    fields: [practices.owner_id],
     references: [users.id],
   }),
   members: many(practiceMembers),
