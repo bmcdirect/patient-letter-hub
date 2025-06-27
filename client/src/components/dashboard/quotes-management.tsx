@@ -4,6 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -27,9 +33,9 @@ import {
   CheckCircle2,
   Eye,
   RefreshCw,
-  Filter
+  Filter,
+  Trash2
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface Quote {
@@ -59,6 +65,8 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
+  const [showQuoteDetails, setShowQuoteDetails] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -116,7 +124,7 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
   ];
 
   // Fetch quotes data (using mock data for now)
-  const { data: quotes = mockQuotes, isLoading, refetch } = useQuery({
+  const { data: allQuotes = mockQuotes, isLoading, refetch } = useQuery({
     queryKey: ["/api/quotes", statusFilter, showArchived],
     queryFn: async () => {
       // For now, return mock data
@@ -125,45 +133,86 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
     }
   });
 
-  // Convert quote to order mutation
+  // Apply filtering to mock data
+  const quotes = allQuotes.filter((quote: Quote) => {
+    // Status filtering
+    if (statusFilter !== "all" && quote.status !== statusFilter) {
+      return false;
+    }
+    
+    // Archive filtering
+    if (!showArchived && quote.status === "Archived") {
+      return false;
+    }
+    
+    return true;
+  });
+
+  // Convert quote to order mutation (mock handler)
   const convertToOrderMutation = useMutation({
     mutationFn: async (quoteId: number) => {
-      const response = await apiRequest(`/api/quotes/${quoteId}/convert`, "POST");
-      return response;
+      // Mock conversion - simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return { orderId: `O-${1000 + quoteId}`, success: true };
     },
     onSuccess: (data, quoteId) => {
       toast({
         title: "Quote Converted",
-        description: `Quote successfully converted to order`,
+        description: `Quote Q-${1000 + quoteId} successfully converted to order ${data.orderId}`,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
+      // Update mock data to reflect conversion
+      refetch();
     },
     onError: (error) => {
       toast({
         title: "Conversion Failed",
-        description: error.message,
+        description: "Failed to convert quote. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  // Archive quote mutation
+  // Archive quote mutation (mock handler)
   const archiveQuoteMutation = useMutation({
     mutationFn: async (quoteId: number) => {
-      const response = await apiRequest(`/api/quotes/${quoteId}/archive`, "POST");
-      return response;
+      // Mock archive - simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return { success: true };
     },
-    onSuccess: () => {
+    onSuccess: (data, quoteId) => {
       toast({
         title: "Quote Archived",
         description: "Quote has been moved to archive",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
+      refetch();
     },
     onError: (error) => {
       toast({
         title: "Archive Failed",
-        description: error.message,
+        description: "Failed to archive quote. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete quote mutation (mock handler)
+  const deleteQuoteMutation = useMutation({
+    mutationFn: async (quoteId: number) => {
+      // Mock delete - simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return { success: true };
+    },
+    onSuccess: (data, quoteId) => {
+      toast({
+        title: "Quote Deleted",
+        description: "Quote has been permanently deleted",
+      });
+      refetch();
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete quote. Please try again.",
         variant: "destructive",
       });
     },
@@ -200,17 +249,25 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
     );
   };
 
+  // Functions to handle modal actions
+  const handleViewQuote = (quote: Quote) => {
+    setSelectedQuote(quote);
+    setShowQuoteDetails(true);
+  };
+
   // Actions component
   const QuoteActions = ({ quote }: { quote: Quote }) => {
     const canConvert = quote.status === "Quote" && !quote.converted_order_id;
     const canArchive = quote.status !== "Archived";
+    const canDelete = quote.status !== "Converted";
 
     return (
       <div className="flex items-center space-x-2">
         <Button
           size="sm"
           variant="outline"
-          onClick={() => window.open(`/quote?editId=${quote.id}`, '_blank')}
+          onClick={() => handleViewQuote(quote)}
+          title="View Quote Details"
         >
           <Eye className="h-4 w-4" />
         </Button>
@@ -221,13 +278,13 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
             className="bg-primary-blue hover:bg-blue-800"
             onClick={() => convertToOrderMutation.mutate(quote.id)}
             disabled={convertToOrderMutation.isPending}
+            title="Convert to Order"
           >
             {convertToOrderMutation.isPending ? (
               <RefreshCw className="h-4 w-4 animate-spin" />
             ) : (
               <CheckCircle2 className="h-4 w-4" />
             )}
-            Convert
           </Button>
         )}
 
@@ -235,9 +292,10 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => window.open(`/order/${quote.converted_order_id}`, '_blank')}
+            onClick={() => toast({ title: "Order View", description: `Would navigate to order ${quote.converted_order_id}` })}
+            title="View Converted Order"
           >
-            View Order
+            <FileText className="h-4 w-4" />
           </Button>
         )}
 
@@ -247,8 +305,22 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
             variant="outline"
             onClick={() => archiveQuoteMutation.mutate(quote.id)}
             disabled={archiveQuoteMutation.isPending}
+            title="Archive Quote"
           >
             <Archive className="h-4 w-4" />
+          </Button>
+        )}
+
+        {canDelete && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => deleteQuoteMutation.mutate(quote.id)}
+            disabled={deleteQuoteMutation.isPending}
+            title="Delete Quote"
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
           </Button>
         )}
       </div>
@@ -402,7 +474,7 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-blue-600">
-              {quotes.filter((q: Quote) => q.status === "Quote").length}
+              {allQuotes.filter((q: Quote) => q.status === "Quote").length}
             </div>
             <p className="text-sm text-gray-600">Pending Quotes</p>
           </CardContent>
@@ -411,7 +483,7 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-green-600">
-              {quotes.filter((q: Quote) => q.status === "Converted").length}
+              {allQuotes.filter((q: Quote) => q.status === "Converted").length}
             </div>
             <p className="text-sm text-gray-600">Converted</p>
           </CardContent>
@@ -420,7 +492,7 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-gray-600">
-              {quotes.filter((q: Quote) => q.status === "Archived").length}
+              {allQuotes.filter((q: Quote) => q.status === "Archived").length}
             </div>
             <p className="text-sm text-gray-600">Archived</p>
           </CardContent>
@@ -429,12 +501,102 @@ export default function QuotesManagement({ userId }: QuotesManagementProps) {
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-primary-blue">
-              ${quotes.reduce((sum: number, q: Quote) => sum + parseFloat(q.total_cost), 0).toFixed(2)}
+              ${allQuotes.reduce((sum: number, q: Quote) => sum + parseFloat(q.total_cost), 0).toFixed(2)}
             </div>
             <p className="text-sm text-gray-600">Total Value</p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Quote Details Modal */}
+      <Dialog open={showQuoteDetails} onOpenChange={setShowQuoteDetails}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Quote Details - {selectedQuote?.quote_number}</DialogTitle>
+          </DialogHeader>
+          
+          {selectedQuote && (
+            <div className="space-y-6">
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Customer</label>
+                  <p className="font-medium">{selectedQuote.practice_name}</p>
+                  <p className="text-sm text-gray-600">{selectedQuote.practice_email}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Status</label>
+                  <div className="mt-1">
+                    <StatusBadge status={selectedQuote.status} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Service Details */}
+              <div>
+                <label className="text-sm font-medium text-gray-500">Service</label>
+                <p className="font-medium">{selectedQuote.subject}</p>
+                <p className="text-sm text-gray-600">
+                  {selectedQuote.template_type} • {selectedQuote.color_mode}
+                </p>
+              </div>
+
+              {/* Cost Breakdown */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-3">Cost Breakdown</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Recipients:</span>
+                    <span>{selectedQuote.estimated_recipients.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Color Mode:</span>
+                    <span>{selectedQuote.color_mode}</span>
+                  </div>
+                  <div className="flex justify-between font-medium text-lg border-t pt-2">
+                    <span>Total:</span>
+                    <span>${parseFloat(selectedQuote.total_cost).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <label className="text-gray-500">Created</label>
+                  <p>{new Date(selectedQuote.created_at).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <label className="text-gray-500">Last Updated</label>
+                  <p>{new Date(selectedQuote.updated_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end space-x-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowQuoteDetails(false)}
+                >
+                  Close
+                </Button>
+                {selectedQuote.status === "Quote" && !selectedQuote.converted_order_id && (
+                  <Button
+                    className="bg-primary-blue hover:bg-blue-800"
+                    onClick={() => {
+                      convertToOrderMutation.mutate(selectedQuote.id);
+                      setShowQuoteDetails(false);
+                    }}
+                    disabled={convertToOrderMutation.isPending}
+                  >
+                    Convert to Order
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
