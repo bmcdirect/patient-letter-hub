@@ -1,4 +1,5 @@
 import express from 'express';
+import session from 'express-session';
 import { createServer } from 'http';
 import { setupVite, serveStatic, log } from './vite';
 
@@ -8,9 +9,20 @@ const server = createServer(app);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// API Routes for the React app
+// Session middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'dev-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // Set to true in production with HTTPS
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Simple API routes for React app functionality
 app.get('/api/auth/user', (req, res) => {
-  // Mock user data for now
+  // Mock authentication for now - return authenticated user
   res.json({
     success: true,
     user: {
@@ -18,9 +30,25 @@ app.get('/api/auth/user', (req, res) => {
       email: 'demo@patientletterhub.com',
       firstName: 'Demo',
       lastName: 'User',
-      is_admin: false
+      isAdmin: false
     }
   });
+});
+
+app.post('/api/auth/login', (req, res) => {
+  res.json({
+    success: true,
+    user: {
+      id: 1,
+      email: req.body.email || 'demo@patientletterhub.com',
+      firstName: 'Demo',
+      lastName: 'User'
+    }
+  });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  res.json({ success: true });
 });
 
 app.get('/api/practices', (req, res) => {
@@ -48,6 +76,20 @@ app.post('/api/orders', (req, res) => {
   res.json({
     success: true,
     orderId: 'demo-order-123'
+  });
+});
+
+app.get('/api/quotes', (req, res) => {
+  res.json({
+    success: true,
+    quotes: []
+  });
+});
+
+app.post('/api/quotes', (req, res) => {
+  res.json({
+    success: true,
+    quoteId: 'demo-quote-456'
   });
 });
 
