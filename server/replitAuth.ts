@@ -3,6 +3,7 @@ import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { db } from "./db";
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
@@ -66,28 +67,29 @@ export async function setupAuth(app: Express) {
     try {
       console.log("Login attempt started");
 
+      // For development, we'll create or find a test user in the database
       let testUser;
       try {
-        testUser = await storage.upsertUser({
-          id: "test123",
-          email: "test123@patientletterhub.com",
-          firstName: "Test",
-          lastName: "User",
-          profileImageUrl: null,
-        });
-        console.log("Test user created/updated successfully");
+        // First try to find existing test user
+        const existingUser = await db.execute(`SELECT * FROM users WHERE email = 'test123@patientletterhub.com' LIMIT 1`);
+        
+        if (existingUser.rows.length > 0) {
+          testUser = existingUser.rows[0];
+          console.log("Found existing test user:", testUser.id);
+        } else {
+          // Create new test user with auto-generated ID
+          const newUser = await db.execute(
+            `INSERT INTO users (email, password_hash, first_name, last_name) 
+             VALUES ($1, $2, $3, $4) 
+             RETURNING id, email, first_name, last_name`,
+            ['test123@patientletterhub.com', 'dummy_hash', 'Test', 'User']
+          );
+          testUser = newUser.rows[0];
+          console.log("Created new test user:", testUser.id);
+        }
       } catch (dbError) {
         console.error("Database error during user creation:", dbError);
-        testUser = {
-          id: "test123",
-          email: "test123@patientletterhub.com",
-          firstName: "Test",
-          lastName: "User",
-          profileImageUrl: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        console.log("Using fallback test user");
+        return res.status(500).json({ error: "Database error during authentication" });
       }
 
       req.login({
