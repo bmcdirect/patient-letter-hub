@@ -1,6 +1,6 @@
 import express from 'express';
 import { createServer } from 'http';
-import { setupVite, serveStatic, log } from './vite.js';
+import { setupVite, serveStatic, log } from './vite';
 
 const app = express();
 const server = createServer(app);
@@ -51,14 +51,18 @@ app.post('/api/orders', (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || '5000');
 
-if (process.env.NODE_ENV === 'production') {
-  serveStatic(app);
-} else {
-  await setupVite(app, server);
+async function startServer() {
+  if (process.env.NODE_ENV === 'production') {
+    serveStatic(app);
+  } else {
+    await setupVite(app, server);
+  }
+
+  server.listen(PORT, '0.0.0.0', () => {
+    log(`Server running on port ${PORT}`);
+  });
 }
 
-server.listen(PORT, '0.0.0.0', () => {
-  log(`Server running on port ${PORT}`);
-});
+startServer().catch(console.error);
