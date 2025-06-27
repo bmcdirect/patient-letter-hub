@@ -38,6 +38,7 @@ import {
   Edit2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { orderStore } from "@/lib/orderStore";
 
 interface Order {
   id: number;
@@ -70,8 +71,21 @@ export default function OrdersManagement({ userId }: OrdersManagementProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [storeOrders, setStoreOrders] = useState<any[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Subscribe to order store changes
+  React.useEffect(() => {
+    const unsubscribe = orderStore.subscribe(() => {
+      setStoreOrders(orderStore.getOrders());
+    });
+    
+    // Initialize with current orders
+    setStoreOrders(orderStore.getOrders());
+    
+    return unsubscribe;
+  }, []);
 
   // Mock data for testing the table structure
   const mockOrders: Order[] = [
@@ -131,16 +145,47 @@ export default function OrdersManagement({ userId }: OrdersManagementProps) {
       fulfilled_at: "2025-06-28T14:30:00Z",
       practice_name: "Sunshine Dental",
       practice_email: "info@sunshinedental.com"
+    },
+    {
+      id: 4,
+      order_number: "O-2004",
+      user_id: "user123",
+      practice_id: 1,
+      subject: "Holiday Schedule Changes",
+      template_type: "custom",
+      color_mode: "Color",
+      recipient_count: 950,
+      total_cost: "1237.50",
+      status: "Draft",
+      created_at: "2025-06-27T14:15:00Z",
+      updated_at: "2025-06-27T15:30:00Z",
+      practice_name: "Sunshine Dental",
+      practice_email: "info@sunshinedental.com"
+    },
+    {
+      id: 5,
+      order_number: "O-2005",
+      user_id: "user123",
+      practice_id: 2,
+      subject: "Insurance Update Notice",
+      template_type: "custom",
+      color_mode: "Black and White",
+      recipient_count: 600,
+      total_cost: "390.00",
+      status: "Draft",
+      created_at: "2025-06-27T16:00:00Z",
+      updated_at: "2025-06-27T16:00:00Z",
+      practice_name: "Healthy Smiles Family Dentistry",
+      practice_email: "contact@healthysmiles.com"
     }
   ];
 
-  // Fetch orders data (using mock data for now)
-  const { data: allOrders = mockOrders, isLoading, refetch } = useQuery({
-    queryKey: ["/api/orders", statusFilter],
+  // Fetch orders data (combining mock data with store orders)
+  const { data: allOrders = [], isLoading, refetch } = useQuery({
+    queryKey: ["/api/orders", statusFilter, storeOrders.length],
     queryFn: async () => {
-      // For now, return mock data
-      // TODO: Replace with real API call
-      return mockOrders;
+      // Combine mock orders with store orders
+      return [...mockOrders, ...storeOrders];
     }
   });
 
@@ -217,6 +262,8 @@ export default function OrdersManagement({ userId }: OrdersManagementProps) {
   const StatusBadge = ({ status }: { status: string }) => {
     const getStatusColor = (status: string) => {
       switch (status.toLowerCase()) {
+        case "draft":
+          return "bg-orange-100 text-orange-800";
         case "in progress":
           return "bg-blue-100 text-blue-800";
         case "completed":
@@ -239,9 +286,9 @@ export default function OrdersManagement({ userId }: OrdersManagementProps) {
 
   // Actions component
   const OrderActions = ({ order }: { order: Order }) => {
-    const canComplete = order.status === "In Progress";
-    const canCancel = order.status === "In Progress";
     const canEdit = order.status === "Draft";
+    const canComplete = !["Completed", "Delivered", "Cancelled"].includes(order.status);
+    const canCancel = !["Cancelled", "Delivered"].includes(order.status);
 
     const handleEditOrder = (orderId: number) => {
       window.location.href = `/order?editOrder=${orderId}`;
@@ -282,6 +329,23 @@ export default function OrdersManagement({ userId }: OrdersManagementProps) {
               <RefreshCw className="h-4 w-4 animate-spin" />
             ) : (
               <CheckCircle2 className="h-4 w-4" />
+            )}
+          </Button>
+        )}
+
+        {canCancel && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            onClick={() => cancelOrderMutation.mutate(order.id)}
+            disabled={cancelOrderMutation.isPending}
+            title="Cancel Order"
+          >
+            {cancelOrderMutation.isPending ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <X className="h-4 w-4" />
             )}
           </Button>
         )}
