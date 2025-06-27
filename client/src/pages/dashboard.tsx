@@ -40,7 +40,7 @@ export default function Dashboard() {
         <Sidebar />
         
         <main className="flex-1 p-8">
-          <QuotesManagement userId={user.id} />
+          <QuotesManagement userId={user?.id || "default"} />
         </main>
       </div>
     </div>
