@@ -1,0 +1,123 @@
+I need to add the missing API endpoints to support the advanced dashboard functionality. Add these endpoints to server/index.ts:
+
+// Dashboard stats
+app.get('/api/dashboard/stats', (req, res) => {
+  res.json({
+    success: true,
+    activeQuotes: 5,
+    totalOrders: 12,
+    pendingOrders: 3,
+    completedOrders: 9
+  });
+});
+
+// Enhanced quotes endpoint with more data
+app.get('/api/quotes', (req, res) => {
+  res.json({
+    success: true,
+    quotes: [
+      {
+        id: 1,
+        quoteNumber: 'QUO-001',
+        subject: 'Patient Letter Design - January Campaign',
+        status: 'pending',
+        totalCost: 450.00,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 2,
+        quoteNumber: 'QUO-002', 
+        subject: 'Holiday Postcard Series',
+        status: 'approved',
+        totalCost: 750.00,
+        createdAt: new Date(Date.now() - 86400000).toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ]
+  });
+});
+
+// Enhanced orders endpoint
+app.get('/api/orders', (req, res) => {
+  res.json({
+    success: true,
+    orders: [
+      {
+        id: 1,
+        orderNumber: 'ORD-001',
+        subject: 'Patient Letter Design - January Campaign',
+        status: 'waiting-approval-design',
+        totalCost: 450.00,
+        createdAt: new Date(Date.now() - 172800000).toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 2,
+        orderNumber: 'ORD-002',
+        subject: 'Holiday Postcard Series', 
+        status: 'in-progress',
+        totalCost: 750.00,
+        createdAt: new Date(Date.now() - 259200000).toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ]
+  });
+});
+
+// Quote conversion
+app.post('/api/quotes/:id/convert', (req, res) => {
+  const quoteId = req.params.id;
+  res.json({
+    success: true,
+    orderNumber: `ORD-${Date.now()}`,
+    orderId: Math.floor(Math.random() * 1000)
+  });
+});
+
+// Quote deletion
+app.delete('/api/quotes/:id', (req, res) => {
+  res.json({ success: true, message: 'Quote deleted' });
+});
+
+// Invoice endpoints
+app.get('/api/invoices', (req, res) => {
+  res.json([
+    {
+      id: 1,
+      invoiceNumber: 'INV-001',
+      orderId: 1,
+      invoiceDate: new Date().toISOString(),
+      dueDate: new Date(Date.now() + 30*24*60*60*1000).toISOString(),
+      subtotal: '1000.00',
+      totalAmount: '1100.00',
+      status: 'sent',
+      paymentTerms: 'Net 30'
+    },
+    {
+      id: 2,
+      invoiceNumber: 'INV-002',
+      orderId: 2,
+      invoiceDate: new Date(Date.now() - 86400000).toISOString(),
+      dueDate: new Date(Date.now() + 29*24*60*60*1000).toISOString(),
+      subtotal: '750.00',
+      totalAmount: '825.00',
+      status: 'paid',
+      paymentTerms: 'Net 30',
+      paidAt: new Date().toISOString(),
+      paidAmount: '825.00'
+    }
+  ]);
+});
+
+app.get('/api/invoices/:id/pdf', (req, res) => {
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename=invoice.pdf');
+  res.send(Buffer.from('Mock PDF content'));
+});
+
+app.put('/api/invoices/:id/status', (req, res) => {
+  res.json({ success: true, status: req.body.status });
+});
+
+Show me the updated server/index.ts file after adding these endpoints.

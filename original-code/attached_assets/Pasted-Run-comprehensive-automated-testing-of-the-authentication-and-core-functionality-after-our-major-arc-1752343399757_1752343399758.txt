@@ -1,0 +1,75 @@
+Run comprehensive automated testing of the authentication and core functionality after our major architecture changes. We need to verify everything works before manual testing.
+
+CRITICAL TESTING AREAS:
+
+1. **Authentication System Testing**
+   - Test all 5 healthcare practice login endpoints
+   - Verify session creation and persistence
+   - Test logout functionality
+   - Check authentication middleware on protected routes
+   - Verify tenant isolation in authentication
+
+2. **API Endpoint Testing**
+   - Test all /api/auth/* endpoints (login, user, logout, practices)
+   - Test /api/quotes endpoints (GET, POST, PUT, DELETE)
+   - Test /api/orders endpoints (GET, POST, PUT, DELETE)
+   - Test /api/practices endpoints (GET, POST, PUT, DELETE)
+   - Test /api/dashboard/stats endpoint
+   - Test /api/admin/* endpoints (orders, quotes, stats)
+   - Verify all endpoints return proper HTTP status codes
+
+3. **Database Connectivity Testing**
+   - Test database connection and queries
+   - Verify multi-tenant data isolation
+   - Test CRUD operations for all major tables
+   - Check foreign key relationships
+   - Verify data persistence
+
+4. **React Component Testing**
+   - Test that all main components render without errors
+   - Verify SimpleLogin component displays practice selection
+   - Test SimpleDashboard component loads properly
+   - Check AdminDashboard component functionality
+   - Test navigation between components
+
+5. **Form Submission Testing**
+   - Test quote creation form processing
+   - Test order creation form processing
+   - Test login form processing
+   - Verify form validation and error handling
+
+6. **Multi-Tenant Isolation Testing**
+   - Test that tenant 1 data is isolated from other tenants
+   - Verify user sessions are tenant-specific
+   - Test that API calls respect tenant boundaries
+   - Check that each practice only sees their own data
+
+7. **Session Management Testing**
+   - Test session creation on login
+   - Test session persistence across requests
+   - Test session destruction on logout
+   - Verify session timeout handling
+
+8. **Error Handling Testing**
+   - Test invalid login attempts
+   - Test access to protected routes without authentication
+   - Test malformed API requests
+   - Verify proper error messages and status codes
+
+9. **File Upload Testing**
+   - Test file upload endpoints
+   - Verify file validation and security
+   - Test file download functionality
+   - Check file storage and retrieval
+
+10. **Email System Testing**
+    - Test email service configuration
+    - Verify email template rendering
+    - Test notification trigger endpoints
+
+For each test, report:
+- ✅ PASS: Brief description of what worked
+- ❌ FAIL: Detailed error message and suggested fix
+- ⚠️ WARNING: Issues that work but need attention
+
+Focus on identifying any breaking changes from our recent authentication system overhaul.

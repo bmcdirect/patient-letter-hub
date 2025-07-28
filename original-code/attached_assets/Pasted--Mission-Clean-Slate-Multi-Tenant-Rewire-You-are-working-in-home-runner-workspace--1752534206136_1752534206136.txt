@@ -1,0 +1,66 @@
+## 🛠️  Mission: “Clean-Slate Multi-Tenant Rewire”
+
+You are working in /home/runner/workspace.
+
+### 0. Fail-fast guard
+* Abort immediately if **git status** is dirty.  
+  – If dirty: `git stash -u -m "auto-stash pre-rewire"`.
+
+### 1. Snapshot current repo
+* `git branch -M legacy-pre-rewire`
+* `git checkout -b rewrite-main`
+
+### 2. Drop old DB / artifacts
+* If using SQLite → `rm -f ./data/*.db`.
+* If using Postgres (env var DATABASE_URL) → `dropdb patientletterhub_dev || true && createdb patientletterhub_dev`.
+* Delete legacy migrations folder (`migrations/`).
+
+### 3. Author clean Drizzle schema (shared/schema.ts)
+ER diagram (tables + relations) **exactly** as below:
+
+| table            | columns                                                                                       |
+|------------------|------------------------------------------------------------------------------------------------|
+| tenants          | id PK, name text not null                                                                      |
+| practices        | id PK, tenant_id FK→tenants.id on delete cascade, name text not null                           |
+| users            | id PK, tenant_id FK→tenants.id on delete cascade, email text unique, password_hash text, role text |
+| quotes           | id PK, tenant_id FK, practice_id FK, user_id FK, quote_number text unique, subject text, total numeric, created_at timestamp default(sql`CURRENT_TIMESTAMP`), updated_at timestamp default(sql`CURRENT_TIMESTAMP`) |
+| orders           | id PK, tenant_id FK, practice_id FK, user_id FK, order_number text unique, subject text, total numeric, status text default('draft'), created_at timestamp default(sql`CURRENT_TIMESTAMP`), updated_at timestamp default(sql`CURRENT_TIMESTAMP`) |
+| order_files      | id PK, order_id FK→orders.id on delete cascade, filename text, mimetype text, size integer     |
+
+* All FKs **NOT NULL**.
+* Add composite index `(tenant_id, created_at)` to quotes and orders.
+
+Generate Drizzle migrations (`drizzle-kit generate`).
+
+### 4. Seed script (server/scripts/seed.ts)
+* Insert 2 tenants: “Riverside Family Medicine”, “Bright Smiles Dental”.
+* For each tenant insert 1 practice and 2 users (admin + staff, use the emails shown on the login page, password “password123” hashed with bcrypt).
+* Insert:
+  * 2 quotes per tenant.
+  * 2 orders per tenant (each with 1 dummy CSV file row in order_files).
+
+Run the seed script.
+
+### 5. Auth & context middleware
+* Re-use existing session + bcrypt logic.
+* Middleware chain: **session → auth(requireAuth) → tenantContext (sets req.tenantId)**.
+
+### 6. REST contract (generate empty route files under `server/routes/`)
+(Use tRPC-style controller functions or Express routers—your choice.)
+
+| Method | Path                                               | Controller stub                                        |
+|--------|----------------------------------------------------|--------------------------------------------------------|
+| POST   | /api/auth/login                                    | auth.login()                                           |
+| GET    | /api/auth/user                                     | auth.currentUser()                                     |
+| GET    | /api/tenants/:tenantId/practices                   | practices.list()                                       |
+| POST   | /api/tenants/:tenantId/practices                   | practices.create()                                     |
+| GET    | /api/tenants/:tenantId/quotes                      | quotes.list()                                          |
+| POST   | /api/tenants/:tenantId/quotes                      | quotes.create()                                        |
+| GET    | /api/tenants/:tenantId/orders                      | orders.list()                                          |
+| POST   | /api/tenants/:tenantId/orders  (multipart files)   | orders.create()                                        |
+| GET    | /api/orders/:orderId/files                         | orderFiles.list()                                      |
+| ...    | (add up to 15 total; include update/delete stubs) |
+
+Each stub:
+```ts
+export async function list(req,res){ res.json([]) }

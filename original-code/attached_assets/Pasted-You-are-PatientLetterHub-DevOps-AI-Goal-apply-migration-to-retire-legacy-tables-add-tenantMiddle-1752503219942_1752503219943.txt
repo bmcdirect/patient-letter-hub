@@ -1,0 +1,87 @@
+You are PatientLetterHub DevOps AI.
+Goal: apply migration to retire legacy tables, add tenantMiddleware, consolidate auth, and enforce tenant scoping.
+
+STEPS
+1. Create migrations/{TIMESTAMP}_cleanup_legacy_schema.sql with the SQL below verbatim. Then run `pnpm drizzle-kit push`.
+2. Add server/middleware/tenantMiddleware.ts (code below) and register it in server/index.ts before any route mounts.
+3. Delete server/auth.ts, server/tempAuth.ts, server/operationsAuth.ts.
+4. Rename server/simpleAuth.ts → server/auth.ts and fix any import paths.
+5. In server/index.ts import router from './simpleRoutes'; remove routes.ts.
+6. In server/storage.ts (and any controllers) scope **all** table queries (`orders`, `quotes`, `practices`, etc.) with `eq(<Table>.tenantId, req.tenantId)`.
+7. Add server/types/express.d.ts with the custom Request typing.
+8. Add tests/multiTenantSmoke.test.ts (code below) and wire `"test": "jest"` in package.json. Ensure the .replit `run` includes `pnpm test` for CI.
+
+=================== SQL: {TIMESTAMP}_cleanup_legacy_schema.sql ===================
+BEGIN;
+ALTER TABLE tenants      RENAME TO tenants_legacy;
+ALTER TABLE users        RENAME TO users_legacy;
+ALTER TABLE user_tenants RENAME TO user_tenants_legacy;
+
+INSERT INTO simple_tenants(id, name)
+SELECT id, name FROM tenants_legacy
+WHERE id NOT IN (SELECT id FROM simple_tenants);
+
+INSERT INTO simple_users(id, email, password_hash, tenant_id, role)
+SELECT  u.id, u.email, u.password_hash, ut.tenant_id, u.role
+FROM    users_legacy u
+JOIN    user_tenants_legacy ut ON ut.user_id = u.id
+WHERE   u.id NOT IN (SELECT id FROM simple_users);
+COMMIT;
+===============================================================================
+
+=================== tenantMiddleware.ts ========================================
+import { Request, Response, NextFunction } from 'express';
+import { eq } from 'drizzle-orm';
+import { simpleUsers } from '../schema';
+import db from '../db';
+
+export async function tenantMiddleware(
+  req: Request, res: Response, next: NextFunction
+) {
+  const headerTenant = req.header('X-Tenant-Id');
+  if (headerTenant) {
+    req.tenantId = parseInt(headerTenant, 10);
+    return next();
+  }
+  const sessionUserId = req.session?.userId;
+  if (sessionUserId) {
+    const user = await db
+      .select({ tenantId: simpleUsers.tenantId })
+      .from(simpleUsers)
+      .where(eq(simpleUsers.id, sessionUserId))
+      .limit(1)
+      .then(r => r[0]);
+    if (user) {
+      req.tenantId = user.tenantId;
+      return next();
+    }
+  }
+  return res.status(400).json({ error: 'Tenant context not resolved' });
+}
+===============================================================================
+
+=================== server/types/express.d.ts ==================================
+declare global {
+  namespace Express {
+    interface Request {
+      tenantId?: number;
+    }
+  }
+}
+export {};
+===============================================================================
+
+=================== tests/multiTenantSmoke.test.ts =============================
+import request from 'supertest';
+import app from '../server/index';
+
+describe('multi-tenant isolation', () => {
+  it('tenant-1 user sees only tenant-1 orders', async () => {
+    const agent = request.agent(app);
+    await agent.post('/auth/login').send({ email: 'a@t1.com', password: 'pw' });
+    const res = await agent.get('/api/orders');
+    expect(res.status).toBe(200);
+    res.body.forEach((o: any) => expect(o.tenantId).toBe(1));
+  });
+});
+===============================================================================

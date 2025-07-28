@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>New Letter Order – PatientLetterHub</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #F3F6FA;
+    }
+    h1 { color: #10069F; }
+    label { display: block; margin-top: 1rem; font-weight: bold; }
+    input, select, textarea, button {
+      width: 100%;
+      margin-top: 0.3rem;
+      padding: 0.5rem;
+      font-size: 1rem;
+    }
+    textarea { height: 150px; }
+    .file-info { font-size: 0.9rem; color: #666; margin-top: 0.2rem; }
+    .section { margin-bottom: 2rem; background: #FFF; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+  <h1>Create a New Letter Order</h1>
+
+  <form id="orderForm" enctype="multipart/form-data">
+
+    <div class="section">
+      <label for="template">Choose a Template (optional)</label>
+      <select id="template" name="template">
+        <option value="">-- Select --</option>
+        <option value="doctor_departure">Doctor Departure</option>
+        <option value="office_relocation">Office Relocation</option>
+      </select>
+
+      <label for="letterBody">Letter Body</label>
+      <textarea id="letterBody" name="letterBody" placeholder="Type or paste your letter here..."></textarea>
+    </div>
+
+    <div class="section">
+      <label for="logo">Practice Logo (optional)</label>
+      <input type="file" id="logo" name="logo" accept="image/*">
+
+      <label for="signature">Doctor's Signature</label>
+      <input type="file" id="signature" name="signature" accept="image/*">
+
+      <label for="extraPages">Additional Pages (PDF)</label>
+      <input type="file" id="extraPages" name="extraPages" accept="application/pdf">
+    </div>
+
+    <div class="section">
+      <label for="colorMode">Letter Color</label>
+      <select id="colorMode" name="colorMode">
+        <option value="bw">Black & White</option>
+        <option value="color">Color</option>
+      </select>
+    </div>
+
+    <div class="section">
+      <label for="recipients">Recipient List (CSV)</label>
+      <input type="file" id="recipients" name="recipients" accept=".csv">
+      <div class="file-info">Must include: FirstName, LastName, AddressLine1, City, State, Zip</div>
+      <a href="/sample/recipients.csv" download>Download Sample CSV</a>
+    </div>
+
+    <div class="section">
+      <button type="submit">Generate Proof</button>
+    </div>
+  </form>
+
+  <script src="/submit_order.js">// Pre-fill template type if provided in URL
+document.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(window.location.search);
+  const templateType = params.get("template");
+
+  if (templateType) {
+    const templateField = document.querySelector('[name="template"]');
+    if (templateField) {
+      templateField.value = templateType;
+    }
+  }
+});</script>
+
+</body>
+</html>

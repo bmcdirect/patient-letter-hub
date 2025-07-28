@@ -1,0 +1,75 @@
+1. Create a helper server/upload.ts
+ts
+Copy
+Edit
+import multer from 'multer';
+import path   from 'node:path';
+
+/**
+ * Centralised Multer config.
+ *  – limits.files can be increased later without code-changes elsewhere
+ *  – basic file-type guard (csv, pdf, docx) — adjust list if Product asks
+ */
+const storage = multer.diskStorage({
+  destination: 'uploads/',           // leave as relative path; infra mounts this
+  filename   : (_, file, cb) => {
+    const timestamp = Date.now();
+    const ext       = path.extname(file.originalname);
+    cb(null, `${timestamp}-${file.fieldname}${ext}`);
+  },
+});
+
+export const upload = multer({
+  storage,
+  limits: {
+    files   : 20,                    // **single knob**; raise / lower any time
+    fileSize: 10 * 1024 * 1024,      // 10 MB per file (safe default)
+  },
+  fileFilter: (_, file, cb) => {
+    const allowed = ['.csv', '.pdf', '.docx'];
+    const isValid = allowed.includes(
+      path.extname(file.originalname).toLowerCase(),
+    );
+    cb(null, isValid);
+  },
+});
+2. Update the orders route (currently in server/simpleRoutes.ts)
+Import the new helper:
+
+ts
+Copy
+Edit
+import { upload } from './upload';
+Replace the existing single-file middleware with:
+
+ts
+Copy
+Edit
+// BEFORE  (example)
+// router.post('/orders', requireAuth, upload.single('file'), async (...))
+
+// AFTER
+router.post(
+  '/orders',
+  requireAuth,
+  upload.array('file'),        // field name stays “file” on the FE
+  async (req, res, next) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+
+      // existing order-creation logic —
+      // ensure you now attach *all* uploaded files, not just the first
+      // e.g. orderStorage.attachFiles(orderId, files)
+
+      res.status(201).json(order);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+Remove any now-unused Multer config or imports in this file.
+
+3. Verify & commit
+npm run dev, log shows limits: { files: 20 } when you POST multiple files.
+
+Front-end order creation succeeds with ≥1 and ≤20 files; >20 ⇒ 400 Multer “LIMIT_UNEXPECTED_FILE”.

@@ -1,0 +1,41 @@
+Implement production authentication, account settings page, and real email workflow for PatientLetterHub:
+
+1. **Real Authentication System:**
+   - Replace mock/temp authentication with production user registration/login
+   - Password hashing (bcrypt), email verification, password reset functionality
+   - Role-based access: admin staff vs practice users
+   - Multi-tenant isolation by practice (existing tenant system)
+   - Remove all temporary/mock authentication code
+
+2. **Account Settings Page (Basic Structure):**
+   - Create /settings route for practice users
+   - Basic account information form: Practice name, address, phone, primary contact
+   - User preferences: Auto-delete data file setting, notification preferences  
+   - User management: List practice staff, add/remove users
+   - Basic billing preference: Credit card vs NET terms (dropdown)
+   - Save button that updates tenant/user data
+   - Professional layout matching existing app design
+
+3. **Real Email Workflow (Using Existing Resend):**
+   - Set up all workflow emails to send to actual email addresses
+   - Proof ready emails → Customer gets real email with approval link
+   - Customer decisions → Admin staff gets real email notifications
+   - Order status changes → Real email notifications to customers
+   - Invoice generation → Real PDF invoices emailed to customers
+   - Configure admin staff email addresses as recipients for notifications
+
+4. **Create 15 Test Practice Accounts:**
+   - Generate realistic practice names and information
+   - Create login credentials for each (no pre-populated orders/quotes)
+   - Set up email addresses that forward notifications to admin staff
+   - Varied practice types: medical, dental, veterinary, therapy, etc.
+   - Include documentation with all test account credentials
+   - IMPORTANT: Store all test data in the database using existing tables, NOT hardcoded arrays
+
+5. **Database Updates:**
+   - Update user schema for real passwords and roles
+   - Add account settings fields to tenants table
+   - Remove mock authentication data structures
+   - Add proper user session management
+
+IMPORTANT: Keep existing Resend email configuration - just make emails go to real addresses instead of mock/disabled emails. Admin staff should receive normal emails in their inbox for workflow testing. All test data must be stored in the PostgreSQL database, not hardcoded in frontend components.

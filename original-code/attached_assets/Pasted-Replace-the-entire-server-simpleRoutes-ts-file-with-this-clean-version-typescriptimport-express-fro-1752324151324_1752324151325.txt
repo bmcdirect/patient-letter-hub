@@ -1,0 +1,84 @@
+Replace the entire server/simpleRoutes.ts file with this clean version:
+typescriptimport express from 'express';
+import { loginUser, getAllPractices, requireAuth, type SimpleAuthRequest } from './simpleAuth';
+
+const router = express.Router();
+
+// Login endpoint
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+    
+    console.log('🔐 Login attempt for:', email);
+    
+    const user = await loginUser(email, password);
+    
+    // Store user data in session
+    req.session.userId = user.id;
+    req.session.userData = user;
+    
+    // Force session save for production
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error:', err);
+          reject(err);
+        } else {
+          resolve(undefined);
+        }
+      });
+    });
+    
+    console.log('✅ Login successful for:', email, 'Practice:', user.practiceName);
+    
+    res.json({
+      message: 'Login successful',
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        tenantId: user.tenantId,
+        practiceName: user.practiceName,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(401).json({ message: 'Invalid credentials' });
+  }
+});
+
+// Get current user
+router.get('/user', requireAuth, (req: SimpleAuthRequest, res) => {
+  console.log('👤 User request - session data:', req.session?.userData);
+  res.json(req.user);
+});
+
+// Logout endpoint
+router.post('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Logout error:', err);
+      return res.status(500).json({ message: 'Logout failed' });
+    }
+    res.json({ message: 'Logged out successfully' });
+  });
+});
+
+// Get all practices (for login dropdown)
+router.get('/practices', async (req, res) => {
+  try {
+    const practices = await getAllPractices();
+    res.json(practices);
+  } catch (error) {
+    console.error('Get practices error:', error);
+    res.status(500).json({ message: 'Failed to get practices' });
+  }
+});
+
+export default router;

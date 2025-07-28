@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Request Quote – PatientLetterHub</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background: #F3F6FA;
+    }
+    h1 { color: #10069F; }
+    label { display: block; margin-top: 1rem; font-weight: bold; }
+    input, select, textarea, button {
+      width: 100%;
+      margin-top: 0.3rem;
+      padding: 0.5rem;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    textarea { height: 100px; }
+    .section { 
+      margin-bottom: 2rem; 
+      background: #FFF; 
+      padding: 1rem; 
+      border-radius: 8px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .submit-btn {
+      background: #10069F;
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      font-weight: bold;
+      margin-top: 1rem;
+      transition: background-color 0.3s ease;
+    }
+    .submit-btn:hover {
+      background: #0d0580;
+    }
+    .submit-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .cost-estimate {
+      background: #e8f4fd;
+      border: 1px solid #b3d9ff;
+      padding: 1rem;
+      border-radius: 6px;
+      margin-top: 1rem;
+    }
+    .cost-estimate h3 {
+      margin: 0 0 0.5rem 0;
+      color: #0066cc;
+    }
+    .cost-breakdown {
+      font-size: 0.9rem;
+      color: #555;
+      margin-top: 0.5rem;
+    }
+    .required { color: #dc3545; }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 1rem;
+      border-radius: 6px;
+      margin: 1rem 0;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+      padding: 1rem;
+      border-radius: 6px;
+      margin: 1rem 0;
+    }
+    .logout-btn {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .logout-btn:hover {
+      background: #c82333;
+    }
+    @media (max-width: 600px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #ccc;">
+    <h1 style="margin: 0; color: #10069F;">Request a Quote</h1>
+    <div style="display: flex; gap: 1rem; align-items: center;">
+      <span id="user-info" style="color: #666; font-size: 0.9rem;"></span>
+      <button id="logout-btn" class="logout-btn">Logout</button>
+    </div>
+  </div>
+
+  <div id="message-container"></div>
+
+  <form id="quote-form">
+    <div class="section">
+      <h3>Practice Location</h3>
+      <div id="practiceLocationDisplay" style="padding: 0.75rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; color: #495057;">
+        Loading practice information...
+      </div>
+      <div style="margin-top: 0.5rem; font-size: 0.9rem; color: #6c757d;">
+        <a href="/settings.html" style="color: #007bff; text-decoration: none;">Manage Practice Settings</a>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Letter Details</h3>
+
+      <label for="subject">Subject <span class="required">*</span></label>
+      <input type="text" id="subject" name="subject" placeholder="e.g., Doctor Retirement Letter" required />
+
+      <div class="form-row">
+        <div>
+          <label for="templateType">Template Type <span class="required">*</span></label>
+          <select id="templateType" name="templateType" required>
+            <option value="">Select template type...</option>
+            <option value="practice_closing">Practice Closing</option>
+            <option value="provider_departure">Provider Departure</option>
+            <option value="practice_relocation">Practice Relocation</option>
+            <option value="hipaa_breach">HIPAA Breach Notification</option>
+            <option value="custom">Custom Letter</option>
+          </select>
+        </div>
+        <div>
+          <label for="colorMode">Color Mode <span class="required">*</span></label>
+          <select id="colorMode" name="colorMode" required>
+            <option value="">Select color mode...</option>
+            <option value="color">Color</option>
+            <option value="bw">Black & White</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label for="estimatedRecipients">Estimated Recipient Count <span class="required">*</span></label>
+          <input type="number" id="estimatedRecipients" name="estimatedRecipients" min="1" max="10000" placeholder="e.g., 250" required />
+        </div>
+        <div>
+          <label for="enclosures">Number of Enclosures</label>
+          <select id="enclosures" name="enclosures">
+            <option value="0">0 - No enclosures</option>
+            <option value="1">1 enclosure</option>
+            <option value="2">2 enclosures</option>
+            <option value="3">3 enclosures</option>
+            <option value="4">4 enclosures</option>
+            <option value="5">5 enclosures</option>
+          </select>
+        </div>
+      </div>
+
+      <label for="notes">Additional Notes</label>
+      <textarea id="notes" name="notes" placeholder="Any special requirements or additional information..."></textarea>
+
+      <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #eee;">
+        <h4 style="margin-bottom: 1rem; color: #333;">Additional Services</h4>
+        
+        <div class="service-option" style="display: flex; align-items: center; margin-bottom: 0.75rem;">
+          <input type="checkbox" id="dataCleansing" name="dataCleansing" value="yes" style="margin: 0; margin-right: 0.5rem;" />
+          <label for="dataCleansing" style="margin: 0; font-weight: normal; cursor: pointer; line-height: 1.2;">Data Cleansing & De-Duplication ($25)</label>
+        </div>
+        
+        <div class="service-option" style="display: flex; align-items: center; margin-bottom: 0.75rem;">
+          <input type="checkbox" id="ncoaUpdate" name="ncoaUpdate" value="yes" style="margin: 0; margin-right: 0.5rem;" />
+          <label for="ncoaUpdate" style="margin: 0; font-weight: normal; cursor: pointer; line-height: 1.2;">NCOA Move Update ($50)</label>
+        </div>
+        
+        <div class="service-option" style="display: flex; align-items: center; margin-bottom: 0.75rem;">
+          <input type="checkbox" id="firstClassPostage" name="firstClassPostage" value="yes" style="margin: 0; margin-right: 0.5rem;" />
+          <label for="firstClassPostage" style="margin: 0; font-weight: normal; cursor: pointer; line-height: 1.2;">Include First Class Postage ($0.68 per recipient)</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="cost-estimate">
+        <h3>Estimated Cost</h3>
+        <div id="cost-display">
+          <p>Select options above to see cost estimate</p>
+        </div>
+        <div class="cost-breakdown" id="cost-breakdown" style="display: none;">
+          <p><strong>Breakdown:</strong></p>
+          <ul id="breakdown-details"></ul>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="submit-btn">Request Quote</button>
+  </form>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      await checkAuth();
+      await loadPracticeInfo();
+      setupForm();
+      setupLogout();
+      setupCostCalculator();
+    });
+
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/user');
+        const data = await res.json();
+        if (!data.success) return window.location.href = '/login.html';
+        document.getElementById('user-info').textContent = `Logged in as: ${data.user.email}`;
+      } catch {
+        window.location.href = '/login.html';
+      }
+    }
+
+    // Load practice information for display
+    async function loadPracticeInfo() {
+      try {
+        const res = await fetch('/api/settings/practice');
+        const result = await res.json();
+        
+        const display = document.getElementById('practiceLocationDisplay');
+        
+        if (result.success && result.practice) {
+          const practice = result.practice;
+          const contactName = [practice.contact_prefix, practice.contact_first_name, practice.contact_last_name].filter(Boolean).join(' ');
+          
+          display.innerHTML = `
+            <strong>${practice.name}</strong><br>
+            ${contactName ? `${contactName}<br>` : ''}
+            ${practice.main_address || 'No address on file'}<br>
+            ${practice.phone ? `Phone: ${practice.phone}<br>` : ''}
+            ${practice.email ? `Email: ${practice.email}` : ''}
+          `;
+        } else {
+          display.innerHTML = `
+            <div style="color: #dc3545;">
+              <strong>No practice information found</strong><br>
+              <a href="/settings.html" style="color: #007bff;">Set up your practice profile</a>
+            </div>
+          `;
+        }
+      } catch (err) {
+        console.error('Failed to load practice info:', err);
+        document.getElementById('practiceLocationDisplay').innerHTML = `
+          <div style="color: #dc3545;">Error loading practice information</div>
+        `;
+      }
+    }
+
+    function setupLogout() {
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.href = '/login.html';
+      });
+    }
+
+    function setupCostCalculator() {
+      ['colorMode', 'estimatedRecipients', 'enclosures', 'dataCleansing', 'ncoaUpdate', 'firstClassPostage'].forEach(id => {
+        document.getElementById(id).addEventListener('change', calculateCost);
+        document.getElementById(id).addEventListener('input', calculateCost);
+      });
+    }
+
+    function calculateCost() {
+      const color = document.getElementById('colorMode').value;
+      const recipients = parseInt(document.getElementById('estimatedRecipients').value) || 0;
+      const enclosures = parseInt(document.getElementById('enclosures').value) || 0;
+      const dataCleansing = document.getElementById('dataCleansing').checked;
+      const ncoaUpdate = document.getElementById('ncoaUpdate').checked;
+      const firstClassPostage = document.getElementById('firstClassPostage').checked;
+
+      if (!color || recipients <= 0) {
+        document.getElementById('cost-display').innerHTML = '<p>Select options above to see cost estimate</p>';
+        document.getElementById('cost-breakdown').style.display = 'none';
+        return;
+      }
+
+      const base = color === 'color' ? 0.65 : 0.50;
+      let cost = recipients * (base + (enclosures * 0.10));
+      
+      // Add flat fees for additional services
+      if (dataCleansing) cost += 25;
+      if (ncoaUpdate) cost += 50;
+      
+      // Add first class postage if selected
+      if (firstClassPostage) cost += recipients * 0.68;
+      
+      document.getElementById('cost-display').innerHTML = `<p style="font-size: 1.2rem; font-weight: bold; margin: 0; color: #0066cc;">Total Estimated Cost: $${cost.toFixed(2)}</p>`;
+      
+      let breakdownHTML = `
+        <li>Base cost: $${base.toFixed(2)} per letter</li>
+        <li>Enclosures: ${enclosures} × $0.10</li>
+        <li>Total recipients: ${recipients}</li>
+        <li>Letter cost subtotal: $${(recipients * (base + (enclosures * 0.10))).toFixed(2)}</li>
+      `;
+      
+      if (firstClassPostage) {
+        breakdownHTML += `<li>First Class Postage: $0.68 × ${recipients} = $${(recipients * 0.68).toFixed(2)}</li>`;
+      }
+      
+      if (dataCleansing) {
+        breakdownHTML += `<li>Data Cleansing & De-Duplication: $25.00</li>`;
+      }
+      
+      if (ncoaUpdate) {
+        breakdownHTML += `<li>NCOA Move Update: $50.00</li>`;
+      }
+      
+      document.getElementById('breakdown-details').innerHTML = breakdownHTML;
+      document.getElementById('cost-breakdown').style.display = 'block';
+    }
+
+    function setupForm() {
+      document.getElementById('quote-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const submit = document.querySelector('.submit-btn');
+        submit.disabled = true;
+        submit.textContent = 'Submitting...';
+        
+        try {
+          // Get form values directly with proper validation
+          const data = {
+            subject: document.getElementById('subject').value.trim(),
+            templateType: document.getElementById('templateType').value,
+            colorMode: document.getElementById('colorMode').value,
+            estimatedRecipients: parseInt(document.getElementById('estimatedRecipients').value) || 0,
+            enclosures: parseInt(document.getElementById('enclosures').value) || 0,
+            notes: document.getElementById('notes').value.trim() || '',
+            dataCleansing: document.getElementById('dataCleansing').checked,
+            ncoaUpdate: document.getElementById('ncoaUpdate').checked,
+            firstClassPostage: document.getElementById('firstClassPostage').checked
+          };
+          
+          console.log('Submitting quote data:', data);
+          
+          // Frontend validation with specific error messages
+          const validationErrors = [];
+          // Practice location validation removed - using main practice address
+          if (!data.subject) validationErrors.push('Subject');
+          if (!data.templateType) validationErrors.push('Template Type');
+          if (!data.colorMode) validationErrors.push('Color Mode');
+          if (data.estimatedRecipients <= 0) validationErrors.push('Valid Recipient Count (greater than 0)');
+          
+          if (validationErrors.length > 0) {
+            document.getElementById('message-container').innerHTML = 
+              `<div class="error">Please provide: ${validationErrors.join(', ')}</div>`;
+            return;
+          }
+          
+          const res = await fetch('/api/quotes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+          
+          const result = await res.json();
+          if (result.success) {
+            document.getElementById('message-container').innerHTML = 
+              `<div class="success">Quote ${result.quoteNumber} created successfully! Total cost: $${result.totalCost}. Redirecting to dashboard...</div>`;
+            
+            // Redirect to dashboard after success message
+            setTimeout(() => {
+              window.location.href = '/dashboard.html';
+            }, 1500);
+          } else {
+            const errorMessage = result.missingFields ? 
+              `Missing required fields: ${result.missingFields.join(', ')}` : 
+              result.message || 'Failed to generate quote';
+            document.getElementById('message-container').innerHTML = 
+              `<div class="error">${errorMessage}</div>`;
+          }
+        } catch (error) {
+          console.error('Quote submission error:', error);
+          document.getElementById('message-container').innerHTML = 
+            `<div class="error">Network error. Please try again.</div>`;
+        } finally {
+          submit.disabled = false;
+          submit.textContent = 'Request Quote';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

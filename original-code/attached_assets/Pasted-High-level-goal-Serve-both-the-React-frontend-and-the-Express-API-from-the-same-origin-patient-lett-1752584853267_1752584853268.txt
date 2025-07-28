@@ -1,0 +1,84 @@
+High-level goal
+Serve both the React frontend and the Express API from the same origin (patient-letter-manager-bmcdirect1.replit.app) so cookies stay first-party and CORS headaches disappear.
+
+Task list
+Build & statically host the React app inside Express
+
+Run npm run build in client/ (or root if monorepo) so we get /dist.
+
+In server/index.ts (or main server file):
+
+ts
+Copy
+Edit
+import path from 'path';
+app.use(express.static(path.join(__dirname, '../dist')));
+// last route – send React HTML for anything not /api/*
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
+});
+Remove preview-domain routing & CORS hacks
+
+Delete any preview.*.replit.dev proxies or CORS Access-Control-Allow-Origin: * rules.
+
+Keep CORS middleware, but only allow same origin (origin: true) if you still need pre-flight for multipart/form-data.
+
+Tighten session cookie
+
+In session config:
+
+ts
+Copy
+Edit
+secure: true,          // Replit serves over HTTPS
+sameSite: 'lax',
+domain: undefined      // first-party
+Frontend API base URL
+
+In every fetch/axios/query client, drop the hard-coded host; use relative paths (/api/orders, /api/auth/login, …).
+
+Remove VITE_API_URL from .env or make it optional:
+
+ts
+Copy
+Edit
+const base = import.meta.env.VITE_API_URL || '';
+fetch(`${base}/api/...`)
+Clean up Replit config
+
+Ensure .replit or replit.nix starts only one web server.
+
+Optionally delete DNS rewrite entries for preview subdomain.
+
+Rebuild & redeploy
+
+npm run build (frontend)
+
+Restart server so it now serves /dist.
+
+Smoke test (automatic, log results)
+
+Login as each seeded admin and confirm 200.
+
+GET /api/orders → status 200, ≥50 rows per tenant.
+
+POST new order with two files → expect 201, correct practiceId, timestamps non-null.
+
+Hard-refresh browser: UI loads, cookies persist, no CORS or console errors.
+
+Success criteria
+Check	Pass condition
+Single origin	Network tab shows only patient-letter-manager-bmcdirect1.replit.app requests
+Cookie	patient-letter-hub-session has no Domain attribute, SameSite=Lax, Secure
+CORS	No Access-Control-Allow-Origin: * responses
+UI	Dashboard, Orders, Quotes, Locations all render & operate
+Smoke tests	All steps return expected HTTP codes; agent prints summary ✅
+
+Extra notes
+Do NOT touch DB schema or tenant seeding scripts.
+
+Keep existing stress-test data; use it for UI verification.
+
+If any step fails, rollback the change before moving to the next so prod stays usable.
+
+Please execute the above steps sequentially and post the smoke-test summary when done.

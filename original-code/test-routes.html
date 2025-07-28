@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Testing</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .route-test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        button { margin: 5px; padding: 10px 15px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>🚨 Route Testing for Admin Staff</h1>
+    <p>Test all routes to ensure they're accessible without authentication:</p>
+    
+    <div class="route-test">
+        <h3>Customer Dashboard Routes</h3>
+        <button onclick="testRoute('/')">Test / (Root)</button>
+        <button onclick="testRoute('/dashboard')">Test /dashboard</button>
+        <button onclick="testRoute('/quotes')">Test /quotes</button>
+        <button onclick="testRoute('/orders')">Test /orders</button>
+        <button onclick="testRoute('/locations')">Test /locations</button>
+        <div id="customer-results"></div>
+    </div>
+    
+    <div class="route-test">
+        <h3>Operations Dashboard Routes</h3>
+        <button onclick="testRoute('/admin/dashboard')">Test /admin/dashboard</button>
+        <button onclick="testRoute('/operations/dashboard')">Test /operations/dashboard</button>
+        <div id="admin-results"></div>
+    </div>
+    
+    <div class="route-test">
+        <h3>API Endpoints</h3>
+        <button onclick="testAPI('/api/dashboard/stats')">Test Dashboard Stats</button>
+        <button onclick="testAPI('/api/quotes')">Test Quotes API</button>
+        <button onclick="testAPI('/api/orders')">Test Orders API</button>
+        <button onclick="testAPI('/api/admin/orders')">Test Admin Orders API</button>
+        <div id="api-results"></div>
+    </div>
+    
+    <div id="test-results"></div>
+
+    <script>
+        function testRoute(path) {
+            const iframe = document.createElement('iframe');
+            iframe.src = path;
+            iframe.style.width = '100%';
+            iframe.style.height = '300px';
+            iframe.style.border = '1px solid #ccc';
+            iframe.style.marginTop = '10px';
+            
+            iframe.onload = function() {
+                addResult(`✅ ${path} - Loaded successfully`, 'success');
+            };
+            
+            iframe.onerror = function() {
+                addResult(`❌ ${path} - Failed to load`, 'error');
+            };
+            
+            document.getElementById('test-results').appendChild(iframe);
+        }
+        
+        function testAPI(endpoint) {
+            fetch(endpoint)
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error(`Status: ${response.status}`);
+                    }
+                })
+                .then(data => {
+                    addResult(`✅ ${endpoint} - API working: ${JSON.stringify(data).substring(0, 100)}...`, 'success');
+                })
+                .catch(error => {
+                    addResult(`❌ ${endpoint} - API failed: ${error.message}`, 'error');
+                });
+        }
+        
+        function addResult(message, type) {
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `route-test ${type}`;
+            resultDiv.textContent = message;
+            document.getElementById('test-results').appendChild(resultDiv);
+        }
+        
+        // Auto-test all routes on page load
+        window.onload = function() {
+            console.log('🚨 Starting route tests...');
+            testAPI('/api/dashboard/stats');
+            testAPI('/api/quotes');
+            testAPI('/api/orders');
+            testAPI('/api/admin/orders');
+        };
+    </script>
+</body>
+</html>

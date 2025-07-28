@@ -1,0 +1,77 @@
+You’re picking up exactly where the last fix left off.
+We need to wipe out the remaining “empty orders + random 500” problems in one shot.
+
+🛠️ Tasks
+Back-fill historical orders
+Run once, immediately:
+
+sql
+Copy
+Edit
+UPDATE orders
+SET    practice_id = tenant_id
+WHERE  practice_id IS NULL;
+Use the existing Drizzle client (or a db.execute(sql.raw(...))) in a short script server/scripts/backfillPracticeId.ts.
+
+Run the script automatically when the server starts, but guard with WHERE practice_id IS NULL so it’s idempotent.
+
+Persist sessions across restarts
+
+Add connect-sqlite3 (lightweight, already in Replit image) and configure express-session to use it.
+
+Store the DB file at ./data/sessions.sqlite.
+
+Read SESSION_SECRET from .env; if missing, default to "PLEASE_CHANGE_ME" but log a warning.
+
+Keep the rest of the session options (secure, sameSite, etc.) exactly as they are.
+
+Fix middleware order for uploads
+
+In server/index.ts mount sequence:
+
+session
+
+simpleAuthRoutes
+
+tenantMiddleware
+
+simpleRoutes (which contains /api/orders)
+
+In server/simpleRoutes.ts make sure requireAuth runs before upload.array('file') on the orders POST route.
+
+Smoke-test everything (fail the run if any step fails)
+
+Login as admin@riversidefamilymed.com / password123.
+
+GET /api/orders ➜ expect at least one row (practiceId = 1).
+
+Create an order with two files (test.csv, test.pdf) ➜ expect HTTP 201 and "practiceId":1.
+
+Restart the dev server (pkill -f "tsx server/index.ts" + start) without logging in again and POST a one-file order ➜ expect HTTP 201 (session survived).
+
+Log failures clearly if any assertion fails.
+
+Clean-up & docs
+
+Remove any temporary debug logs you add.
+
+Append a concise changelog to replit.md under “✅ Persistent sessions & order back-fill”.
+
+🔑 Acceptance criteria
+Historical orders now appear in the orders list right after page load.
+
+Creating orders never returns 500; unauthenticated requests return clean 401.
+
+After a restart, the same browser session can still create an order.
+
+No developer console errors on /orders/create page.
+
+Go!
+
+
+
+
+
+
+
+Ask ChatGPT

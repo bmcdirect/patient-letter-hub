@@ -1,0 +1,50 @@
+## 👉 TASK: Finalise UI & Stress-Test
+
+### Part 1 – Wire the React UI to the new API
+1. **Dashboard**
+   • src/pages/dashboard.tsx  
+   • Move all hooks (`useQuery`, etc.) to top level; no hooks inside conditionals.  
+   • Query new endpoint GET `/api/dashboard/stats`.  
+   • Replace any direct `toLocaleDateString` / `toLocaleString` with `fmtDate()` / `fmtTime()` helpers (already in utils).
+
+2. **Orders page**
+   • src/pages/orders.tsx (or OrdersTable component)  
+   • Fetch tenant-scoped list via GET `/api/orders`.  
+   • Create-order form posts **multipart** to POST `/api/orders`.  
+   • Remove legacy props that referenced old schema.
+
+3. **Quotes page**
+   • Wire list and create flows to GET/POST `/api/quotes`.  
+   • Same date-formatting guard.
+
+4. **Global 401 interceptor**
+   • In src/lib/api.ts (ky instance) add `.onError` (or `fetch` wrapper) – on 401/403 clear session cookie and `window.location = '/login'`.
+
+### Part 2 – Add mini stress-test dataset
+*Purpose*: let us see rendering with non-trivial load while remaining mock-only.
+
+*Seed script* in `server/scripts/seedStressData.ts`
+* For each tenant (id 1 & 2)
+  * +50 Quotes, random totals & statuses
+  * +50 Orders, each with 1–3 mock file records (can store filenames only)
+  * Use faker.js or simple loops; skip file uploads – just DB rows.
+
+Add npm script `"seed:stress": "ts-node server/scripts/seedStressData.ts"` and run it.
+
+### Part 3 – Verification
+Run **npm run dev** and execute:
+
+1. Login as `admin@riversidefamilymed.com / password123`.
+2. Confirm:
+   * Dashboard numbers render, no red overlay, no console errors.
+   * Orders list shows ~50 rows, pagination/scroll ok.
+   * Quotes list shows ~50 rows.
+3. Create a new Order with two files → expect HTTP 201, row appears at top.
+4. Hard-refresh browser – session persists, lists reload correctly.
+5. Log out, log in as second tenant – should see only that tenant’s data.
+
+### Part 4 – Commit
+`git add -A && git commit -m "feat: wire UI to new multi-tenant API, seed stress data"`  
+
+Update **replit.md** with a short bullet summary of changes & how to rerun seed.
+
