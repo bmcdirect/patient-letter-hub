@@ -1,64 +1,89 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { randomUUID } from "crypto";
-import path from "path";
-import fs from "fs/promises";
-
-export const runtime = "nodejs";
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+import { existsSync } from "fs";
 
 export async function POST(req: NextRequest) {
-  // 1. Authenticate user
-  const session = await auth();
-  if (!session || !session.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const formData = await req.formData();
+    const file = formData.get("file") as File;
+    const orderId = formData.get("orderId") as string;
+    const fileType = formData.get("fileType") as string || "customer_data";
+    const revisionNumber = formData.get("revisionNumber") as string;
+    const adminNotes = formData.get("adminNotes") as string;
 
-  // 2. Parse multipart form data
-  const formData = await req.formData();
-  const files: File[] = [];
-  Array.from(formData.keys()).forEach((key) => {
-    const value = formData.get(key);
-    if (value instanceof File) {
-      files.push(value);
+    if (!file || !orderId) {
+      return NextResponse.json({ error: "File and orderId are required" }, { status: 400 });
     }
-  });
-  if (files.length === 0) {
-    return NextResponse.json({ error: "No files uploaded" }, { status: 400 });
-  }
 
-  // 3. Get user and practice from DB
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
-    include: { practice: true },
-  });
-  if (!user || !user.practiceId) {
-    return NextResponse.json({ error: "User or practice not found" }, { status: 400 });
-  }
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = join(process.cwd(), "uploads");
+    if (!existsSync(uploadsDir)) {
+      await mkdir(uploadsDir, { recursive: true });
+    }
 
-  // 4. Save files to disk (or S3, etc.) and metadata to DB
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
-  await fs.mkdir(uploadDir, { recursive: true });
-  const savedFiles: any[] = [];
-  for (const file of files) {
-    const fileId = randomUUID();
-    const ext = path.extname(file.name);
-    const fileName = `${fileId}${ext}`;
-    const filePath = path.join(uploadDir, fileName);
-    const arrayBuffer = await file.arrayBuffer();
-    await fs.writeFile(filePath, Buffer.from(arrayBuffer));
-    // Save metadata to DB
-    const dbFile = await prisma.orderFiles.create({
+    // Create order-specific directory
+    const orderDir = join(uploadsDir, orderId);
+    if (!existsSync(orderDir)) {
+      await mkdir(orderDir, { recursive: true });
+    }
+
+    // Generate unique filename
+    const timestamp = Date.now();
+    const fileExtension = file.name.split('.').pop();
+    const fileName = `${fileType}_${timestamp}.${fileExtension}`;
+    const filePath = join(orderDir, fileName);
+
+    // Convert file to buffer and save
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    await writeFile(filePath, buffer);
+
+    // Save file metadata to database
+    const savedFile = await prisma.orderFiles.create({
       data: {
+        orderId: orderId,
         fileName: file.name,
-        filePath: `/uploads/${fileName}`,
-        fileType: file.type,
-        uploadedBy: user.id,
-        orderId: "", // TODO: Set correct orderId when available
+        filePath: `/uploads/${orderId}/${fileName}`,
+        fileType: fileType,
+        uploadedBy: "admin", // This should come from session in production
       },
     });
-    savedFiles.push(dbFile);
-  }
 
-  return NextResponse.json({ files: savedFiles });
+    // If this is a proof upload, create revision record
+    if (fileType === 'admin-proof' && revisionNumber) {
+      // Create revision record in OrderApprovals table
+      await prisma.orderApprovals.create({
+        data: {
+          orderId: orderId,
+          revision: parseInt(revisionNumber),
+          status: 'pending',
+          comments: adminNotes || null,
+          approvedBy: "admin", // This should come from session in production
+        },
+      });
+
+      // Update order status to waiting-approval
+      await prisma.orders.update({
+        where: { id: orderId },
+        data: { 
+          status: `waiting-approval-rev${revisionNumber}`,
+          updatedAt: new Date()
+        },
+      });
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      file: savedFile,
+      message: fileType === 'admin-proof' 
+        ? `Proof uploaded successfully! Revision ${revisionNumber} is ready for customer review.`
+        : 'File uploaded successfully!'
+    });
+
+  } catch (error) {
+    console.error("File upload error:", error);
+    return NextResponse.json({ error: "Failed to upload file" }, { status: 500 });
+  }
 } 

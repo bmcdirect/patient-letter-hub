@@ -61,6 +61,8 @@ model Practice {
   users     User[]
   orders    Orders[]   @relation("PracticeOrders")
   quotes    Quotes[]   @relation("PracticeQuotes")
+  invoices  Invoices[] @relation("PracticeInvoices")
+  emails    EmailNotifications[] @relation("PracticeEmails")
 
   @@map(name: "practices")
 }
@@ -90,6 +92,8 @@ model User {
   uploadedFiles  OrderFiles[]     @relation("UserUploadedFiles")
   approvals      OrderApprovals[] @relation("UserApprovals")
   quotes         Quotes[]         @relation("UserQuotes")
+  invoices       Invoices[]       @relation("UserInvoices")
+  emails         EmailNotifications[] @relation("UserEmails")
 
   @@map(name: "users")
 }
@@ -120,6 +124,8 @@ model Orders {
   user         User      @relation("UserOrders", fields: [userId], references: [id], onDelete: Cascade)
   files        OrderFiles[]
   approvals    OrderApprovals[]
+  invoices     Invoices[] @relation("OrderInvoices")
+  emails       EmailNotifications[] @relation("OrderEmails")
 
   @@map(name: "orders")
 }
@@ -176,4 +182,52 @@ model Quotes {
   user       User     @relation("UserQuotes", fields: [userId], references: [id], onDelete: Cascade)
 
   @@map(name: "quotes")
+}
+
+model Invoices {
+  id            String   @id @default(cuid())
+  invoiceNumber String   @unique
+  orderId       String
+  userId        String
+  practiceId    String
+  invoiceDate   String
+  dueDate       String
+  subtotal      String
+  taxAmount     String
+  totalAmount   String
+  status        String   @default("draft")
+  paymentTerms  String   @default("Net 30")
+  notes         String?
+  pdfPath       String?
+  createdAt     DateTime @default(now()) @map(name: "created_at")
+  updatedAt     DateTime @default(now()) @map(name: "updated_at")
+
+  order    Orders   @relation("OrderInvoices", fields: [orderId], references: [id], onDelete: Cascade)
+  user     User     @relation("UserInvoices", fields: [userId], references: [id], onDelete: Cascade)
+  practice Practice @relation("PracticeInvoices", fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@map(name: "invoices")
+}
+
+model EmailNotifications {
+  id              String   @id @default(cuid())
+  orderId         String?
+  userId          String
+  practiceId      String?
+  recipientEmail  String
+  emailType       String   // 'order_status_change', 'proof_ready', 'invoice_generated', 'custom'
+  subject         String
+  content         String   @db.Text
+  status          String   @default("sent") // 'draft', 'sent', 'failed', 'pending'
+  sentAt          DateTime @default(now())
+  errorMessage    String?
+  metadata        String?  @db.Text // JSON string for additional data
+  createdAt       DateTime @default(now()) @map(name: "created_at")
+  updatedAt       DateTime @default(now()) @map(name: "updated_at")
+
+  order    Orders?   @relation("OrderEmails", fields: [orderId], references: [id], onDelete: Cascade)
+  user     User      @relation("UserEmails", fields: [userId], references: [id], onDelete: Cascade)
+  practice Practice? @relation("PracticeEmails", fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@map(name: "email_notifications")
 }
