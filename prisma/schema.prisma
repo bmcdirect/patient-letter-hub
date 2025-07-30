@@ -91,6 +91,7 @@ model User {
   orders         Orders[]         @relation("UserOrders")
   uploadedFiles  OrderFiles[]     @relation("UserUploadedFiles")
   approvals      OrderApprovals[] @relation("UserApprovals")
+  statusChanges  OrderStatusHistory[] @relation("UserStatusChanges")
   quotes         Quotes[]         @relation("UserQuotes")
   invoices       Invoices[]       @relation("UserInvoices")
   emails         EmailNotifications[] @relation("UserEmails")
@@ -108,22 +109,27 @@ model VerificationToken {
 }
 
 model Orders {
-  id           String    @id @default(cuid())
-  orderNumber  String    @unique
-  practiceId   String
-  userId       String
-  status       String
-  subject      String?
-  templateType String?
-  colorMode    String?
-  cost         Float?
-  createdAt    DateTime  @default(now()) @map(name: "created_at")
-  updatedAt    DateTime  @default(now()) @map(name: "updated_at")
+  id               String    @id @default(cuid())
+  orderNumber      String    @unique
+  practiceId       String
+  userId           String
+  status           String
+  subject          String?
+  templateType     String?
+  colorMode        String?
+  cost             Float?
+  preferredMailDate DateTime?
+  productionStartDate DateTime?
+  productionEndDate   DateTime?
+  fulfilledAt      DateTime?
+  createdAt        DateTime  @default(now()) @map(name: "created_at")
+  updatedAt        DateTime  @default(now()) @map(name: "updated_at")
 
   practice     Practice  @relation("PracticeOrders", fields: [practiceId], references: [id], onDelete: Cascade)
   user         User      @relation("UserOrders", fields: [userId], references: [id], onDelete: Cascade)
   files        OrderFiles[]
   approvals    OrderApprovals[]
+  statusHistory OrderStatusHistory[] @relation("OrderStatusHistory")
   invoices     Invoices[] @relation("OrderInvoices")
   emails       EmailNotifications[] @relation("OrderEmails")
 
@@ -158,6 +164,23 @@ model OrderApprovals {
   approver   User     @relation("UserApprovals", fields: [approvedBy], references: [id], onDelete: Cascade)
 
   @@map(name: "order_approvals")
+}
+
+model OrderStatusHistory {
+  id            String   @id @default(cuid())
+  orderId       String
+  fromStatus    String
+  toStatus      String
+  changedBy     String
+  changedByRole UserRole
+  comments      String?
+  metadata      Json?
+  createdAt     DateTime @default(now()) @map(name: "created_at")
+
+  order         Orders   @relation("OrderStatusHistory", fields: [orderId], references: [id], onDelete: Cascade)
+  user          User     @relation("UserStatusChanges", fields: [changedBy], references: [id], onDelete: Cascade)
+
+  @@map(name: "order_status_history")
 }
 
 model Quotes {

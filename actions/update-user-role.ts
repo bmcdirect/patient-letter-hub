@@ -1,19 +1,18 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
-import { UserRole } from "@prisma/client";
-
+import { getServerSession } from "next-auth";
+import handler from "@/auth";
 import { prisma } from "@/lib/db";
 import { userRoleSchema } from "@/lib/validations/user";
+import { revalidatePath } from "next/cache";
 
 export type FormData = {
-  role: UserRole;
+  role: string;
 };
 
 export async function updateUserRole(userId: string, data: FormData) {
   try {
-    const session = await auth();
+    const session = await getServerSession(handler);
 
     if (!session?.user || session?.user.id !== userId) {
       throw new Error("Unauthorized");
@@ -31,10 +30,10 @@ export async function updateUserRole(userId: string, data: FormData) {
       },
     });
 
-    revalidatePath("/dashboard/settings");
+    revalidatePath('/dashboard/settings');
     return { status: "success" };
   } catch (error) {
     // console.log(error)
-    return { status: "error" };
+    return { status: "error" }
   }
 }

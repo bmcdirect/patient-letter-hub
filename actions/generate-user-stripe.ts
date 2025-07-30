@@ -1,66 +1,43 @@
 "use server";
 
-import { auth } from "@/auth";
+import { getServerSession } from "next-auth";
+import handler from "@/auth";
 import { stripe } from "@/lib/stripe";
-import { getUserSubscriptionPlan } from "@/lib/subscription";
-import { absoluteUrl } from "@/lib/utils";
-import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
 
-export type responseAction = {
-  status: "success" | "error";
-  stripeUrl?: string;
-}
-
-// const billingUrl = absoluteUrl("/dashboard/billing")
-const billingUrl = absoluteUrl("/pricing")
-
-export async function generateUserStripe(priceId: string): Promise<responseAction> {
-  let redirectUrl: string = "";
-
+export async function generateUserStripe() {
   try {
-    const session = await auth()
-    const user = session?.user;
+    const session = await getServerSession(handler);
 
-    if (!user || !user.email || !user.id) {
+    if (!session?.user?.email) {
       throw new Error("Unauthorized");
     }
 
-    const subscriptionPlan = await getUserSubscriptionPlan(user.id)
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
 
-    if (subscriptionPlan.isPaid && subscriptionPlan.stripeCustomerId) {
-      // User on Paid Plan - Create a portal session to manage subscription.
-      const stripeSession = await stripe.billingPortal.sessions.create({
-        customer: subscriptionPlan.stripeCustomerId,
-        return_url: billingUrl,
-      })
-
-      redirectUrl = stripeSession.url as string
-    } else {
-      // User on Free Plan - Create a checkout session to upgrade.
-      const stripeSession = await stripe.checkout.sessions.create({
-        success_url: billingUrl,
-        cancel_url: billingUrl,
-        payment_method_types: ["card"],
-        mode: "subscription",
-        billing_address_collection: "auto",
-        customer_email: user.email,
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
-        metadata: {
-          userId: user.id,
-        },
-      })
-
-      redirectUrl = stripeSession.url as string
+    if (!user) {
+      throw new Error("User not found");
     }
-  } catch (error) {
-    throw new Error("Failed to generate user stripe session");
-  }
 
-  // no revalidatePath because redirect
-  redirect(redirectUrl)
+    // Create a Stripe customer if one doesn't exist
+    if (!user.stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: user.name,
+      });
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { stripeCustomerId: customer.id },
+      });
+
+      return { customerId: customer.id };
+    }
+
+    return { customerId: user.stripeCustomerId };
+  } catch (error) {
+    return { error: "Error generating Stripe customer" };
+  }
 }

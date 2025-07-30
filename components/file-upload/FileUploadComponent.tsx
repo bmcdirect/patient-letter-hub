@@ -189,7 +189,10 @@ export default function FileUploadComponent({
         zipFile
       });
     }
-  }, [dataFile, letterFile, letterheadFile, logoFile, envelopeFile, signatureFile, zipFile]);
+  }, [dataFile, letterFile, letterheadFile, logoFile, envelopeFile, signatureFile, zipFile, onFilesChange]);
+
+  // Track autoDeleteDataFile locally to prevent infinite re-renders
+  const [autoDeleteDataFile, setAutoDeleteDataFile] = useState(true);
 
   const handleDataFileProcessed = (recipientCount: number) => {
     if (onRecipientCountChange) {
@@ -237,8 +240,11 @@ export default function FileUploadComponent({
           <div className="flex items-start space-x-3">
             <Checkbox
               id="autoDeleteDataFile"
-              {...formControl.register("autoDeleteDataFile")}
-              defaultChecked={true}
+              checked={autoDeleteDataFile}
+              onCheckedChange={(checked) => {
+                setAutoDeleteDataFile(checked);
+                formControl.setValue("autoDeleteDataFile", checked);
+              }}
               className="mt-1"
             />
             <div className="flex flex-col">

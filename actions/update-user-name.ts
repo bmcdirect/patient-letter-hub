@@ -1,38 +1,51 @@
 "use server";
 
-import { auth } from "@/auth";
+import { z } from "zod";
+import { getServerSession } from "next-auth";
+import handler from "@/auth";
 import { prisma } from "@/lib/db";
 import { userNameSchema } from "@/lib/validations/user";
-import { revalidatePath } from "next/cache";
 
-export type FormData = {
-  name: string;
-};
+const routeContextSchema = z.object({
+  params: z.object({
+    userId: z.string(),
+  }),
+});
 
-export async function updateUserName(userId: string, data: FormData) {
+export async function PATCH(
+  req: Request,
+  context: z.infer<typeof routeContextSchema>
+) {
   try {
-    const session = await auth()
+    // Validate the request context.
+    const { params } = routeContextSchema.parse(context);
 
-    if (!session?.user || session?.user.id !== userId) {
-      throw new Error("Unauthorized");
+    // Ensure user is authenticated and authorized.
+    const session = await getServerSession(handler);
+    if (!session?.user?.email) {
+      return new Response("Unauthorized", { status: 401 });
     }
 
-    const { name } = userNameSchema.parse(data);
+    // Get the request body and validate it.
+    const json = await req.json();
+    const body = userNameSchema.parse(json);
 
-    // Update the user name.
+    // Update the user.
     await prisma.user.update({
       where: {
-        id: userId,
+        id: params.userId,
       },
       data: {
-        name: name,
+        name: body.name,
       },
-    })
+    });
 
-    revalidatePath('/dashboard/settings');
-    return { status: "success" };
+    return new Response(null, { status: 200 });
   } catch (error) {
-    // console.log(error)
-    return { status: "error" }
+    if (error instanceof z.ZodError) {
+      return new Response(JSON.stringify(error.issues), { status: 422 });
+    }
+
+    return new Response(null, { status: 500 });
   }
 }

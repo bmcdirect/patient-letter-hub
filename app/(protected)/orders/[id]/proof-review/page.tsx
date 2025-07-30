@@ -17,22 +17,38 @@ export default function ProofReviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [comments, setComments] = useState("");
-  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
-  const [showChangesDialog, setShowChangesDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchOrderDetails();
   }, [orderId]);
 
+  // Debug: log order status
+  useEffect(() => {
+    if (order) {
+      // eslint-disable-next-line no-console
+      console.log('Order status:', order.status);
+    }
+  }, [order]);
+
   const fetchOrderDetails = async () => {
     try {
-      const response = await fetch(`/api/orders/${orderId}`);
-      if (!response.ok) {
+      // Fetch order details
+      const orderResponse = await fetch(`/api/orders/${orderId}`);
+      if (!orderResponse.ok) {
         throw new Error('Failed to fetch order details');
       }
-      const data = await response.json();
-      setOrder(data.order);
+      const orderData = await orderResponse.json();
+      
+      // Fetch proofs separately
+      const proofsResponse = await fetch(`/api/orders/${orderId}/proofs`);
+      const proofsData = await proofsResponse.ok ? await proofsResponse.json() : { proofs: [] };
+      
+      // Combine order data with proofs
+      setOrder({
+        ...orderData.order,
+        files: [...(orderData.order.files || []), ...(proofsData.proofs || [])]
+      });
     } catch (err) {
       setError('Failed to load order details');
       console.error('Error fetching order:', err);
@@ -77,7 +93,6 @@ export default function ProofReviewPage() {
 
       const result = await response.json();
       setOrder(result.order);
-      setShowApprovalDialog(false);
       setComments("");
       alert('Proof approved successfully! Your order will now proceed to production.');
     } catch (err) {
@@ -115,7 +130,6 @@ export default function ProofReviewPage() {
 
       const result = await response.json();
       setOrder(result.order);
-      setShowChangesDialog(false);
       setComments("");
       alert('Change request submitted successfully! The design team will review your feedback.');
     } catch (err) {
@@ -172,7 +186,13 @@ export default function ProofReviewPage() {
 
   const latestProof = getLatestProof();
   const latestApproval = getLatestApproval();
-  const isWaitingForApproval = order.status?.startsWith('waiting-approval');
+  // More robust check for waiting-approval status
+  const isWaitingForApproval = /^waiting-approval(-rev\d+)?$/.test(order.status || '');
+
+  // DEBUG: Add console logging to see what's happening
+  console.log('DEBUG - Order status:', order.status);
+  console.log('DEBUG - isWaitingForApproval:', isWaitingForApproval);
+  console.log('DEBUG - Latest proof:', latestProof);
 
   if (!latestProof) {
     return (
@@ -253,54 +273,60 @@ export default function ProofReviewPage() {
               </Card>
             )}
 
-            {/* Approval Actions */}
-            {isWaitingForApproval && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Review & Decision</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Comments (Optional for approval, required for changes)
-                    </label>
-                    <Textarea
-                      value={comments}
-                      onChange={(e) => setComments(e.target.value)}
-                      placeholder="Add any comments about the proof or specific changes needed..."
-                      rows={4}
-                    />
-                  </div>
-
-                  <div className="flex gap-4">
-                    <Button
-                      onClick={() => setShowApprovalDialog(true)}
-                      disabled={submitting}
-                      className="flex-1 bg-green-600 hover:bg-green-700"
-                    >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Approve Proof
-                    </Button>
-
-                    <Button
-                      onClick={() => setShowChangesDialog(true)}
-                      disabled={submitting}
-                      variant="outline"
-                      className="flex-1 border-yellow-400 text-yellow-700 hover:bg-yellow-50"
-                    >
-                      <AlertTriangle className="w-4 h-4 mr-2" />
-                      Request Changes
-                    </Button>
-                  </div>
-
-                  <p className="text-sm text-gray-600 text-center">
-                    <strong>Important:</strong> Once approved, your order will proceed to production and cannot be changed.
+            {/* Approval Actions - FORCED TO ALWAYS RENDER FOR DEBUGGING */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Review & Decision</CardTitle>
+                {/* DEBUG INFO */}
+                <div className="text-xs text-gray-500 bg-yellow-50 p-2 rounded">
+                  <strong>DEBUG:</strong> Status: "{order.status}" | isWaitingForApproval: {isWaitingForApproval.toString()}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Comments (Optional for approval, required for changes)
+                  </label>
+                  <Textarea
+                    value={comments}
+                    onChange={(e) => setComments(e.target.value)}
+                    placeholder="Add any comments about the proof or specific changes needed..."
+                    rows={4}
+                  />
+                </div>
+                <div className="flex gap-4">
+                  <Button
+                    onClick={handleApproval}
+                    disabled={submitting || !isWaitingForApproval}
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    {submitting ? 'Approving...' : 'Approve Proof'}
+                    {!isWaitingForApproval && ' (Disabled)'}
+                  </Button>
+                  <Button
+                    onClick={handleRequestChanges}
+                    disabled={submitting || !comments.trim() || !isWaitingForApproval}
+                    variant="outline"
+                    className="flex-1 border-yellow-400 text-yellow-700 hover:bg-yellow-50"
+                  >
+                    <AlertTriangle className="w-4 h-4 mr-2" />
+                    {submitting ? 'Submitting...' : 'Request Changes'}
+                    {!isWaitingForApproval && ' (Disabled)'}
+                  </Button>
+                </div>
+                <p className="text-sm text-gray-600 text-center">
+                  <strong>Important:</strong> Once approved, your order will proceed to production and cannot be changed.
+                </p>
+                {!isWaitingForApproval && (
+                  <p className="text-sm text-red-600 text-center">
+                    <strong>Note:</strong> Buttons are disabled because order status "{order.status}" is not waiting for approval.
                   </p>
-                </CardContent>
-              </Card>
-            )}
+                )}
+              </CardContent>
+            </Card>
 
-            {/* Already Decided */}
+            {/* Already Decided - Only show if not waiting for approval */}
             {!isWaitingForApproval && order.status === 'approved' && (
               <Card>
                 <CardContent className="text-center py-8">
@@ -399,81 +425,6 @@ export default function ProofReviewPage() {
           </Button>
         </div>
       </div>
-
-      {/* Approval Confirmation Dialog */}
-      <Dialog open={showApprovalDialog} onOpenChange={setShowApprovalDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              Approve Proof
-            </DialogTitle>
-            <DialogDescription>
-              Are you sure you want to approve this proof? Once approved, your order will proceed to production and cannot be changed.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p className="text-sm text-green-800">
-                <strong>By approving this proof, you confirm that:</strong>
-              </p>
-              <ul className="text-sm text-green-700 mt-2 space-y-1">
-                <li>• All information is accurate and correct</li>
-                <li>• You have reviewed all content thoroughly</li>
-                <li>• You authorize production to begin</li>
-                <li>• No further changes can be made after approval</li>
-              </ul>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowApprovalDialog(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleApproval}
-              disabled={submitting}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {submitting ? 'Approving...' : 'Approve Proof'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Changes Request Dialog */}
-      <Dialog open={showChangesDialog} onOpenChange={setShowChangesDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-yellow-600" />
-              Request Changes
-            </DialogTitle>
-            <DialogDescription>
-              Please provide specific feedback about what changes are needed. This will help our design team create a better revision.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Textarea
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-              placeholder="Describe the changes needed..."
-              rows={4}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowChangesDialog(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleRequestChanges}
-              disabled={submitting || !comments.trim()}
-              className="bg-yellow-600 hover:bg-yellow-700"
-            >
-              {submitting ? 'Submitting...' : 'Request Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 } 

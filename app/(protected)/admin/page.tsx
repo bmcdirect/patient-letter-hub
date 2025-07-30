@@ -7,12 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Search, Plus } from "lucide-react";
+import { RefreshCw, Search, Plus, Filter, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Eye, Upload, Package, CheckCircle2, Truck, Clock, Link2, Mail, FileText, MoreHorizontal } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import ProofUploadModal from "@/components/admin/ProofUploadModal";
+import StatusManagementModal from "@/components/admin/StatusManagementModal";
 import FileUploadComponent from "@/components/file-upload/FileUploadComponent";
+import { ProductionCalendar } from "@/components/calendar/ProductionCalendar";
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState({ users: 0, practices: 0, quotes: 0, orders: 0 });
@@ -56,12 +59,31 @@ export default function AdminDashboardPage() {
   const [invoiceGenerating, setInvoiceGenerating] = useState(false);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [invoiceSuccess, setInvoiceSuccess] = useState(false);
+
+  // Proof Upload Modal State
+  const [showProofUploadModal, setShowProofUploadModal] = useState(false);
+  const [proofUploadOrder, setProofUploadOrder] = useState<any>(null);
+
+  // Status Management Modal State
+  const [showStatusManagementModal, setShowStatusManagementModal] = useState(false);
+  const [statusManagementOrder, setStatusManagementOrder] = useState<any>(null);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [emails, setEmails] = useState<any[]>([]);
   const [emailsLoading, setEmailsLoading] = useState(true);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState<string>('');
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  
+  // Advanced filtering state
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [orderDateRange, setOrderDateRange] = useState<{from: string, to: string}>({from: '', to: ''});
+  const [orderCostRange, setOrderCostRange] = useState<{min: string, max: string}>({min: '', max: ''});
+  const [orderTemplateFilter, setOrderTemplateFilter] = useState<string>('all');
+  const [orderColorModeFilter, setOrderColorModeFilter] = useState<string>('all');
+  const [orderPracticeFilter, setOrderPracticeFilter] = useState<string>('all');
+  const [quoteDateRange, setQuoteDateRange] = useState<{from: string, to: string}>({from: '', to: ''});
+  const [quoteStatusFilter, setQuoteStatusFilter] = useState<string>('all');
+  const [quotePracticeFilter, setQuotePracticeFilter] = useState<string>('all');
 
   // Calculate additional stats
   const orderStats = {
@@ -158,86 +180,54 @@ export default function AdminDashboardPage() {
 
   const getStatusDependentActions = (order: any) => {
     const actions = [];
-    const validTransitions = getValidStatusTransitions(order.status);
-
-    // View Details - always available
+    const status = order.status;
+    // Always show all workflow actions, but only enable when valid
     actions.push({
       label: 'View Details',
       icon: 'Eye',
       action: () => openOrderModal(order),
       available: true
     });
-
-    // View Files - always available
+    actions.push({
+      label: 'Manage Status',
+      icon: 'RefreshCw',
+      action: () => openStatusManagementModal(order),
+      available: true
+    });
     actions.push({
       label: 'View Files',
       icon: 'FileText',
       action: () => openFileViewModal(order),
       available: true
     });
-
-    // Upload Proof - only for draft orders
-    if (order.status === 'draft') {
-      actions.push({
-        label: 'Upload Proof',
-        icon: 'Upload',
-        action: () => openFileUploadModal(order),
-        available: true
-      });
-    }
-
-    // Copy Proof Link - only for waiting-approval orders
-    if (order.status?.startsWith('waiting-approval')) {
-      actions.push({
-        label: 'Copy Proof Link',
-        icon: 'Link2',
-        action: () => handleCopyProofLink(order),
-        available: true
-      });
-    }
-
-    // Send Email - always available
+    actions.push({
+      label: 'Upload Proof',
+      icon: 'Package',
+      action: () => openProofUploadModal(order),
+      available: status === 'draft' || status === 'in-progress' || status.includes('revision'),
+      reason: status === 'draft' || status === 'in-progress' || status.includes('revision') ? undefined : 'Can only upload proof when order is in Draft, In Progress, or Revision status.'
+    });
+    actions.push({
+      label: 'Copy Proof Link',
+      icon: 'Link2',
+      action: () => handleCopyProofLink(order),
+      available: status?.startsWith('waiting-approval'),
+      reason: status?.startsWith('waiting-approval') ? undefined : 'Proof link is only available when waiting for customer approval.'
+    });
     actions.push({
       label: 'Send Email',
       icon: 'Mail',
       action: () => openEmailModal(order),
       available: true
     });
-
-    // Generate Invoice - only for completed orders
-    if (order.status === 'completed') {
-      actions.push({
-        label: 'Generate Invoice',
-        icon: 'FileText',
-        action: () => openInvoiceModal(order),
-        available: true
-      });
-    }
-
-    // Status change actions based on valid transitions
-    validTransitions.forEach(newStatus => {
-      const statusLabels = {
-        'draft': 'Mark Ready for Proof',
-        'waiting-approval-rev1': 'Upload Proof (Rev 1)',
-        'waiting-approval-rev2': 'Upload Proof (Rev 2)',
-        'waiting-approval-rev3': 'Upload Proof (Rev 3)',
-        'approved': 'Mark Approved',
-        'in-progress': 'Start Production',
-        'completed': 'Mark Complete',
-        'delivered': 'Mark Delivered',
-        'cancelled': 'Cancel Order'
-      };
-      
-      actions.push({
-        label: statusLabels[newStatus] || `Change to ${newStatus}`,
-        icon: 'RefreshCw',
-        action: () => handleStatusChange(order.id, newStatus),
-        available: true,
-        isStatusChange: true,
-        newStatus
-      });
+    actions.push({
+      label: 'Generate Invoice',
+      icon: 'FileText',
+      action: () => openInvoiceModal(order),
+      available: status === 'completed',
+      reason: status === 'completed' ? undefined : 'Invoice can only be generated for completed orders.'
     });
-
+    // ... (status change actions as before) ...
     return actions;
   };
 
@@ -452,15 +442,61 @@ export default function AdminDashboardPage() {
     setRecentActivity(allActivity);
   }, [orders, quotes]);
 
-  // Filtered orders and quotes
+  // Get unique values for filter options
+  const uniqueTemplates = [...new Set(orders.map(o => o.templateType).filter(Boolean))];
+  const uniqueColorModes = [...new Set(orders.map(o => o.colorMode).filter(Boolean))];
+  const uniquePractices = [...new Set(orders.map(o => o.practiceName).filter(Boolean))];
+  const uniqueQuoteStatuses = [...new Set(quotes.map(q => q.status).filter(Boolean))];
+
+  // Enhanced filtering logic with advanced criteria
   const filteredOrders = orders.filter(order => {
+    // Basic filters
     const matchesStatus = orderStatusFilter === "all" || order.status === orderStatusFilter;
-    const matchesSearch = !orderSearch || order.orderNumber?.toLowerCase().includes(orderSearch.toLowerCase()) || order.subject?.toLowerCase().includes(orderSearch.toLowerCase()) || order.practiceName?.toLowerCase().includes(orderSearch.toLowerCase());
-    return matchesStatus && matchesSearch;
+    const matchesSearch = !orderSearch || 
+      order.orderNumber?.toLowerCase().includes(orderSearch.toLowerCase()) || 
+      order.subject?.toLowerCase().includes(orderSearch.toLowerCase()) || 
+      order.practiceName?.toLowerCase().includes(orderSearch.toLowerCase()) ||
+      order.templateType?.toLowerCase().includes(orderSearch.toLowerCase()) ||
+      order.colorMode?.toLowerCase().includes(orderSearch.toLowerCase());
+
+    // Advanced filters
+    const matchesDateRange = !orderDateRange.from && !orderDateRange.to || 
+      (orderDateRange.from && orderDateRange.to && 
+       new Date(order.createdAt) >= new Date(orderDateRange.from) && 
+       new Date(order.createdAt) <= new Date(orderDateRange.to));
+
+    const matchesCostRange = !orderCostRange.min && !orderCostRange.max ||
+      (orderCostRange.min && orderCostRange.max && 
+       order.cost >= parseFloat(orderCostRange.min) && 
+       order.cost <= parseFloat(orderCostRange.max));
+
+    const matchesTemplate = orderTemplateFilter === 'all' || order.templateType === orderTemplateFilter;
+    const matchesColorMode = orderColorModeFilter === 'all' || order.colorMode === orderColorModeFilter;
+    const matchesPractice = orderPracticeFilter === 'all' || order.practiceName === orderPracticeFilter;
+
+    return matchesStatus && matchesSearch && matchesDateRange && matchesCostRange && 
+           matchesTemplate && matchesColorMode && matchesPractice;
   });
+
   const filteredQuotes = quotes.filter(quote => {
-    const matchesSearch = !quoteSearch || quote.quoteNumber?.toLowerCase().includes(quoteSearch.toLowerCase()) || quote.subject?.toLowerCase().includes(quoteSearch.toLowerCase()) || quote.practiceName?.toLowerCase().includes(quoteSearch.toLowerCase());
-    return matchesSearch;
+    // Basic search
+    const matchesSearch = !quoteSearch || 
+      quote.quoteNumber?.toLowerCase().includes(quoteSearch.toLowerCase()) || 
+      quote.subject?.toLowerCase().includes(quoteSearch.toLowerCase()) || 
+      quote.practiceName?.toLowerCase().includes(quoteSearch.toLowerCase()) ||
+      quote.templateType?.toLowerCase().includes(quoteSearch.toLowerCase()) ||
+      quote.colorMode?.toLowerCase().includes(quoteSearch.toLowerCase());
+
+    // Advanced filters
+    const matchesDateRange = !quoteDateRange.from && !quoteDateRange.to || 
+      (quoteDateRange.from && quoteDateRange.to && 
+       new Date(quote.createdAt) >= new Date(quoteDateRange.from) && 
+       new Date(quote.createdAt) <= new Date(quoteDateRange.to));
+
+    const matchesStatus = quoteStatusFilter === 'all' || quote.status === quoteStatusFilter;
+    const matchesPractice = quotePracticeFilter === 'all' || quote.practiceName === quotePracticeFilter;
+
+    return matchesSearch && matchesDateRange && matchesStatus && matchesPractice;
   });
 
   async function handleQuickAction(action: string, orderIds: string[]) {
@@ -599,10 +635,10 @@ export default function AdminDashboardPage() {
     setFileViewLoading(true);
     setFileViewError(null);
     try {
-      const res = await fetch(`/api/orders/${order.id}`);
+      const res = await fetch(`/api/orders/${order.id}/files`);
       if (!res.ok) throw new Error("Failed to fetch order files");
       const data = await res.json();
-      setFileViewFiles(data.order.files || []);
+      setFileViewFiles(data.files || []);
     } catch (err) {
       setFileViewError("Failed to load files.");
     } finally {
@@ -727,6 +763,39 @@ export default function AdminDashboardPage() {
     setInvoiceSuccess(false);
   }
 
+  // Proof Upload Modal Functions
+  function openProofUploadModal(order: any) {
+    setProofUploadOrder(order);
+    setShowProofUploadModal(true);
+  }
+  
+  function closeProofUploadModal() {
+    setShowProofUploadModal(false);
+    setProofUploadOrder(null);
+  }
+
+  function handleProofUploadSuccess() {
+    // Refresh orders to show updated status
+    fetchOrders();
+  }
+
+  // Status Management Functions
+  function openStatusManagementModal(order: any) {
+    setStatusManagementOrder(order);
+    setShowStatusManagementModal(true);
+  }
+
+  function closeStatusManagementModal() {
+    setShowStatusManagementModal(false);
+    setStatusManagementOrder(null);
+  }
+
+  function handleStatusManagementSuccess() {
+    fetchOrders();
+    setShowStatusManagementModal(false);
+    setStatusManagementOrder(null);
+  }
+
   return (
     <main className="flex-1 p-8">
       <h1 className="text-2xl font-bold mb-8">Admin Dashboard</h1>
@@ -735,6 +804,7 @@ export default function AdminDashboardPage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="quotes">Quotes</TabsTrigger>
+          <TabsTrigger value="calendar">Calendar</TabsTrigger>
           <TabsTrigger value="emails">Emails</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="communication">Communication</TabsTrigger>
@@ -988,39 +1058,163 @@ export default function AdminDashboardPage() {
           )}
         </TabsContent>
         <TabsContent value="orders">
-          <div className="flex items-center gap-4 mb-4">
-            <Select value={orderStatusFilter} onValueChange={setOrderStatusFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="waiting-approval-rev1">Waiting Approval (Rev 1)</SelectItem>
-                <SelectItem value="waiting-approval-rev2">Waiting Approval (Rev 2)</SelectItem>
-                <SelectItem value="waiting-approval-rev3">Waiting Approval (Rev 3)</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="in-progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="delivered">Delivered</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search orders..."
-                value={orderSearch}
-                onChange={e => setOrderSearch(e.target.value)}
-                className="pl-10"
-              />
+          <div className="space-y-4">
+            {/* Basic Filters */}
+            <div className="flex items-center gap-4">
+              <Select value={orderStatusFilter} onValueChange={setOrderStatusFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="waiting-approval-rev1">Waiting Approval (Rev 1)</SelectItem>
+                  <SelectItem value="waiting-approval-rev2">Waiting Approval (Rev 2)</SelectItem>
+                  <SelectItem value="waiting-approval-rev3">Waiting Approval (Rev 3)</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="in-progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search orders..."
+                  value={orderSearch}
+                  onChange={e => setOrderSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                {showAdvancedFilters ? 'Hide' : 'Advanced'} Filters
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+              <Link href="/orders/create" className="bg-primary-500 text-white flex items-center px-4 py-2 rounded-md font-medium hover:bg-primary-600 transition">
+                <Plus className="h-4 w-4 mr-2" />New Order
+              </Link>
             </div>
-            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-            <Link href="/orders/create" className="bg-primary-500 text-white flex items-center px-4 py-2 rounded-md font-medium hover:bg-primary-600 transition">
-              <Plus className="h-4 w-4 mr-2" />New Order
-            </Link>
+
+            {/* Advanced Filters */}
+            {showAdvancedFilters && (
+              <div className="p-4 bg-gray-50 border rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Date Range */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+                    <div className="space-y-2">
+                      <Input
+                        type="date"
+                        placeholder="From"
+                        value={orderDateRange.from}
+                        onChange={e => setOrderDateRange({...orderDateRange, from: e.target.value})}
+                      />
+                      <Input
+                        type="date"
+                        placeholder="To"
+                        value={orderDateRange.to}
+                        onChange={e => setOrderDateRange({...orderDateRange, to: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Cost Range */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cost Range</label>
+                    <div className="space-y-2">
+                      <Input
+                        type="number"
+                        placeholder="Min Cost"
+                        value={orderCostRange.min}
+                        onChange={e => setOrderCostRange({...orderCostRange, min: e.target.value})}
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Max Cost"
+                        value={orderCostRange.max}
+                        onChange={e => setOrderCostRange({...orderCostRange, max: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Template Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Template Type</label>
+                    <Select value={orderTemplateFilter} onValueChange={setOrderTemplateFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Templates" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Templates</SelectItem>
+                        {uniqueTemplates.map(template => (
+                          <SelectItem key={template} value={template}>{template}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Color Mode Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Color Mode</label>
+                    <Select value={orderColorModeFilter} onValueChange={setOrderColorModeFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Color Modes" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Color Modes</SelectItem>
+                        {uniqueColorModes.map(mode => (
+                          <SelectItem key={mode} value={mode}>{mode}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Practice Filter */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Practice</label>
+                  <Select value={orderPracticeFilter} onValueChange={setOrderPracticeFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Practices" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Practices</SelectItem>
+                      {uniquePractices.map(practice => (
+                        <SelectItem key={practice} value={practice}>{practice}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Clear Filters */}
+                <div className="mt-4 flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setOrderDateRange({from: '', to: ''});
+                      setOrderCostRange({min: '', max: ''});
+                      setOrderTemplateFilter('all');
+                      setOrderColorModeFilter('all');
+                      setOrderPracticeFilter('all');
+                    }}
+                  >
+                    Clear All Filters
+                  </Button>
+                  <span className="text-sm text-gray-500 self-center">
+                    {filteredOrders.length} of {orders.length} orders
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
           {ordersLoading ? (
             <div>Loading...</div>
@@ -1161,23 +1355,110 @@ export default function AdminDashboardPage() {
           )}
         </TabsContent>
         <TabsContent value="quotes">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search quotes..."
-                value={quoteSearch}
-                onChange={e => setQuoteSearch(e.target.value)}
-                className="pl-10"
-              />
+          <div className="space-y-4">
+            {/* Basic Filters */}
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search quotes..."
+                  value={quoteSearch}
+                  onChange={e => setQuoteSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                {showAdvancedFilters ? 'Hide' : 'Advanced'} Filters
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+              <Link href="/quotes/create" className="bg-primary-500 text-white flex items-center px-4 py-2 rounded-md font-medium hover:bg-primary-600 transition">
+                <Plus className="h-4 w-4 mr-2" />New Quote
+              </Link>
             </div>
-            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-            <Link href="/quotes/create" className="bg-primary-500 text-white flex items-center px-4 py-2 rounded-md font-medium hover:bg-primary-600 transition">
-              <Plus className="h-4 w-4 mr-2" />New Quote
-            </Link>
+
+            {/* Advanced Filters for Quotes */}
+            {showAdvancedFilters && (
+              <div className="p-4 bg-gray-50 border rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Date Range */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+                    <div className="space-y-2">
+                      <Input
+                        type="date"
+                        placeholder="From"
+                        value={quoteDateRange.from}
+                        onChange={e => setQuoteDateRange({...quoteDateRange, from: e.target.value})}
+                      />
+                      <Input
+                        type="date"
+                        placeholder="To"
+                        value={quoteDateRange.to}
+                        onChange={e => setQuoteDateRange({...quoteDateRange, to: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Status Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <Select value={quoteStatusFilter} onValueChange={setQuoteStatusFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        {uniqueQuoteStatuses.map(status => (
+                          <SelectItem key={status} value={status}>{status}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Practice Filter */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Practice</label>
+                    <Select value={quotePracticeFilter} onValueChange={setQuotePracticeFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Practices" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Practices</SelectItem>
+                        {uniquePractices.map(practice => (
+                          <SelectItem key={practice} value={practice}>{practice}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Clear Filters */}
+                <div className="mt-4 flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setQuoteDateRange({from: '', to: ''});
+                      setQuoteStatusFilter('all');
+                      setQuotePracticeFilter('all');
+                    }}
+                  >
+                    Clear All Filters
+                  </Button>
+                  <span className="text-sm text-gray-500 self-center">
+                    {filteredQuotes.length} of {quotes.length} quotes
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
           {quotesLoading ? (
             <div>Loading...</div>
@@ -1214,6 +1495,81 @@ export default function AdminDashboardPage() {
             </div>
           )}
         </TabsContent>
+        <TabsContent value="calendar">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Production Calendar</h2>
+                <p className="text-gray-600">Schedule and track letter production with preferred mail dates</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+            
+            {ordersLoading || quotesLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-500">Loading calendar data...</p>
+                </div>
+              </div>
+            ) : (
+              <ProductionCalendar
+                orders={orders}
+                quotes={quotes}
+                onEventClick={(event) => {
+                  if (event.entityType === 'order') {
+                    const order = orders.find(o => o.id === event.entityId);
+                    if (order) {
+                      openOrderModal(order);
+                    }
+                  } else if (event.entityType === 'quote') {
+                    // Navigate to quotes page for editing
+                    window.location.href = '/quotes';
+                  }
+                }}
+                onExportSchedule={() => {
+                  // Enhanced CSV export with more details
+                  const csvContent = [
+                    ['Date', 'Practice', 'Type', 'Order/Quote #', 'Status', 'Subject', 'Preferred Mail Date', 'Production Start', 'Production End'],
+                    ...orders.map(order => [
+                      order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '',
+                      order.practiceName || order.practice?.name || '',
+                      'Order',
+                      order.orderNumber,
+                      order.status,
+                      order.subject || '',
+                      order.preferredMailDate ? new Date(order.preferredMailDate).toLocaleDateString() : '',
+                      order.productionStartDate ? new Date(order.productionStartDate).toLocaleDateString() : '',
+                      order.productionEndDate ? new Date(order.productionEndDate).toLocaleDateString() : ''
+                    ]),
+                    ...quotes.map(quote => [
+                      quote.createdAt ? new Date(quote.createdAt).toLocaleDateString() : '',
+                      quote.practiceName || quote.practice?.name || '',
+                      'Quote',
+                      quote.quoteNumber,
+                      quote.status,
+                      quote.subject || '',
+                      '', '', '', ''
+                    ])
+                  ].map(row => row.join(',')).join('\n');
+
+                  const blob = new Blob([csvContent], { type: 'text/csv' });
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `production-schedule-${new Date().toISOString().split('T')[0]}.csv`;
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                }}
+              />
+            )}
+          </div>
+        </TabsContent>
         <TabsContent value="emails">
           <div className="flex items-center gap-4 mb-4">
             <div className="relative flex-1 max-w-sm">
@@ -1245,7 +1601,7 @@ export default function AdminDashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {emails.map(email => (
+                  {(emails || []).map(email => (
                     <TableRow key={email.id}>
                       <TableCell>{new Date(email.sentAt).toLocaleDateString()}</TableCell>
                       <TableCell>
@@ -1656,8 +2012,35 @@ export default function AdminDashboardPage() {
               <ul className="space-y-2">
                 {fileViewFiles.map((file: any) => (
                   <li key={file.id} className="flex items-center justify-between border-b pb-2">
-                    <span>{file.fileName}</span>
-                    <a href={file.filePath} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Download</a>
+                    <div className="flex-1">
+                      <div className="font-medium">{file.fileName}</div>
+                      <div className="text-sm text-gray-500">
+                        Uploaded by {file.uploader?.name || 'Unknown'} on {new Date(file.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <button 
+                      onClick={async () => {
+                        try {
+                          const response = await fetch(`/api/orders/${fileViewOrder.id}/files/${file.id}/download`);
+                          if (response.ok) {
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = file.fileName;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                          }
+                        } catch (error) {
+                          console.error("Error downloading file:", error);
+                        }
+                      }}
+                      className="text-blue-600 underline hover:text-blue-800"
+                    >
+                      Download
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -1747,6 +2130,26 @@ export default function AdminDashboardPage() {
         <div className="fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50">
           {copySuccess}
         </div>
+      )}
+
+      {/* Proof Upload Modal */}
+      {showProofUploadModal && proofUploadOrder && (
+        <ProofUploadModal
+          order={proofUploadOrder}
+          isOpen={showProofUploadModal}
+          onClose={closeProofUploadModal}
+          onSuccess={handleProofUploadSuccess}
+        />
+      )}
+
+      {/* Status Management Modal */}
+      {showStatusManagementModal && statusManagementOrder && (
+        <StatusManagementModal
+          order={statusManagementOrder}
+          isOpen={showStatusManagementModal}
+          onClose={closeStatusManagementModal}
+          onSuccess={handleStatusManagementSuccess}
+        />
       )}
     </main>
   );

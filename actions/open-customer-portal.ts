@@ -1,41 +1,33 @@
 "use server";
 
-import { redirect } from "next/navigation";
-import { auth } from "@/auth";
-
+import { getServerSession } from "next-auth";
+import handler from "@/auth";
 import { stripe } from "@/lib/stripe";
-import { absoluteUrl } from "@/lib/utils";
+import { prisma } from "@/lib/db";
 
-export type responseAction = {
-  status: "success" | "error";
-  stripeUrl?: string;
-};
-
-const billingUrl = absoluteUrl("/dashboard/billing");
-
-export async function openCustomerPortal(
-  userStripeId: string,
-): Promise<responseAction> {
-  let redirectUrl: string = "";
-
+export async function openCustomerPortal() {
   try {
-    const session = await auth();
+    const session = await getServerSession(handler);
 
-    if (!session?.user || !session?.user.email) {
+    if (!session?.user?.email) {
       throw new Error("Unauthorized");
     }
 
-    if (userStripeId) {
-      const stripeSession = await stripe.billingPortal.sessions.create({
-        customer: userStripeId,
-        return_url: billingUrl,
-      });
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
 
-      redirectUrl = stripeSession.url as string;
+    if (!user?.stripeCustomerId) {
+      throw new Error("No Stripe customer ID found");
     }
-  } catch (error) {
-    throw new Error("Failed to generate user stripe session");
-  }
 
-  redirect(redirectUrl);
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: user.stripeCustomerId,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/billing`,
+    });
+
+    return { url: portalSession.url };
+  } catch (error) {
+    return { error: "Error opening customer portal" };
+  }
 }

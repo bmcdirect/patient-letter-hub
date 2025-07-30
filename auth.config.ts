@@ -1,22 +1,16 @@
-import type { NextAuthConfig } from "next-auth";
 import Google from "next-auth/providers/google";
-import Resend from "next-auth/providers/resend";
 import Credentials from "next-auth/providers/credentials";
 
 import { env } from "@/env.mjs";
-import { sendVerificationRequest } from "@/lib/email";
+import { prisma } from "@/lib/db";
 
 export default {
   providers: [
-    Google({
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
-    }),
-    Resend({
-      apiKey: env.RESEND_API_KEY,
-      from: env.EMAIL_FROM,
-      // sendVerificationRequest,
-    }),
+    // Temporarily disabled to avoid OIDC errors
+    // Google({
+    //   clientId: env.GOOGLE_CLIENT_ID,
+    //   clientSecret: env.GOOGLE_CLIENT_SECRET,
+    // }),
     ...(process.env.NODE_ENV !== "production"
       ? [
           Credentials({
@@ -28,16 +22,25 @@ export default {
             async authorize(credentials) {
               // Accept any credentials for dev, or check against a test user
               if (!credentials?.email) return null;
+              
+              // Find the actual user in the database
+              const user = await prisma.user.findUnique({
+                where: { email: credentials.email },
+                include: { practice: true }
+              });
+              
+              if (!user) return null;
+              
               return {
-                id: "test-user-id",
-                name: "Test User",
-                email: String(credentials.email),
-                role: "ADMIN",
-                practiceId: "test-practice-id",
+                id: user.id,
+                name: user.name,
+                email: user.email || '',
+                role: user.role,
+                practiceId: user.practiceId,
               };
             },
           }),
         ]
       : []),
   ],
-} satisfies NextAuthConfig;
+};

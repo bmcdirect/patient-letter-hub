@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -95,31 +95,38 @@ export default function CreateOrderPage() {
     }
   }, [practice, form]);
 
-  // Watch form values and update cost breakdown
-  const watchedValues = form.watch();
+  // Track form values locally to avoid infinite re-renders
+  const [colorMode, setColorMode] = useState("color");
+  const [dataCleansing, setDataCleansing] = useState(false);
+  const [ncoaUpdate, setNcoaUpdate] = useState(false);
+  const [firstClassPostage, setFirstClassPostage] = useState(false);
+  const [actualRecipients, setActualRecipients] = useState(0);
+
+  // Calculate cost breakdown based on local state
   useEffect(() => {
-    if (watchedValues.actualRecipients > 0) {
+    if (actualRecipients > 0) {
       const breakdown = getCostBreakdown({
-        estimatedRecipients: watchedValues.actualRecipients,
-        colorMode: watchedValues.colorMode,
-        dataCleansing: watchedValues.dataCleansing,
-        ncoaUpdate: watchedValues.ncoaUpdate,
-        firstClassPostage: watchedValues.firstClassPostage,
+        estimatedRecipients: actualRecipients,
+        colorMode: colorMode,
+        dataCleansing: dataCleansing,
+        ncoaUpdate: ncoaUpdate,
+        firstClassPostage: firstClassPostage,
       });
       setCostBreakdown(breakdown);
       form.setValue("totalCost", breakdown.totalCost);
     }
-  }, [watchedValues, form]);
+  }, [actualRecipients, colorMode, dataCleansing, ncoaUpdate, firstClassPostage, form]);
 
   // Handle recipient count from data file
-  const handleRecipientCountChange = (count: number) => {
+  const handleRecipientCountChange = useCallback((count: number) => {
+    setActualRecipients(count);
     form.setValue("actualRecipients", count);
-  };
+  }, [form]);
 
   // Handle file changes from FileUploadComponent
-  const handleFilesChange = (files: Record<string, UploadedFile | null>) => {
+  const handleFilesChange = useCallback((files: Record<string, UploadedFile | null>) => {
     setUploadedFiles(files);
-  };
+  }, []);
 
   // Handle practice selection and customer number auto-generation
   const handlePracticeChange = (practiceId: string) => {
@@ -127,6 +134,27 @@ export default function CreateOrderPage() {
     // Auto-generate customer number (simple example)
     form.setValue("customerNumber", `${practiceId.padStart(3, '0')}-${Date.now().toString().slice(-4)}`);
   };
+
+  // Memoized handlers for form controls
+  const handleColorModeChange = useCallback((val: string) => {
+    setColorMode(val as "color" | "bw");
+    form.setValue("colorMode", val as "color" | "bw");
+  }, [form]);
+
+  const handleDataCleansingChange = useCallback((val: boolean) => {
+    setDataCleansing(val);
+    form.setValue("dataCleansing", val);
+  }, [form]);
+
+  const handleNcoaUpdateChange = useCallback((val: boolean) => {
+    setNcoaUpdate(val);
+    form.setValue("ncoaUpdate", val);
+  }, [form]);
+
+  const handleFirstClassPostageChange = useCallback((val: boolean) => {
+    setFirstClassPostage(val);
+    form.setValue("firstClassPostage", val);
+  }, [form]);
 
   const onSubmit = async (data: OrderFormData) => {
     try {
@@ -240,11 +268,11 @@ export default function CreateOrderPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
                 <Label>Print Options</Label>
-                <RadioGroup
-                  value={form.watch("colorMode")}
-                  onValueChange={val => form.setValue("colorMode", val as "color" | "bw")}
-                  className="flex gap-4 mt-2"
-                >
+                                 <RadioGroup
+                   value={colorMode}
+                   onValueChange={handleColorModeChange}
+                   className="flex gap-4 mt-2"
+                 >
                   <div className="flex items-center gap-2">
                     <RadioGroupItem value="color" id="color-mode" />
                     <Label htmlFor="color-mode">Color Printing ($0.65 per piece)</Label>
@@ -258,18 +286,30 @@ export default function CreateOrderPage() {
               <div>
                 <Label>Additional Services</Label>
                 <div className="flex flex-col gap-2 mt-2">
-                  <div className="flex items-center gap-2">
-                    <Checkbox id="dataCleansing" checked={form.watch("dataCleansing")} onCheckedChange={val => form.setValue("dataCleansing", !!val)} />
-                    <Label htmlFor="dataCleansing">Data Cleansing (+$25 flat fee)</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox id="ncoaUpdate" checked={form.watch("ncoaUpdate")} onCheckedChange={val => form.setValue("ncoaUpdate", !!val)} />
-                    <Label htmlFor="ncoaUpdate">NCOA Address Update (+$50 flat fee)</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox id="firstClassPostage" checked={form.watch("firstClassPostage")} onCheckedChange={val => form.setValue("firstClassPostage", !!val)} />
-                    <Label htmlFor="firstClassPostage">First Class Postage (+$0.68 per piece)</Label>
-                  </div>
+                                     <div className="flex items-center gap-2">
+                     <Checkbox 
+                       id="dataCleansing" 
+                       checked={dataCleansing} 
+                       onCheckedChange={handleDataCleansingChange} 
+                     />
+                     <Label htmlFor="dataCleansing">Data Cleansing (+$25 flat fee)</Label>
+                   </div>
+                   <div className="flex items-center gap-2">
+                     <Checkbox 
+                       id="ncoaUpdate" 
+                       checked={ncoaUpdate} 
+                       onCheckedChange={handleNcoaUpdateChange} 
+                     />
+                     <Label htmlFor="ncoaUpdate">NCOA Address Update (+$50 flat fee)</Label>
+                   </div>
+                   <div className="flex items-center gap-2">
+                     <Checkbox 
+                       id="firstClassPostage" 
+                       checked={firstClassPostage} 
+                       onCheckedChange={handleFirstClassPostageChange} 
+                     />
+                     <Label htmlFor="firstClassPostage">First Class Postage (+$0.68 per piece)</Label>
+                   </div>
                 </div>
               </div>
             </div>
@@ -315,7 +355,7 @@ export default function CreateOrderPage() {
                       </div>
                     </div>
                     <div className="mt-3 text-xs text-gray-600">
-                      * Based on {watchedValues.actualRecipients} recipients from data file
+                      * Based on {actualRecipients} recipients from data file
                     </div>
                   </div>
                 </CardContent>
