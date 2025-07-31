@@ -3,6 +3,8 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
+    // Clerk configuration
+    CLERK_SECRET_KEY: z.string().min(1),
     // This is optional because it's only used in development.
     // See https://next-auth.js.org/deployment.
     NEXTAUTH_URL: z.string().url().optional(),
@@ -17,6 +19,9 @@ export const env = createEnv({
     STRIPE_WEBHOOK_SECRET: z.string().min(1),
   },
   client: {
+    // Feature flag for authentication system (client-side accessible)
+    USE_CLERK: z.string().optional().default("false"),
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1),
     NEXT_PUBLIC_APP_URL: z.string().min(1),
     NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PLAN_ID: z.string().min(1),
     NEXT_PUBLIC_STRIPE_PRO_YEARLY_PLAN_ID: z.string().min(1),
@@ -24,6 +29,9 @@ export const env = createEnv({
     NEXT_PUBLIC_STRIPE_BUSINESS_YEARLY_PLAN_ID: z.string().min(1),
   },
   runtimeEnv: {
+    USE_CLERK: process.env.USE_CLERK,
+    CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     AUTH_SECRET: process.env.AUTH_SECRET,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
