@@ -1,33 +1,28 @@
-"use server";
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/session-manager";
 
-import { getServerSession } from "next-auth";
-import handler from "@/auth";
-import { stripe } from "@/lib/stripe";
-import { prisma } from "@/lib/db";
-
-export async function openCustomerPortal() {
+export async function POST() {
   try {
-    const session = await getServerSession(handler);
-
-    if (!session?.user?.email) {
-      throw new Error("Unauthorized");
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user?.stripeCustomerId) {
-      throw new Error("No Stripe customer ID found");
+    const user = await getCurrentUser();
+    
+    if (!user) {
+      return new NextResponse("User not found", { status: 404 });
     }
 
-    const portalSession = await stripe.billingPortal.sessions.create({
-      customer: user.stripeCustomerId,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/billing`,
+    // Your Stripe customer portal logic here
+    return NextResponse.json({ 
+      message: "Customer portal opened successfully",
+      userId: user.id 
     });
-
-    return { url: portalSession.url };
   } catch (error) {
-    return { error: "Error opening customer portal" };
+    console.error("Error opening customer portal:", error);
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

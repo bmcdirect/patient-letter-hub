@@ -1,13 +1,9 @@
 "use client";
 
-import { SessionProvider } from "next-auth/react";
 import { ClerkProvider } from "@clerk/nextjs";
-import { ThemeProvider } from "next-themes";
-import { Toaster } from "@/components/ui/sonner";
-import { Analytics } from "@/components/analytics";
-import ModalProvider from "@/components/modals/providers";
-import { TailwindIndicator } from "@/components/tailwind-indicator";
 import { AUTH_CONFIG } from "@/lib/auth-config.client";
+import { ThemeProvider } from "next-themes";
+import { Toaster } from "sonner";
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -16,35 +12,45 @@ interface ProvidersProps {
 export default function Providers({ children }: ProvidersProps) {
   if (AUTH_CONFIG.useClerk) {
     return (
-      <ClerkProvider>
+      <ClerkProvider
+        publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+        appearance={{
+          elements: {
+            formButtonPrimary: "bg-primary text-primary-foreground hover:bg-primary/90",
+            card: "bg-card text-card-foreground",
+            headerTitle: "text-foreground",
+            headerSubtitle: "text-muted-foreground",
+            socialButtonsBlockButton: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+            formFieldInput: "bg-background text-foreground border border-input",
+            formFieldLabel: "text-foreground",
+            footerActionLink: "text-primary hover:text-primary/90",
+          },
+        }}
+        forceRedirectUrl="/dashboard"
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
-          <ModalProvider>{children}</ModalProvider>
-          <Analytics />
-          <Toaster richColors closeButton />
-          <TailwindIndicator />
+          {children}
+          <Toaster />
         </ThemeProvider>
       </ClerkProvider>
     );
   }
 
+  // Fallback for non-Clerk mode (shouldn't be used anymore)
   return (
-    <SessionProvider>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-      >
-        <ModalProvider>{children}</ModalProvider>
-        <Analytics />
-        <Toaster richColors closeButton />
-        <TailwindIndicator />
-      </ThemeProvider>
-    </SessionProvider>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
+      {children}
+      <Toaster />
+    </ThemeProvider>
   );
 } 

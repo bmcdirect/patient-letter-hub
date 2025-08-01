@@ -1,32 +1,28 @@
-import { redirect } from "next/navigation";
-import { UserRole } from "@prisma/client";
-
-import { getCurrentUser } from "@/lib/session";
 import { constructMetadata } from "@/lib/utils";
-import { DeleteAccountSection } from "@/components/dashboard/delete-account";
+import { getCurrentUser, getAuthUrls } from "@/lib/session-manager";
+import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/header";
-import { UserNameForm } from "@/components/forms/user-name-form";
-import { UserRoleForm } from "@/components/forms/user-role-form";
+import { DeleteAccount } from "@/components/dashboard/delete-account";
 
 export const metadata = constructMetadata({
-  title: "Settings – SaaS Starter",
-  description: "Configure your account and website settings.",
+  title: "Settings – SaaS Starter",
+  description: "Manage your account settings.",
 });
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
-  if (!user?.id) redirect("/login");
+  const authUrls = getAuthUrls();
+  
+  if (!user?.id) redirect(authUrls.loginUrl);
 
   return (
     <>
       <DashboardHeader
         heading="Settings"
-        text="Manage account and website settings."
+        text="Manage your account settings and preferences."
       />
-      <div className="divide-y divide-muted pb-10">
-        <UserNameForm user={{ id: user.id, name: user.name || "" }} />
-        <UserRoleForm user={{ id: user.id, role: user.role }} />
-        <DeleteAccountSection />
+      <div className="grid gap-8">
+        <DeleteAccount />
       </div>
     </>
   );

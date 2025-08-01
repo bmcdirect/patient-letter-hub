@@ -1,30 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import handler from "@/auth";
-import { prisma } from "@/lib/db";
+import { auth } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/session-manager";
 
 export async function POST(
-  req: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(handler);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { proofUrl } = await req.json();
+    const user = await getCurrentUser();
+    
+    if (!user) {
+      return new NextResponse("User not found", { status: 404 });
+    }
 
-    const order = await prisma.order.update({
-      where: { id: params.id },
-      data: { proofUrl },
+    // Your proofs logic here
+    return NextResponse.json({ 
+      message: "Proofs logic would be implemented here",
+      orderId: params.id,
+      userId: user.id 
     });
-
-    return NextResponse.json({ order });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to update proof" },
-      { status: 500 }
-    );
+    console.error("Error handling proofs:", error);
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 } 

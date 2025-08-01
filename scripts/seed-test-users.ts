@@ -1,21 +1,20 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting test data seeding...');
-
-  // Clear existing test data (but preserve orders/quotes)
-  console.log('🧹 Clearing existing test users and practices...');
+  console.log('🧹 Clearing existing test data...');
+  
+  // Clear existing test users and practices
   await prisma.user.deleteMany({
     where: {
       email: {
         in: [
-          'admin@test.com',
-          'admin1@practice1.com',
-          'user1@practice1.com',
-          'admin2@practice2.com',
-          'user2@practice2.com'
+          'admin@yourdomain.com',
+          'admin1@yourdomain.com',
+          'user1@yourdomain.com',
+          'admin2@yourdomain.com',
+          'user2@yourdomain.com'
         ]
       }
     }
@@ -24,109 +23,115 @@ async function main() {
   await prisma.practice.deleteMany({
     where: {
       name: {
-        in: [
-          'Test Practice 1',
-          'Test Practice 2'
-        ]
+        in: ['Test Practice 1', 'Test Practice 2']
       }
     }
   });
 
-  // Create Test Practice 1
-  console.log('🏥 Creating Test Practice 1...');
+  console.log('✅ Test data cleared');
+
+  // Create test practices
   const practice1 = await prisma.practice.create({
     data: {
       name: 'Test Practice 1',
-      address: '123 Healthcare Ave, Medical City, MC 12345',
+      address: '123 Test Street, Test City, TC 12345',
       phone: '(555) 123-4567',
-      email: 'info@practice1.com'
+      email: 'practice1@test.com'
     }
   });
 
-  // Create Test Practice 2
-  console.log('🏥 Creating Test Practice 2...');
   const practice2 = await prisma.practice.create({
     data: {
       name: 'Test Practice 2',
-      address: '456 Wellness Blvd, Health Town, HT 67890',
+      address: '456 Test Avenue, Test Town, TT 67890',
       phone: '(555) 987-6543',
-      email: 'info@practice2.com'
+      email: 'practice2@test.com'
     }
   });
 
-  // Create Super Admin User (no practice - can access all)
-  console.log('👑 Creating Super Admin...');
-  const superAdmin = await prisma.user.create({
-    data: {
+  console.log('✅ Test practices created');
+
+  // Create test users with real email addresses
+  const users = [
+    {
+      email: 'admin@yourdomain.com', // Replace with your actual email
       name: 'Super Admin',
-      email: 'admin@test.com',
-      role: UserRole.ADMIN,
-      practiceId: practice1.id, // Temporary assignment, will be handled in auth logic
-    }
-  });
-
-  // Create Practice 1 Admin
-  console.log('👨‍⚕️ Creating Practice 1 Admin...');
-  const practice1Admin = await prisma.user.create({
-    data: {
-      name: 'Dr. Smith (Admin)',
-      email: 'admin1@practice1.com',
-      role: UserRole.ADMIN,
+      role: 'ADMIN' as const,
+      practiceId: undefined, // Super Admin has no practice assignment - can see all orders
+    },
+    {
+      email: 'admin1@yourdomain.com', // Replace with your actual email
+      name: 'Practice 1 Admin',
+      role: 'ADMIN' as const,
       practiceId: practice1.id,
-    }
-  });
-
-  // Create Practice 1 User
-  console.log('👩‍⚕️ Creating Practice 1 User...');
-  const practice1User = await prisma.user.create({
-    data: {
-      name: 'Nurse Johnson',
-      email: 'user1@practice1.com',
-      role: UserRole.USER,
+    },
+    {
+      email: 'user1@yourdomain.com', // Replace with your actual email
+      name: 'Practice 1 User',
+      role: 'USER' as const,
       practiceId: practice1.id,
-    }
-  });
-
-  // Create Practice 2 Admin
-  console.log('👨‍⚕️ Creating Practice 2 Admin...');
-  const practice2Admin = await prisma.user.create({
-    data: {
-      name: 'Dr. Jones (Admin)',
-      email: 'admin2@practice2.com',
-      role: UserRole.ADMIN,
+    },
+    {
+      email: 'admin2@yourdomain.com', // Replace with your actual email
+      name: 'Practice 2 Admin',
+      role: 'ADMIN' as const,
+      practiceId: practice2.id,
+    },
+    {
+      email: 'user2@yourdomain.com', // Replace with your actual email
+      name: 'Practice 2 User',
+      role: 'USER' as const,
       practiceId: practice2.id,
     }
-  });
+  ];
 
-  // Create Practice 2 User
-  console.log('👩‍⚕️ Creating Practice 2 User...');
-  const practice2User = await prisma.user.create({
-    data: {
-      name: 'Nurse Williams',
-      email: 'user2@practice2.com',
-      role: UserRole.USER,
-      practiceId: practice2.id,
+  for (const userData of users) {
+    const userCreateData: any = {
+      email: userData.email,
+      name: userData.name,
+      role: userData.role,
+    };
+    
+    if (userData.practiceId) {
+      userCreateData.practiceId = userData.practiceId;
     }
+    
+    await prisma.user.create({
+      data: userCreateData
+    });
+  }
+
+  console.log('✅ Test users created');
+  console.log('\n📋 Test User Credentials:');
+  console.log('========================');
+  
+  users.forEach(user => {
+    console.log(`Email: ${user.email}`);
+    console.log(`Password: Create in Clerk dashboard or use secure password`);
+    console.log(`Role: ${user.role}`);
+    if (user.practiceId === null) {
+      console.log(`Practice: Super Admin (No Practice - Can See All Orders)`);
+    } else {
+      console.log(`Practice: ${user.practiceId === practice1.id ? 'Practice 1' : 'Practice 2'}`);
+    }
+    console.log('---');
   });
 
-  console.log('✅ Test data seeding completed!');
-  console.log('\n📋 Test Users Created:');
-  console.log('┌─────────────────────┬─────────────────────┬─────────┬─────────────┐');
-  console.log('│ Email               │ Name                │ Role    │ Practice    │');
-  console.log('├─────────────────────┼─────────────────────┼─────────┼─────────────┤');
-  console.log(`│ admin@test.com      │ Super Admin         │ ADMIN   │ All         │`);
-  console.log(`│ admin1@practice1.com│ Dr. Smith (Admin)   │ ADMIN   │ Practice 1  │`);
-  console.log(`│ user1@practice1.com │ Nurse Johnson       │ USER    │ Practice 1  │`);
-  console.log(`│ admin2@practice2.com│ Dr. Jones (Admin)   │ ADMIN   │ Practice 2  │`);
-  console.log(`│ user2@practice2.com │ Nurse Williams      │ USER    │ Practice 2  │`);
-  console.log('└─────────────────────┴─────────────────────┴─────────┴─────────────┘');
-  console.log('\n🔑 Password for all users: password123');
-  console.log('\n🧪 Testing Scenarios:');
-  console.log('• Login as admin@test.com → Super admin with access to all practices');
-  console.log('• Login as admin1@practice1.com → Practice 1 admin');
-  console.log('• Login as user1@practice1.com → Practice 1 regular user');
-  console.log('• Login as admin2@practice2.com → Practice 2 admin');
-  console.log('• Login as user2@practice2.com → Practice 2 regular user');
+  console.log('\n🎯 Testing Scenarios:');
+  console.log('===================');
+  console.log('1. Super Admin (admin@yourdomain.com) - No practice, can see ALL orders from all practices');
+  console.log('2. Practice-specific admins - Can approve orders for their practice only');
+  console.log('3. Practice-specific users - Can create orders but not approve');
+  console.log('4. Multi-tenant isolation - Practice users only see their practice data');
+  console.log('\n📝 Note: Passwords are managed by Clerk, not stored in database');
+  console.log('   Create users in Clerk dashboard or use secure passwords during sign-up');
+  console.log('\n🔒 Super Admin Security:');
+  console.log('   - Super Admin should only be created via back-office tools');
+  console.log('   - Cannot be created via normal Clerk sign-up process');
+  console.log('\n📧 Email Setup:');
+  console.log('   - Replace @yourdomain.com with your actual email domain');
+  console.log('   - Create users in Clerk dashboard with these exact email addresses');
+  console.log('   - Passwords are managed by Clerk, not stored in database');
 }
 
 main()

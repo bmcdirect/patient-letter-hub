@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { sidebarLinks } from "@/config/dashboard";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session-manager";
+import { getAuthUrls } from "@/lib/session-manager";
 import { SearchCommand } from "@/components/dashboard/search-command";
 import {
   DashboardSidebar,
@@ -17,7 +18,9 @@ interface ProtectedLayoutProps {
 
 export default async function Dashboard({ children }: ProtectedLayoutProps) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const authUrls = getAuthUrls();
+  
+  if (!user) redirect(authUrls.loginUrl);
 
   const filteredLinks = sidebarLinks.map((section) => ({
     ...section,

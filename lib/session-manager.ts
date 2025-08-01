@@ -1,65 +1,92 @@
 import { AUTH_CONFIG } from './auth-config';
-import { getCurrentUser as getNextAuthUser } from './session';
 import { prisma } from './db';
 import { auth } from '@clerk/nextjs/server';
+import { clerkClient } from '@clerk/nextjs/server';
 
 export async function getCurrentUser() {
-  if (AUTH_CONFIG.useClerk) {
-    try {
-      // Use Clerk session management
-      const { userId } = auth();
-      console.log('🔧 Clerk session check:', { userId });
-      
-      if (!userId) {
-        console.log('❌ No Clerk user ID found');
-        return null;
-      }
-      
-      // Get user from database using clerkId
-      const user = await prisma.user.findUnique({
-        where: { clerkId: userId },
-        include: { practice: true }
-      });
-      
-      if (user) {
-        console.log('✅ Clerk user found in database:', { 
-          id: user.id, 
-          email: user.email, 
-          role: user.role 
-        });
-        return user;
-      } else {
-        console.log('❌ Clerk user not found in database, creating placeholder user');
-        // For testing, create a placeholder user
-        const placeholderUser = await prisma.user.create({
-          data: {
-            clerkId: userId,
-            email: `clerk-${userId}@example.com`,
-            name: 'Clerk User',
-            role: 'USER',
-            practiceId: 'default-practice-id', // This will need to be handled properly
-          },
-          include: { practice: true }
-        });
-        
-        console.log('✅ Created placeholder Clerk user:', { 
-          id: placeholderUser.id, 
-          email: placeholderUser.email 
-        });
-        return placeholderUser;
-      }
-    } catch (error) {
-      console.error('❌ Clerk session error:', error);
+  try {
+    console.log('🔧 Starting Clerk session check...');
+
+    const { userId } = auth();
+    console.log('🔧 Clerk userId:', userId);
+
+    if (!userId) {
+      console.log('❌ No Clerk user ID found - user not authenticated');
       return null;
     }
-  } else {
-    // Use existing NextAuth session management
-    return await getNextAuthUser();
+
+    // 1. Try to find user in your DB by clerkId
+    let user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      include: { practice: true }
+    });
+
+    if (user) {
+      console.log('✅ Found user by clerkId:', user.email);
+      return user;
+    }
+
+    // 2. If not found by clerkId, fetch user from Clerk
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const clerkEmail = clerkUser.emailAddresses[0]?.emailAddress;
+
+    console.log('🔧 Clerk user data:', {
+      id: clerkUser.id,
+      email: clerkEmail,
+      firstName: clerkUser.firstName,
+      lastName: clerkUser.lastName
+    });
+
+    if (!clerkEmail) {
+      console.log('❌ No email found in Clerk user');
+      return null;
+    }
+
+    // 3. Try to find existing user by email (for linking existing accounts)
+    user = await prisma.user.findUnique({
+      where: { email: clerkEmail },
+      include: { practice: true }
+    });
+
+    if (user) {
+      // 4. Link existing Prisma user to Clerk
+      console.log('🔗 Linking existing Prisma user to Clerk:', user.email);
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { clerkId: userId },
+        include: { practice: true }
+      });
+      console.log('✅ Successfully linked user to Clerk');
+      return user;
+    }
+
+    // 5. Create new user if not found anywhere
+    console.log('🆕 Creating new user from Clerk data');
+    user = await prisma.user.create({
+      data: {
+        clerkId: userId,
+        email: clerkEmail,
+        name: `${clerkUser.firstName ?? ""} ${clerkUser.lastName ?? ""}`.trim() || clerkEmail,
+        role: "USER", // Default role
+        // practiceId will be null - needs to be assigned by admin
+      },
+      include: { practice: true }
+    });
+
+    console.log('✅ Created new user:', user.email);
+    return user;
+
+  } catch (error) {
+    console.error('❌ Error in getCurrentUser:', error);
+    return null;
   }
 }
 
 export function getAuthUrls() {
-  return AUTH_CONFIG.useClerk ? AUTH_CONFIG.clerk : AUTH_CONFIG.nextAuth;
+  return {
+    loginUrl: "/sign-in",
+    signUpUrl: "/sign-up",
+  };
 }
 
 export function shouldUseClerk() {

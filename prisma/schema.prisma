@@ -86,8 +86,8 @@ model User {
   stripePriceId          String?   @map(name: "stripe_price_id")
   stripeCurrentPeriodEnd DateTime? @map(name: "stripe_current_period_end")
 
-  practiceId String
-  practice   Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  practiceId String?  // Made optional for Super Admins
+  practice   Practice? @relation(fields: [practiceId], references: [id], onDelete: Cascade)  // Made optional
 
   orders         Orders[]         @relation("UserOrders")
   uploadedFiles  OrderFiles[]     @relation("UserUploadedFiles")

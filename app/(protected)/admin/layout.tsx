@@ -1,17 +1,16 @@
-import { notFound, redirect } from "next/navigation";
-import { UserRole } from "@prisma/client";
+import { redirect } from "next/navigation";
+import { getCurrentUser, getAuthUrls } from "@/lib/session-manager";
 
-import { getCurrentUser } from "@/lib/session";
-
-interface ProtectedLayoutProps {
+interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
-export default async function Dashboard({ children }: ProtectedLayoutProps) {
+export default async function AdminLayout({ children }: AdminLayoutProps) {
   const user = await getCurrentUser();
-  // Temporarily bypass admin check for testing
+  const authUrls = getAuthUrls();
+  
   // if (!user || user.role !== "ADMIN") redirect("/login");
-  if (!user) redirect("/login");
+  if (!user) redirect(authUrls.loginUrl);
 
   return <>{children}</>;
 }

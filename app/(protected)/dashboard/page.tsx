@@ -4,17 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, FileText, Package, Users, TrendingUp, Clock } from "lucide-react";
 import { DashboardHeader } from "@/components/dashboard/header";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser, getAuthUrls } from "@/lib/session-manager";
 import { redirect } from "next/navigation";
 
 export const metadata = constructMetadata({
-  title: "Dashboard – SaaS Starter",
+  title: "Dashboard – SaaS Starter",
   description: "Create and manage content.",
 });
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  console.log("🔥 Prisma-side user loaded:", user);
+  
+  const authUrls = getAuthUrls();
+  if (!user) redirect(authUrls.loginUrl);
 
   // TODO: Replace with real stats from API
   const stats = {
@@ -28,10 +31,10 @@ export default async function DashboardPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Welcome, {user.firstName || user.name || user.email}!
+          Welcome, {user.name || user.email}!
         </h2>
         <p className="text-gray-600">
-          Managing communications for {user.practiceName || user.email}
+          Managing communications for {user.practice?.name || user.email}
         </p>
       </div>
 
