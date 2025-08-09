@@ -52,18 +52,6 @@ export default function QuoteCreatePage() {
   const [initialLoading, setInitialLoading] = useState(isEditing);
   const [practice, setPractice] = useState<any>(null);
 
-  useEffect(() => {
-    async function fetchPractice() {
-      const res = await fetch("/api/user");
-      const userData = await res.json();
-      if (userData.user?.practiceId) {
-        const practiceRes = await fetch(`/api/practices/${userData.user.practiceId}`);
-        setPractice(await practiceRes.json());
-      }
-    }
-    fetchPractice();
-  }, []);
-
   const form = useForm<QuoteFormData>({
     resolver: zodResolver(quoteSchema),
     defaultValues: {
@@ -76,17 +64,64 @@ export default function QuoteCreatePage() {
   });
 
   useEffect(() => {
+    async function fetchPractice() {
+      const res = await fetch("/api/user");
+      const userData = await res.json();
+      if (userData.user?.practiceId) {
+        const practiceRes = await fetch(`/api/practices/${userData.user.practiceId}`);
+        const practiceData = await practiceRes.json();
+        setPractice(practiceData);
+      }
+    }
+    fetchPractice();
+  }, []);
+
+  // Set practiceId in form when practice is loaded
+  useEffect(() => {
+    if (practice && practice.id) {
+      form.setValue("practiceId", practice.id);
+    }
+  }, [practice, form]);
+
+  // Set practiceId when practices are loaded and user has a practice
+  useEffect(() => {
+    if (practice && practice.id && practices.length > 0) {
+      const userPractice = practices.find((p: any) => p.id === practice.id);
+      if (userPractice) {
+        form.setValue("practiceId", userPractice.id);
+      }
+    }
+  }, [practice, practices, form]);
+
+  useEffect(() => {
     async function fetchPractices() {
       setLoading(true);
-      const res = await fetch("/api/practices");
-      if (res.ok) {
-        const data = await res.json();
-        setPractices(data.practices || []);
+      try {
+        const res = await fetch("/api/practices");
+        if (res.ok) {
+          const data = await res.json();
+          const practicesArray = data.practices || [];
+          setPractices(practicesArray);
+          console.log('Fetched practices:', practicesArray);
+          
+          // If user has a practice assigned and it's in the list, set it as default
+          if (practice && practice.id && practicesArray.length > 0) {
+            const userPractice = practicesArray.find((p: any) => p.id === practice.id);
+            if (userPractice) {
+              form.setValue("practiceId", userPractice.id);
+            }
+          }
+        } else {
+          console.error('Failed to fetch practices:', res.status);
+        }
+      } catch (error) {
+        console.error('Error fetching practices:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     fetchPractices();
-  }, []);
+  }, [practice, form]);
 
   // Fetch existing quote if editing
   useEffect(() => {
@@ -161,9 +196,8 @@ export default function QuoteCreatePage() {
                 <div className="p-3 bg-gray-50 rounded border text-gray-700">
                   {practice ? (
                     <>
-                      <div>{practice.name}</div>
-                      <div>{practice.address}</div>
-                      <div>{practice.phone}</div>
+                      <div>{practice.name} - {practice.phone}</div>
+                      {practice.email && <div>{practice.email}</div>}
                     </>
                   ) : (
                     <span>Loading location...</span>

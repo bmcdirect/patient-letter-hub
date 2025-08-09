@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import FileUploadComponent, { UploadedFile } from "@/components/file-upload/FileUploadComponent";
 import { getCostBreakdown } from "@/lib/quote";
@@ -49,19 +49,11 @@ export default function CreateOrderPage() {
   const [costBreakdown, setCostBreakdown] = useState<any>(null);
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, UploadedFile | null>>({});
   const [isDraft, setIsDraft] = useState(false);
+  const searchParams = useSearchParams();
+  const editId = searchParams?.get("edit");
+  const isEditing = !!editId;
+  const [initialLoading, setInitialLoading] = useState(isEditing);
   const [practice, setPractice] = useState<any>(null);
-
-  useEffect(() => {
-    async function fetchPractice() {
-      const res = await fetch("/api/user");
-      const userData = await res.json();
-      if (userData.user?.practiceId) {
-        const practiceRes = await fetch(`/api/practices/${userData.user.practiceId}`);
-        setPractice(await practiceRes.json());
-      }
-    }
-    fetchPractice();
-  }, []);
 
   const form = useForm<OrderFormData>({
     resolver: zodResolver(orderSchema),
@@ -77,22 +69,63 @@ export default function CreateOrderPage() {
   });
 
   useEffect(() => {
-    async function fetchPractices() {
-      setLoading(true);
-      const res = await fetch("/api/practices");
-      if (res.ok) {
-        const data = await res.json();
-        setPractices(data.practices || []);
+    async function fetchPractice() {
+      const res = await fetch("/api/user");
+      const userData = await res.json();
+      if (userData.user?.practiceId) {
+        const practiceRes = await fetch(`/api/practices/${userData.user.practiceId}`);
+        const practiceData = await practiceRes.json();
+        setPractice(practiceData);
       }
-      setLoading(false);
     }
-    fetchPractices();
+    fetchPractice();
   }, []);
 
+  // Set practiceId in form when practice is loaded
   useEffect(() => {
-    if (practice) {
+    if (practice && practice.id) {
       form.setValue("practiceId", practice.id);
     }
+  }, [practice, form]);
+
+  // Set practiceId when practices are loaded and user has a practice
+  useEffect(() => {
+    if (practice && practice.id && practices.length > 0) {
+      const userPractice = practices.find((p: any) => p.id === practice.id);
+      if (userPractice) {
+        form.setValue("practiceId", userPractice.id);
+      }
+    }
+  }, [practice, practices, form]);
+
+  useEffect(() => {
+    async function fetchPractices() {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/practices");
+        if (res.ok) {
+          const data = await res.json();
+          const practicesArray = data.practices || [];
+          setPractices(practicesArray);
+          console.log('Fetched practices:', practicesArray);
+          
+          // If user has a practice assigned and it's in the list, set it as default
+          if (practice && practice.id && practicesArray.length > 0) {
+            const userPractice = practicesArray.find((p: any) => p.id === practice.id);
+            if (userPractice) {
+              form.setValue("practiceId", userPractice.id);
+            }
+          }
+        } else {
+          console.error('Failed to fetch practices:', res.status);
+        }
+      } catch (error) {
+        console.error('Error fetching practices:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchPractices();
   }, [practice, form]);
 
   // Track form values locally to avoid infinite re-renders
@@ -204,9 +237,8 @@ export default function CreateOrderPage() {
               <div className="p-3 bg-gray-50 rounded border text-gray-700">
                 {practice ? (
                   <>
-                    <div>{practice.name}</div>
-                    <div>{practice.address}</div>
-                    <div>{practice.phone}</div>
+                    <div>{practice.name} - {practice.phone}</div>
+                    {practice.email && <div>{practice.email}</div>}
                   </>
                 ) : (
                   <span>Loading location...</span>
@@ -214,6 +246,26 @@ export default function CreateOrderPage() {
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label htmlFor="practiceId">Practice</Label>
+                <Select
+                  value={form.watch("practiceId")}
+                  onValueChange={val => form.setValue("practiceId", val)}
+                  disabled={loading || practices.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={loading ? "Loading..." : practices.length === 0 ? "No practices found" : "Select a practice"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {practices.map(practice => (
+                      <SelectItem key={practice.id} value={practice.id}>{practice.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {form.formState.errors.practiceId && (
+                  <p className="text-red-500 text-sm mt-1">{form.formState.errors.practiceId.message}</p>
+                )}
+              </div>
               <div>
                 <Label htmlFor="customerNumber">Customer Number</Label>
                 <Input id="customerNumber" {...form.register("customerNumber")} placeholder="Auto-generated" disabled className="bg-gray-50" />

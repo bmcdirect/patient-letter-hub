@@ -54,36 +54,42 @@ async function main() {
     },
   });
 
-  // Create a quote and order for each user
+  // Create a quote and order for each user who has a practiceId (skip super admins)
   for (const user of [user1, user2, user3, user4]) {
-    const quote = await prisma.quotes.create({
-      data: {
-        practiceId: user.practiceId,
-        userId: user.id,
-        quoteNumber: `Q-${Date.now()}-${Math.floor(Math.random()*1000)}`,
-        status: 'pending',
-        totalCost: 250.00,
-        subject: 'Annual Checkup Reminder',
-        estimatedRecipients: 100,
-        colorMode: 'color',
-        dataCleansing: true,
-        ncoaUpdate: false,
-        firstClassPostage: true,
-        notes: 'Include new office hours.',
-      },
-    });
-    await prisma.orders.create({
-      data: {
-        orderNumber: `O-${Date.now()}-${Math.floor(Math.random()*1000)}`,
-        practiceId: user.practiceId,
-        userId: user.id,
-        status: 'created',
-        subject: 'Annual Checkup Reminder',
-        templateType: 'Letter',
-        colorMode: 'color',
-        cost: 250.00,
-      },
-    });
+    // Only create business data for users who have a practiceId
+    if (user.practiceId) {
+      const quote = await prisma.quotes.create({
+        data: {
+          practiceId: user.practiceId,
+          userId: user.id,
+          quoteNumber: `Q-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+          status: 'pending',
+          totalCost: 250.00,
+          subject: 'Annual Checkup Reminder',
+          estimatedRecipients: 100,
+          colorMode: 'color',
+          dataCleansing: true,
+          ncoaUpdate: false,
+          firstClassPostage: true,
+          notes: 'Include new office hours.',
+        },
+      });
+      await prisma.orders.create({
+        data: {
+          orderNumber: `O-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+          practiceId: user.practiceId,
+          userId: user.id,
+          status: 'created',
+          subject: 'Annual Checkup Reminder',
+          templateType: 'Letter',
+          colorMode: 'color',
+          cost: 250.00,
+        },
+      });
+      console.log(`Created business data for user: ${user.name} (${user.email})`);
+    } else {
+      console.log(`Skipped business data for super admin user: ${user.name} (${user.email})`);
+    }
   }
 
   console.log('Seed data created!');

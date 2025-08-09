@@ -1,4 +1,3 @@
-import { AUTH_CONFIG } from './auth-config.client';
 import { prisma } from './db';
 import { auth } from '@clerk/nextjs/server';
 import { clerkClient } from '@clerk/nextjs/server';
@@ -7,7 +6,7 @@ export async function getCurrentUser() {
   try {
     console.log('🔧 Starting Clerk session check...');
 
-    const { userId } = auth();
+    const { userId } = await auth();
     console.log('🔧 Clerk userId:', userId);
 
     if (!userId) {
@@ -15,7 +14,7 @@ export async function getCurrentUser() {
       return null;
     }
 
-    // 1. Try to find user in your DB by clerkId
+    // 1. Try to find user in your DB by clerkId (always include practice)
     let user = await prisma.user.findUnique({
       where: { clerkId: userId },
       include: { practice: true }
@@ -23,6 +22,23 @@ export async function getCurrentUser() {
 
     if (user) {
       console.log('✅ Found user by clerkId:', user.email);
+      console.log('📋 User details:', {
+        role: user.role,
+        practiceId: user.practiceId,
+        practiceName: user.practice?.name || 'None',
+        hasPractice: !!user.practice
+      });
+
+      // Validate practice relationship
+      if (user.practiceId && !user.practice) {
+        console.error('⚠️  User has practiceId but no practice data:', {
+          userId: user.id,
+          practiceId: user.practiceId
+        });
+        // Return user without practice data - let UI handle gracefully
+        return user;
+      }
+
       return user;
     }
 
@@ -57,24 +73,29 @@ export async function getCurrentUser() {
         include: { practice: true }
       });
       console.log('✅ Successfully linked user to Clerk');
+      console.log('📋 User details:', {
+        role: user.role,
+        practiceId: user.practiceId,
+        practiceName: user.practice?.name || 'None',
+        hasPractice: !!user.practice
+      });
+
+      // Validate practice relationship
+      if (user.practiceId && !user.practice) {
+        console.error('⚠️  User has practiceId but no practice data after linking:', {
+          userId: user.id,
+          practiceId: user.practiceId
+        });
+        // Return user without practice data - let UI handle gracefully
+        return user;
+      }
+
       return user;
     }
 
-    // 5. Create new user if not found anywhere
-    console.log('🆕 Creating new user from Clerk data');
-    user = await prisma.user.create({
-      data: {
-        clerkId: userId,
-        email: clerkEmail,
-        name: `${clerkUser.firstName ?? ""} ${clerkUser.lastName ?? ""}`.trim() || clerkEmail,
-        role: "USER", // Default role
-        // practiceId will be null - needs to be assigned by admin
-      },
-      include: { practice: true }
-    });
-
-    console.log('✅ Created new user:', user.email);
-    return user;
+    // 5. If user not found anywhere, they need to complete sign-up
+    console.log('⚠️  User not found in database - needs to complete sign-up process');
+    return null;
 
   } catch (error) {
     console.error('❌ Error in getCurrentUser:', error);
@@ -89,11 +110,7 @@ export function getAuthUrls() {
   };
 }
 
-export function shouldUseClerk() {
-  return AUTH_CONFIG.useClerk;
-}
-
-// Helper function to get user by Clerk ID
+// Helper function to get user by Clerk ID (always include practice)
 export async function getUserByClerkId(clerkId: string) {
   return await prisma.user.findUnique({
     where: { clerkId },
@@ -108,6 +125,17 @@ export async function upsertUserWithClerkId(clerkId: string, userData: {
   role?: 'ADMIN' | 'USER';
   practiceId?: string;
 }) {
+  // Validate practiceId if provided
+  if (userData.practiceId) {
+    const practice = await prisma.practice.findUnique({
+      where: { id: userData.practiceId }
+    });
+    
+    if (!practice) {
+      throw new Error(`Practice with ID ${userData.practiceId} not found`);
+    }
+  }
+
   return await prisma.user.upsert({
     where: { clerkId },
     update: {
@@ -121,7 +149,7 @@ export async function upsertUserWithClerkId(clerkId: string, userData: {
       email: userData.email,
       name: userData.name,
       role: userData.role || 'USER',
-      practiceId: userData.practiceId || '', // This will need to be handled properly
+      practiceId: userData.practiceId || null, // Allow null for SuperAdmin
     },
     include: { practice: true }
   });

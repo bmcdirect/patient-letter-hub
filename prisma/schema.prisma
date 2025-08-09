@@ -50,13 +50,14 @@ model Session {
 }
 
 model Practice {
-  id        String   @id @default(cuid())
-  name      String
-  address   String?
-  phone     String?
-  email     String?
-  createdAt DateTime @default(now()) @map(name: "created_at")
-  updatedAt DateTime @default(now()) @map(name: "updated_at")
+  id             String   @id @default(cuid())
+  organizationId String?  // Clerk organization ID
+  name           String
+  address        String?
+  phone          String?
+  email          String?
+  createdAt      DateTime @default(now()) @map(name: "created_at")
+  updatedAt      DateTime @default(now()) @map(name: "updated_at")
 
   users     User[]
   orders    Orders[]   @relation("PracticeOrders")

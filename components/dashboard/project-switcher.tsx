@@ -20,9 +20,11 @@ import {
 } from "@/components/ui/popover";
 import { Icons } from "@/components/shared/icons";
 
-interface ProjectSwitcherProps {}
+interface ProjectSwitcherProps {
+  large?: boolean;
+}
 
-export function ProjectSwitcher({}: ProjectSwitcherProps) {
+export function ProjectSwitcher({ large }: ProjectSwitcherProps) {
   const { user } = useUser();
   const [open, setOpen] = React.useState(false);
 
@@ -38,14 +40,14 @@ export function ProjectSwitcher({}: ProjectSwitcherProps) {
           role="combobox"
           aria-expanded={open}
           aria-label="Select a project"
-          className="w-[200px] justify-between"
+          className={large ? "w-full justify-between" : "w-[200px] justify-between"}
         >
           <Icons.logo className="mr-2 h-4 w-4" />
           {user.fullName || "Select project..."}
-          <Icons.chevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
+          <Icons.chevronRight className="ml-auto h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
+      <PopoverContent className={large ? "w-full p-0" : "w-[200px] p-0"}>
         <Command>
           <CommandInput placeholder="Search project..." />
           <CommandList>
@@ -68,7 +70,7 @@ export function ProjectSwitcher({}: ProjectSwitcherProps) {
                   setOpen(false);
                 }}
               >
-                <Icons.plus className="mr-2 h-4 w-4" />
+                <Icons.add className="mr-2 h-4 w-4" />
                 Create Project
               </CommandItem>
             </CommandGroup>
