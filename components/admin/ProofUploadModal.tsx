@@ -66,8 +66,8 @@ export default function ProofUploadModal({ order, isOpen, onClose, onSuccess }: 
     }
   };
 
-  const removeFile = (index: number) => {
-    setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
+  const removeFile = () => {
+    setSelectedFile(null);
   };
 
   if (!isOpen) return null;

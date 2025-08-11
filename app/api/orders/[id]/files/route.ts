@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-// import { auth } from "@/auth"; // Temporarily commented out
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
@@ -11,14 +11,19 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Temporarily bypass auth for development
-    // const session = await auth();
-    // if (!session?.user?.id) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
-    
-    // Mock user for development
-    const mockUser = { id: "1", role: "USER" as const };
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from the database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     const orderId = params.id;
 
@@ -33,7 +38,7 @@ export async function GET(
     }
 
     // Check if user has permission to view this order
-    if (order.userId !== mockUser.id && mockUser.role !== "ADMIN") {
+    if (order.userId !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -56,14 +61,19 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Temporarily bypass auth for development
-    // const session = await auth();
-    // if (!session?.user?.id) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
-    
-    // Mock user for development
-    const mockUser = { id: "1", role: "USER" as const };
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from the database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     const orderId = params.id;
 
@@ -78,7 +88,7 @@ export async function POST(
     }
 
     // Check if user has permission to upload files to this order
-    if (order.userId !== mockUser.id && mockUser.role !== "ADMIN") {
+    if (order.userId !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -116,7 +126,7 @@ export async function POST(
             fileName: fileName,
             filePath: filePath,
             fileType: file.type,
-            uploadedBy: mockUser.id,
+            uploadedBy: user.id,
           },
           include: { uploader: true }
         });
@@ -152,13 +162,15 @@ export async function POST(
       });
     }
 
-    return NextResponse.json({ 
-      message: `Successfully uploaded ${uploadedFiles.length} file(s)` + (newRecipientCount ? `, updated recipient count to ${newRecipientCount}` : ''),
+    return NextResponse.json({
+      success: true,
       files: uploadedFiles,
-      updatedOrder
+      order: updatedOrder,
+      message: `Successfully uploaded ${uploadedFiles.length} file(s)`
     });
-  } catch (err) {
-    console.error("Error uploading files:", err);
+
+  } catch (error) {
+    console.error("Error uploading files:", error);
     return NextResponse.json({ error: "Failed to upload files" }, { status: 500 });
   }
 }
@@ -168,17 +180,23 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Temporarily bypass auth for development
-    // const session = await auth();
-    // if (!session?.user?.id) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
-    
-    // Mock user for development
-    const mockUser = { id: "1", role: "USER" as const };
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
+    // Get the user from the database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const orderId = params.id;
     const { searchParams } = new URL(req.url);
-    const fileId = searchParams.get("fileId");
+    const fileId = searchParams.get('fileId');
 
     if (!fileId) {
       return NextResponse.json({ error: "File ID is required" }, { status: 400 });
@@ -195,21 +213,25 @@ export async function DELETE(
     }
 
     // Check if user has permission to delete this file
-    if (file.uploadedBy !== mockUser.id && mockUser.role !== "ADMIN") {
+    if (file.order.userId !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    // Delete the file from database
+    // Delete the file from the database
     await prisma.orderFiles.delete({
       where: { id: fileId }
     });
 
-    // TODO: Delete the actual file from disk
-    // For now, just delete from database
+    // TODO: Delete the actual file from the filesystem
+    // This would require additional file system operations
 
-    return NextResponse.json({ message: "File deleted successfully" });
-  } catch (err) {
-    console.error("Error deleting file:", err);
+    return NextResponse.json({
+      success: true,
+      message: "File deleted successfully"
+    });
+
+  } catch (error) {
+    console.error("Error deleting file:", error);
     return NextResponse.json({ error: "Failed to delete file" }, { status: 500 });
   }
 } 

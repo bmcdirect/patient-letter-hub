@@ -34,6 +34,7 @@ export default function OrdersPage() {
 
   // Calculate order stats
   const orderStats = {
+    pending: orders?.filter(o => o.status === 'pending').length || 0,
     draft: orders?.filter(o => o.status === 'draft').length || 0,
     inProgress: orders?.filter(o => o.status === 'in-progress').length || 0,
     completed: orders?.filter(o => o.status === 'completed').length || 0,
@@ -66,7 +67,13 @@ export default function OrdersPage() {
       </div>
 
       {/* Order Status Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-8">
+        <Card className="shadow-sm border border-gray-100">
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold text-gray-900">{orderStats.pending}</div>
+            <div className="text-sm text-gray-600">Pending</div>
+          </CardContent>
+        </Card>
         <Card className="shadow-sm border border-gray-100">
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-gray-900">{orderStats.draft}</div>
@@ -111,6 +118,7 @@ export default function OrdersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="draft">Draft</SelectItem>
                   <SelectItem value="in-progress">In Progress</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
@@ -166,6 +174,7 @@ export default function OrdersPage() {
               <th className="px-4 py-2 border">Subject</th>
               <th className="px-4 py-2 border">Status</th>
               <th className="px-4 py-2 border">Created</th>
+              <th className="px-4 py-2 border">Due Date</th>
               <th className="px-4 py-2 border">Actions</th>
             </tr>
           </thead>
@@ -177,6 +186,7 @@ export default function OrdersPage() {
                 <td className="px-4 py-2 border">{order.subject}</td>
                 <td className="px-4 py-2 border">{order.status}</td>
                 <td className="px-4 py-2 border">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "-"}</td>
+                <td className="px-4 py-2 border">{order.preferredMailDate ? new Date(order.preferredMailDate).toLocaleDateString() : "-"}</td>
                 <td className="px-4 py-2 border">
                   <button
                     className="text-blue-600 underline"

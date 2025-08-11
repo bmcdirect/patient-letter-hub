@@ -111,52 +111,56 @@ export default function AdminDashboardPage() {
     }).reduce((sum, o) => sum + parseFloat(o.cost?.toString() || '0'), 0),
   };
 
+  async function fetchStats() {
+    setLoading(true);
+    const res = await fetch("/api/admin/stats");
+    const data = await res.json();
+    setStats(data.stats || { users: 0, practices: 0, quotes: 0, orders: 0 });
+    setLoading(false);
+  }
+
+  async function fetchQuotes() {
+    setQuotesLoading(true);
+    const res = await fetch("/api/admin/quotes");
+    const data = await res.json();
+    setQuotes(data.quotes || []);
+    setQuotesLoading(false);
+  }
+
   useEffect(() => {
-    async function fetchStats() {
-      setLoading(true);
-      const res = await fetch("/api/admin/stats");
-      const data = await res.json();
-      setStats(data.stats || { users: 0, practices: 0, quotes: 0, orders: 0 });
-      setLoading(false);
-    }
     fetchStats();
   }, []);
 
   useEffect(() => {
-    async function fetchQuotes() {
-      setQuotesLoading(true);
-      const res = await fetch("/api/admin/quotes");
-      const data = await res.json();
-      setQuotes(data.quotes || []);
-      setQuotesLoading(false);
-    }
     fetchQuotes();
   }, []);
 
+  async function fetchOrders() {
+    setOrdersLoading(true);
+    const res = await fetch("/api/admin/orders");
+    const data = await res.json();
+    setOrders(data.orders || []);
+    setOrdersLoading(false);
+  }
+
   useEffect(() => {
-    async function fetchOrders() {
-      setOrdersLoading(true);
-      const res = await fetch("/api/admin/orders");
-      const data = await res.json();
-      setOrders(data.orders || []);
-      setOrdersLoading(false);
-    }
     fetchOrders();
   }, []);
 
-  useEffect(() => {
-    async function fetchEmails() {
-      setEmailsLoading(true);
-      try {
-        const res = await fetch("/api/admin/emails");
-        const data = await res.json();
-        setEmails(data || []);
-      } catch (error) {
-        console.error("Failed to fetch emails:", error);
-      } finally {
-        setEmailsLoading(false);
-      }
+  async function fetchEmails() {
+    setEmailsLoading(true);
+    try {
+      const res = await fetch("/api/admin/emails");
+      const data = await res.json();
+      setEmails(data || []);
+    } catch (error) {
+      console.error("Failed to fetch emails:", error);
+    } finally {
+      setEmailsLoading(false);
     }
+  }
+
+  useEffect(() => {
     fetchEmails();
   }, []);
 
@@ -1288,6 +1292,7 @@ export default function AdminDashboardPage() {
                     <TableHead>Subject</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
+                    <TableHead>Due Date</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1317,6 +1322,7 @@ export default function AdminDashboardPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell>{order.preferredMailDate ? new Date(order.preferredMailDate).toLocaleDateString() : '-'}</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

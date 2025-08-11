@@ -64,7 +64,7 @@ interface QuotesTableProps {
   quotes: any[]; // TODO: Replace with correct type
   isLoading: boolean;
   onRefresh: () => void;
-  onConvert: (quoteId: string) => void;
+  onConvert: (quote: any) => void;
   onEdit: (quote: any) => void;
   onDelete: (quoteId: string) => void;
 }
@@ -283,7 +283,7 @@ export function QuotesTable({
                           </DropdownMenuItem>
                           {quote.status === "pending" && (
                             <DropdownMenuItem 
-                              onClick={() => onConvert(quote.id)}
+                              onClick={() => onConvert(quote)}
                               className="text-primary-blue font-medium hover:bg-blue-50"
                             >
                               <ArrowRight className="mr-2 h-4 w-4" />
@@ -428,7 +428,7 @@ export function QuotesTable({
                     <Button
                       onClick={() => {
                         setViewDialogOpen(false);
-                        onConvert(selectedQuote.id);
+                        onConvert(selectedQuote);
                       }}
                       className="bg-primary-blue hover:bg-blue-800 text-white font-semibold shadow-lg transition-all duration-200 border-2 border-primary-blue hover:border-blue-800 px-6 relative overflow-hidden"
                       size="lg"

@@ -120,9 +120,19 @@ model Orders {
   templateType     String?
   colorMode        String?
   cost             Float?
+  totalCost        Float?
+  customerNumber   String?
+  purchaseOrder    String?
+  costCenter       String?
+  actualRecipients Int?
   preferredMailDate DateTime?
   productionStartDate DateTime?
   productionEndDate   DateTime?
+  dataCleansing   Boolean?
+  ncoaUpdate       Boolean?
+  firstClassPostage Boolean?
+  autoDeleteDataFile Boolean?
+  notes            String?
   fulfilledAt      DateTime?
   createdAt        DateTime  @default(now()) @map(name: "created_at")
   updatedAt        DateTime  @default(now()) @map(name: "updated_at")
@@ -202,6 +212,7 @@ model Quotes {
   firstClassPostage   Boolean?
   notes               String?
   createdAt           DateTime @default(now()) @map(name: "created_at")
+  updatedAt           DateTime @default(now()) @map(name: "updated_at")
 
   practice   Practice @relation("PracticeQuotes", fields: [practiceId], references: [id], onDelete: Cascade)
   user       User     @relation("UserQuotes", fields: [userId], references: [id], onDelete: Cascade)

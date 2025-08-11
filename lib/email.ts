@@ -9,6 +9,28 @@ export class EmailService {
     this.baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3002';
   }
 
+  // Generic email sending function
+  async sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
+    try {
+      const { data, error } = await resend.emails.send({
+        from: process.env.EMAIL_FROM || "noreply@example.com",
+        to,
+        subject,
+        html,
+      });
+
+      if (error) {
+        console.error("Error sending email:", error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Failed to send email:", error);
+      throw error;
+    }
+  }
+
   async sendMagicLinkEmail(email: string, token: string) {
     const magicLink = `${this.baseUrl}/auth/verify?token=${token}`;
     
@@ -61,3 +83,9 @@ export class EmailService {
     }
   }
 }
+
+// Export the sendEmail function for direct use
+export const sendEmail = async ({ to, subject, html }: { to: string; subject: string; html: string }) => {
+  const emailService = new EmailService();
+  return emailService.sendEmail({ to, subject, html });
+};

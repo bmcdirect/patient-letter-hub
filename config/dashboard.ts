@@ -39,18 +39,12 @@ export const sidebarLinks: SidebarNavItem[] = [
         href: "/quotes/create",
         icon: "add",
         title: "Request Quote",
-        // authorizeOnly: UserRole.USER, // Only customers
+        // authorizeOnly: UserRole.USER, // Only customers can create orders
       },
       {
         href: "/admin",
         icon: "laptop",
         title: "Admin Panel",
-        // authorizeOnly: UserRole.ADMIN,
-      },
-      {
-        href: "/admin/orders",
-        icon: "package",
-        title: "All Orders",
         // authorizeOnly: UserRole.ADMIN,
       },
     ],

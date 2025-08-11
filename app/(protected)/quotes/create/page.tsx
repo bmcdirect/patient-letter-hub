@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,12 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
+import { useUser } from "@clerk/nextjs";
+import FileUploadComponent, { UploadedFile } from "@/components/file-upload/FileUploadComponent";
+import { getCostBreakdown } from "@/lib/quote";
 import { DashboardHeader } from "@/components/dashboard/header";
 import MaxWidthWrapper from "@/components/shared/max-width-wrapper";
-import { getCostBreakdown } from "@/lib/quote";
-import { useSearchParams } from "next/navigation";
 
 const quoteSchema = z.object({
   practiceId: z.string().min(1, "Practice is required"),
@@ -43,6 +44,7 @@ interface Practice {
 export default function QuoteCreatePage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user, isLoaded, isSignedIn } = useUser();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [loading, setLoading] = useState(true);
   const [costBreakdown, setCostBreakdown] = useState<any>(null);
@@ -63,18 +65,56 @@ export default function QuoteCreatePage() {
     },
   });
 
+  // Show loading state while Clerk is loading
+  if (!isLoaded) {
+    return (
+      <main className="flex-1 p-8">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // Redirect if not signed in
+  if (!isSignedIn) {
+    router.push('/sign-in');
+    return null;
+  }
+
+  // Only fetch data when user is authenticated
   useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+
     async function fetchPractice() {
-      const res = await fetch("/api/user");
-      const userData = await res.json();
-      if (userData.user?.practiceId) {
-        const practiceRes = await fetch(`/api/practices/${userData.user.practiceId}`);
-        const practiceData = await practiceRes.json();
-        setPractice(practiceData);
+      try {
+        const res = await fetch("/api/user");
+        if (!res.ok) {
+          throw new Error('Failed to fetch user data');
+        }
+        const userData = await res.json();
+        if (userData.user?.practiceId) {
+          const practiceRes = await fetch(`/api/practices/${userData.user.practiceId}`);
+          if (!practiceRes.ok) {
+            throw new Error('Failed to fetch practice data');
+          }
+          const practiceData = await practiceRes.json();
+          setPractice(practiceData);
+        }
+      } catch (error) {
+        console.error('Error fetching practice:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load practice information",
+          variant: "destructive",
+        });
       }
     }
     fetchPractice();
-  }, []);
+  }, [isLoaded, isSignedIn, toast]);
 
   // Set practiceId in form when practice is loaded
   useEffect(() => {
@@ -94,6 +134,8 @@ export default function QuoteCreatePage() {
   }, [practice, practices, form]);
 
   useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+
     async function fetchPractices() {
       setLoading(true);
       try {
@@ -113,15 +155,25 @@ export default function QuoteCreatePage() {
           }
         } else {
           console.error('Failed to fetch practices:', res.status);
+          toast({
+            title: "Error",
+            description: "Failed to load practices",
+            variant: "destructive",
+          });
         }
       } catch (error) {
         console.error('Error fetching practices:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load practices",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     }
     fetchPractices();
-  }, [practice, form]);
+  }, [isLoaded, isSignedIn, practice, form, toast]);
 
   // Fetch existing quote if editing
   useEffect(() => {

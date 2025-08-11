@@ -157,12 +157,36 @@ export const STATUS_TRANSITIONS: StatusTransition[] = [
     description: 'Admin starts production process'
   },
   {
+    from: 'approved',
+    to: 'on-hold',
+    allowedRoles: ['ADMIN'],
+    requiresComment: true,
+    autoNotify: true,
+    description: 'Admin puts approved order on hold'
+  },
+  {
+    from: 'approved',
+    to: 'cancelled',
+    allowedRoles: ['ADMIN'],
+    requiresComment: true,
+    autoNotify: true,
+    description: 'Admin cancels approved order'
+  },
+  {
     from: 'in-production',
     to: 'production-complete',
     allowedRoles: ['ADMIN'],
     requiresComment: false,
     autoNotify: true,
     description: 'Admin marks production as complete'
+  },
+  {
+    from: 'in-production',
+    to: 'on-hold',
+    allowedRoles: ['ADMIN'],
+    requiresComment: true,
+    autoNotify: true,
+    description: 'Admin puts production on hold'
   },
   {
     from: 'production-complete',
@@ -173,6 +197,14 @@ export const STATUS_TRANSITIONS: StatusTransition[] = [
     description: 'Admin marks order as shipped'
   },
   {
+    from: 'production-complete',
+    to: 'on-hold',
+    allowedRoles: ['ADMIN'],
+    requiresComment: true,
+    autoNotify: true,
+    description: 'Admin puts completed production on hold'
+  },
+  {
     from: 'shipped',
     to: 'delivered',
     allowedRoles: ['ADMIN'],
@@ -181,12 +213,28 @@ export const STATUS_TRANSITIONS: StatusTransition[] = [
     description: 'Admin confirms delivery'
   },
   {
+    from: 'shipped',
+    to: 'on-hold',
+    allowedRoles: ['ADMIN'],
+    requiresComment: true,
+    autoNotify: true,
+    description: 'Admin puts shipped order on hold'
+  },
+  {
     from: 'delivered',
     to: 'completed',
     allowedRoles: ['ADMIN'],
     requiresComment: false,
     autoNotify: true,
     description: 'Admin marks order as completed'
+  },
+  {
+    from: 'delivered',
+    to: 'on-hold',
+    allowedRoles: ['ADMIN'],
+    requiresComment: true,
+    autoNotify: true,
+    description: 'Admin puts delivered order on hold'
   },
 
   // Administrative actions
@@ -213,6 +261,46 @@ export const STATUS_TRANSITIONS: StatusTransition[] = [
     requiresComment: true,
     autoNotify: true,
     description: 'Admin resumes order from hold'
+  },
+  {
+    from: 'on-hold',
+    to: 'approved',
+    allowedRoles: ['ADMIN'],
+    requiresComment: true,
+    autoNotify: true,
+    description: 'Admin resumes approved order from hold'
+  },
+  {
+    from: 'on-hold',
+    to: 'in-production',
+    allowedRoles: ['ADMIN'],
+    requiresComment: true,
+    autoNotify: true,
+    description: 'Admin resumes production from hold'
+  },
+  {
+    from: 'on-hold',
+    to: 'production-complete',
+    allowedRoles: ['ADMIN'],
+    requiresComment: true,
+    autoNotify: true,
+    description: 'Admin resumes completed production from hold'
+  },
+  {
+    from: 'on-hold',
+    to: 'shipped',
+    allowedRoles: ['ADMIN'],
+    requiresComment: true,
+    autoNotify: true,
+    description: 'Admin resumes shipped order from hold'
+  },
+  {
+    from: 'on-hold',
+    to: 'delivered',
+    allowedRoles: ['ADMIN'],
+    requiresComment: true,
+    autoNotify: true,
+    description: 'Admin resumes delivered order from hold'
   },
   {
     from: 'on-hold',

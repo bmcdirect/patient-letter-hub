@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -20,8 +19,6 @@ interface StatusManagementModalProps {
 export default function StatusManagementModal({ order, isOpen, onClose, onSuccess }: StatusManagementModalProps) {
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const [comments, setComments] = useState("");
-  const [availableTransitions, setAvailableTransitions] = useState<any[]>([]);
-  const [statusInfo, setStatusInfo] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -29,11 +26,11 @@ export default function StatusManagementModal({ order, isOpen, onClose, onSucces
 
   useEffect(() => {
     if (isOpen && order) {
-      fetchStatusInfo();
+      fetchStatusHistory();
     }
   }, [isOpen, order]);
 
-  const fetchStatusInfo = async () => {
+  const fetchStatusHistory = async () => {
     try {
       const response = await fetch(`/api/orders/${order.id}/status`);
       if (!response.ok) {
@@ -41,8 +38,6 @@ export default function StatusManagementModal({ order, isOpen, onClose, onSucces
       }
       
       const data = await response.json();
-      setAvailableTransitions(data.availableTransitions || []);
-      setStatusInfo(data.statusInfo);
       setStatusHistory(data.statusHistory || []);
     } catch (err) {
       console.error('Error fetching status info:', err);
@@ -56,9 +51,10 @@ export default function StatusManagementModal({ order, isOpen, onClose, onSucces
       return;
     }
 
-    const transition = availableTransitions.find(t => t.to === selectedStatus);
-    if (transition?.requiresComment && (!comments || comments.trim() === '')) {
-      setError("Comments are required for this status transition");
+    // Check if comments are required for certain statuses
+    const requiresComment = ['on-hold', 'cancelled', 'changes-requested'].includes(selectedStatus);
+    if (requiresComment && (!comments || comments.trim() === '')) {
+      setError("Comments are required for this status change");
       return;
     }
 
@@ -87,7 +83,13 @@ export default function StatusManagementModal({ order, isOpen, onClose, onSucces
       
       // Call success callback after a short delay
       setTimeout(() => {
-        onSuccess();
+        try {
+          if (onSuccess && typeof onSuccess === 'function') {
+            onSuccess();
+          }
+        } catch (callbackError) {
+          console.warn('Status management success callback failed:', callbackError);
+        }
         onClose();
       }, 2000);
 
@@ -146,41 +148,54 @@ export default function StatusManagementModal({ order, isOpen, onClose, onSucces
                 <CardTitle className="text-lg">Change Status</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Available Transitions */}
+                {/* Available Statuses - Simple List */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     New Status
                   </label>
-                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select new status..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableTransitions.map((transition) => (
-                        <SelectItem key={transition.to} value={transition.to}>
-                          <div className="flex items-center gap-2">
-                            <Badge variant={getStatusBadgeVariant(transition.to)}>
-                              {StatusManager.getStatusDisplayInfo(transition.to as OrderStatus).label}
-                            </Badge>
-                            {transition.requiresComment && (
-                              <span className="text-xs text-orange-600">*</span>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-2 max-h-60 overflow-y-auto border rounded p-3">
+                    {[
+                      'draft', 'submitted', 'in-review', 'waiting-approval', 
+                      'approved', 'in-production', 'production-complete', 
+                      'shipped', 'delivered', 'completed', 'cancelled', 'on-hold'
+                    ].map((status) => (
+                      <label key={status} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                        <input
+                          type="radio"
+                          name="status"
+                          value={status}
+                          checked={selectedStatus === status}
+                          onChange={(e) => setSelectedStatus(e.target.value)}
+                          className="text-blue-600"
+                        />
+                        <div className="flex items-center gap-2">
+                          <Badge variant={getStatusBadgeVariant(status)}>
+                            {StatusManager.getStatusDisplayInfo(status as OrderStatus).label}
+                          </Badge>
+                          <span className="text-xs text-gray-500">
+                            {StatusManager.getStatusDisplayInfo(status as OrderStatus).description}
+                          </span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  
                   {selectedStatus && (
-                    <p className="text-sm text-gray-500 mt-1">
-                      {StatusManager.getStatusDisplayInfo(selectedStatus as OrderStatus).description}
-                    </p>
+                    <div className="mt-2 p-2 bg-blue-50 rounded">
+                      <p className="text-sm font-medium text-blue-800">
+                        Selected: {StatusManager.getStatusDisplayInfo(selectedStatus as OrderStatus).label}
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        {StatusManager.getStatusDisplayInfo(selectedStatus as OrderStatus).description}
+                      </p>
+                    </div>
                   )}
                 </div>
 
                 {/* Comments */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Comments {selectedStatus && availableTransitions.find(t => t.to === selectedStatus)?.requiresComment && (
+                    Comments {['on-hold', 'cancelled', 'changes-requested'].includes(selectedStatus) && (
                       <span className="text-red-500">*</span>
                     )}
                   </label>
@@ -239,7 +254,7 @@ export default function StatusManagementModal({ order, isOpen, onClose, onSucces
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
+                  <Clock className="h-5 w-5" />
                   Status History
                 </CardTitle>
               </CardHeader>

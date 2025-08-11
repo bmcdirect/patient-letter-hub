@@ -33,25 +33,44 @@ export default function ProofReviewPage() {
 
   const fetchOrderDetails = async () => {
     try {
+      console.log(`🔍 Fetching order details for order ${orderId}`);
+      
       // Fetch order details
       const orderResponse = await fetch(`/api/orders/${orderId}`);
       if (!orderResponse.ok) {
-        throw new Error('Failed to fetch order details');
+        const errorData = await orderResponse.json().catch(() => ({}));
+        console.error(`❌ Failed to fetch order details:`, orderResponse.status, errorData);
+        throw new Error(`Failed to fetch order details: ${orderResponse.status} ${errorData.error || ''}`);
       }
       const orderData = await orderResponse.json();
+      console.log(`✅ Order details fetched:`, orderData.order);
       
       // Fetch proofs separately
+      console.log(`🔍 Fetching proofs for order ${orderId}`);
       const proofsResponse = await fetch(`/api/orders/${orderId}/proofs`);
-      const proofsData = await proofsResponse.ok ? await proofsResponse.json() : { proofs: [] };
+      let proofsData = { proofs: [] };
+      
+      if (proofsResponse.ok) {
+        proofsData = await proofsResponse.json();
+        console.log(`✅ Proofs fetched:`, proofsData.proofs);
+      } else {
+        const errorData = await proofsResponse.json().catch(() => ({}));
+        console.warn(`⚠️ Failed to fetch proofs:`, proofsResponse.status, errorData);
+        // Don't fail the entire request if proofs fail, just use empty array
+      }
       
       // Combine order data with proofs
-      setOrder({
+      const combinedOrder = {
         ...orderData.order,
         files: [...(orderData.order.files || []), ...(proofsData.proofs || [])]
-      });
+      };
+      
+      console.log(`✅ Combined order data:`, combinedOrder);
+      setOrder(combinedOrder);
     } catch (err) {
-      setError('Failed to load order details');
-      console.error('Error fetching order:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load order details';
+      console.error(`❌ Error fetching order:`, err);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -73,8 +92,12 @@ export default function ProofReviewPage() {
 
   const handleApproval = async () => {
     const latestProof = getLatestProof();
-    if (!latestProof) return;
+    if (!latestProof) {
+      alert('No proof found to approve. Please contact support.');
+      return;
+    }
 
+    console.log(`🔍 Approving proof:`, latestProof);
     setSubmitting(true);
     try {
       const response = await fetch(`/api/orders/${orderId}`, {
@@ -88,16 +111,20 @@ export default function ProofReviewPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to approve proof');
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`❌ Approval failed:`, response.status, errorData);
+        throw new Error(`Failed to approve proof: ${response.status} ${errorData.error || errorData.details || ''}`);
       }
 
       const result = await response.json();
+      console.log(`✅ Approval successful:`, result);
       setOrder(result.order);
       setComments("");
       alert('Proof approved successfully! Your order will now proceed to production.');
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to approve proof';
       console.error('Approval error:', err);
-      alert('Failed to approve proof. Please try again.');
+      alert(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -110,8 +137,12 @@ export default function ProofReviewPage() {
     }
 
     const latestProof = getLatestProof();
-    if (!latestProof) return;
+    if (!latestProof) {
+      alert('No proof found to request changes for. Please contact support.');
+      return;
+    }
 
+    console.log(`🔍 Requesting changes for proof:`, latestProof);
     setSubmitting(true);
     try {
       const response = await fetch(`/api/orders/${orderId}`, {
@@ -125,16 +156,20 @@ export default function ProofReviewPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to request changes');
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`❌ Change request failed:`, response.status, errorData);
+        throw new Error(`Failed to request changes: ${response.status} ${errorData.error || errorData.details || ''}`);
       }
 
       const result = await response.json();
+      console.log(`✅ Change request successful:`, result);
       setOrder(result.order);
       setComments("");
       alert('Change request submitted successfully! The design team will review your feedback.');
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit change request';
       console.error('Change request error:', err);
-      alert('Failed to submit change request. Please try again.');
+      alert(errorMessage);
     } finally {
       setSubmitting(false);
     }

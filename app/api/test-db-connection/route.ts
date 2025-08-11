@@ -1,31 +1,37 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
-export const GET = async (req: Request) => {
+export async function GET(req: NextRequest) {
   try {
-    console.log("🔍 /api/test-db-connection: Starting request");
-    
-    // Test database connection
+    // Test basic database connection
     await prisma.$connect();
-    console.log("🔍 /api/test-db-connection: Database connected successfully");
     
-    // Test a simple query
-    const userCount = await prisma.user.count();
-    console.log("🔍 /api/test-db-connection: User count:", userCount);
+    // Test if OrderApprovals table exists and can be queried
+    const approvalCount = await prisma.orderApprovals.count();
+    
+    // Test if Orders table exists and can be queried
+    const orderCount = await prisma.orders.count();
+    
+    // Test if OrderFiles table exists and can be queried
+    const fileCount = await prisma.orderFiles.count();
     
     return NextResponse.json({
       success: true,
-      message: "Database connection working",
-      userCount: userCount,
-      timestamp: new Date().toISOString()
+      message: "Database connection successful",
+      counts: {
+        approvals: approvalCount,
+        orders: orderCount,
+        files: fileCount
+      }
     });
   } catch (error) {
-    console.error("Error in /api/test-db-connection route:", error);
-    return NextResponse.json({ 
+    console.error("Database connection test failed:", error);
+    return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error"
+      error: error instanceof Error ? error.message : "Unknown database error",
+      stack: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
   } finally {
     await prisma.$disconnect();
   }
-};
+}

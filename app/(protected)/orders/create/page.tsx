@@ -14,8 +14,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
+import { useUser } from "@clerk/nextjs";
 import FileUploadComponent, { UploadedFile } from "@/components/file-upload/FileUploadComponent";
 import { getCostBreakdown } from "@/lib/quote";
+import { ArrowLeft } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 const orderSchema = z.object({
   practiceId: z.string().min(1, "Practice is required"),
@@ -44,6 +47,7 @@ interface Practice {
 export default function CreateOrderPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user, isLoaded, isSignedIn } = useUser();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [loading, setLoading] = useState(true);
   const [costBreakdown, setCostBreakdown] = useState<any>(null);
@@ -51,13 +55,17 @@ export default function CreateOrderPage() {
   const [isDraft, setIsDraft] = useState(false);
   const searchParams = useSearchParams();
   const editId = searchParams?.get("edit");
+  const fromQuoteId = searchParams?.get("fromQuote");
   const isEditing = !!editId;
-  const [initialLoading, setInitialLoading] = useState(isEditing);
+  const isFromQuote = !!fromQuoteId;
+  const [initialLoading, setInitialLoading] = useState(isEditing || isFromQuote);
   const [practice, setPractice] = useState<any>(null);
+  const [quoteData, setQuoteData] = useState<any>(null);
 
   const form = useForm<OrderFormData>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
+      practiceId: "", // Add default value to prevent uncontrolled to controlled warning
       colorMode: "color",
       dataCleansing: false,
       ncoaUpdate: false,
@@ -68,18 +76,112 @@ export default function CreateOrderPage() {
     },
   });
 
+  // Track form values locally to avoid infinite re-renders
+  const [colorMode, setColorMode] = useState("color");
+  const [dataCleansing, setDataCleansing] = useState(false);
+  const [ncoaUpdate, setNcoaUpdate] = useState(false);
+  const [firstClassPostage, setFirstClassPostage] = useState(false);
+  const [actualRecipients, setActualRecipients] = useState(0);
+
+  // Show loading state while Clerk is loading
+  if (!isLoaded) {
+    return (
+      <main className="flex-1 p-8">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // Redirect if not signed in
+  if (!isSignedIn) {
+    router.push('/sign-in');
+    return null;
+  }
+
+  // Only fetch data when user is authenticated
   useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+
     async function fetchPractice() {
-      const res = await fetch("/api/user");
-      const userData = await res.json();
-      if (userData.user?.practiceId) {
-        const practiceRes = await fetch(`/api/practices/${userData.user.practiceId}`);
-        const practiceData = await practiceRes.json();
-        setPractice(practiceData);
+      try {
+        const res = await fetch("/api/user");
+        if (!res.ok) {
+          throw new Error('Failed to fetch user data');
+        }
+        const userData = await res.json();
+        if (userData.user?.practiceId) {
+          const practiceRes = await fetch(`/api/practices/${userData.user.practiceId}`);
+          if (!practiceRes.ok) {
+            throw new Error('Failed to fetch practice data');
+          }
+          const practiceData = await practiceRes.json();
+          setPractice(practiceData);
+        }
+      } catch (error) {
+        console.error('Error fetching practice:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load practice information",
+          variant: "destructive",
+        });
       }
     }
+
+    async function fetchQuoteData() {
+      if (!fromQuoteId) return;
+      
+      try {
+        const res = await fetch(`/api/quotes/${fromQuoteId}`);
+        if (!res.ok) {
+          throw new Error('Failed to fetch quote data');
+        }
+        const quoteData = await res.json();
+        setQuoteData(quoteData);
+        
+        // Pre-populate form with quote data
+        form.reset({
+          practiceId: quoteData.practiceId || "",
+          customerNumber: "",
+          purchaseOrder: quoteData.purchaseOrder || "",
+          costCenter: quoteData.costCenter || "",
+          subject: quoteData.subject || "",
+          actualRecipients: 0, // Will be set when data file is uploaded
+          preferredMailDate: "",
+          colorMode: quoteData.colorMode || "color",
+          dataCleansing: quoteData.dataCleansing || false,
+          ncoaUpdate: quoteData.ncoaUpdate || false,
+          firstClassPostage: quoteData.firstClassPostage || false,
+          autoDeleteDataFile: true,
+          notes: quoteData.notes || "",
+          totalCost: quoteData.totalCost || 0,
+        });
+        
+        // Set local state for cost calculation
+        setColorMode(quoteData.colorMode || "color");
+        setDataCleansing(quoteData.dataCleansing || false);
+        setNcoaUpdate(quoteData.ncoaUpdate || false);
+        setFirstClassPostage(quoteData.firstClassPostage || false);
+        
+        setInitialLoading(false);
+      } catch (error) {
+        console.error('Error fetching quote data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load quote data",
+          variant: "destructive",
+        });
+        setInitialLoading(false);
+      }
+    }
+
     fetchPractice();
-  }, []);
+    fetchQuoteData();
+  }, [isLoaded, isSignedIn, fromQuoteId, form, toast]);
 
   // Set practiceId in form when practice is loaded
   useEffect(() => {
@@ -88,52 +190,32 @@ export default function CreateOrderPage() {
     }
   }, [practice, form]);
 
-  // Set practiceId when practices are loaded and user has a practice
+  // Remove the duplicate useEffect that was setting practiceId multiple times
   useEffect(() => {
-    if (practice && practice.id && practices.length > 0) {
-      const userPractice = practices.find((p: any) => p.id === practice.id);
-      if (userPractice) {
-        form.setValue("practiceId", userPractice.id);
-      }
-    }
-  }, [practice, practices, form]);
+    if (!isLoaded || !isSignedIn) return;
 
-  useEffect(() => {
     async function fetchPractices() {
-      setLoading(true);
       try {
         const res = await fetch("/api/practices");
-        if (res.ok) {
-          const data = await res.json();
-          const practicesArray = data.practices || [];
-          setPractices(practicesArray);
-          console.log('Fetched practices:', practicesArray);
-          
-          // If user has a practice assigned and it's in the list, set it as default
-          if (practice && practice.id && practicesArray.length > 0) {
-            const userPractice = practicesArray.find((p: any) => p.id === practice.id);
-            if (userPractice) {
-              form.setValue("practiceId", userPractice.id);
-            }
-          }
-        } else {
-          console.error('Failed to fetch practices:', res.status);
+        if (!res.ok) {
+          throw new Error("Failed to fetch practices");
         }
-      } catch (error) {
-        console.error('Error fetching practices:', error);
+        const data = await res.json();
+        setPractices(data.practices || []);
+      } catch (err: any) {
+        console.error("Error fetching practices:", err);
+        toast({
+          title: "Error",
+          description: "Failed to load practices",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     }
-    fetchPractices();
-  }, [practice, form]);
 
-  // Track form values locally to avoid infinite re-renders
-  const [colorMode, setColorMode] = useState("color");
-  const [dataCleansing, setDataCleansing] = useState(false);
-  const [ncoaUpdate, setNcoaUpdate] = useState(false);
-  const [firstClassPostage, setFirstClassPostage] = useState(false);
-  const [actualRecipients, setActualRecipients] = useState(0);
+    fetchPractices();
+  }, [isLoaded, isSignedIn, toast]);
 
   // Calculate cost breakdown based on local state
   useEffect(() => {
@@ -161,13 +243,6 @@ export default function CreateOrderPage() {
     setUploadedFiles(files);
   }, []);
 
-  // Handle practice selection and customer number auto-generation
-  const handlePracticeChange = (practiceId: string) => {
-    form.setValue("practiceId", practiceId);
-    // Auto-generate customer number (simple example)
-    form.setValue("customerNumber", `${practiceId.padStart(3, '0')}-${Date.now().toString().slice(-4)}`);
-  };
-
   // Memoized handlers for form controls
   const handleColorModeChange = useCallback((val: string) => {
     setColorMode(val as "color" | "bw");
@@ -191,28 +266,79 @@ export default function CreateOrderPage() {
 
   const onSubmit = async (data: OrderFormData) => {
     try {
-      // Prepare form data for file upload
-      const formData = new FormData();
-      Object.entries(data).forEach(([key, value]) => {
-        formData.append(key, value?.toString() || '');
-      });
-      // Add files
-      Object.entries(uploadedFiles).forEach(([key, file]) => {
-        if (file) {
-          formData.append('file', file.file);
-        }
-      });
-      formData.append('totalCost', (costBreakdown?.totalCost || 0).toString());
-      formData.append('status', isDraft ? 'draft' : 'pending');
+      // Send JSON data instead of FormData for order creation
+      const orderData = {
+        ...data,
+        totalCost: costBreakdown?.totalCost || 0,
+        status: isDraft ? 'draft' : 'pending',
+      };
+
       const res = await fetch("/api/orders", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(orderData),
       });
-      if (!res.ok) throw new Error(isDraft ? "Failed to save draft" : "Failed to create order");
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || (isDraft ? "Failed to save draft" : "Failed to create order"));
+      }
+
+      const orderResult = await res.json();
+      
+      // If order was created successfully and we have files, upload them
+      if (orderResult.id && Object.values(uploadedFiles).some(file => file !== null)) {
+        await uploadFilesToOrder(orderResult.id);
+      }
+
       toast({ title: "Success", description: isDraft ? "Order saved as draft." : "Order created!" });
       router.push("/orders");
     } catch (err) {
-      toast({ title: "Error", description: isDraft ? "Failed to save draft." : "Failed to create order.", variant: "destructive" });
+      console.error("Order creation error:", err);
+      toast({ 
+        title: "Error", 
+        description: err instanceof Error ? err.message : (isDraft ? "Failed to save draft." : "Failed to create order."), 
+        variant: "destructive" 
+      });
+    }
+  };
+
+  // Separate function to upload files after order creation
+  const uploadFilesToOrder = async (orderId: string) => {
+    try {
+      const formData = new FormData();
+      formData.append('orderId', orderId);
+      
+      // Add files with their types
+      Object.entries(uploadedFiles).forEach(([key, file]) => {
+        if (file) {
+          formData.append('files', file.file);
+          formData.append('fileType', key); // dataFile, letterFile, etc.
+        }
+      });
+
+      const uploadRes = await fetch("/api/file-upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        console.error("File upload failed:", uploadRes.statusText);
+        toast({
+          title: "Warning",
+          description: "Order created but file upload failed. You can upload files later.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("File upload error:", error);
+      toast({
+        title: "Warning",
+        description: "Order created but file upload failed. You can upload files later.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -228,7 +354,36 @@ export default function CreateOrderPage() {
 
   return (
     <main className="flex-1 p-8">
-      <h1 className="text-2xl font-bold mb-4">Create Order</h1>
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {isFromQuote ? "Create Order from Quote" : "Create Order"}
+            </h1>
+            <p className="text-gray-600">
+              {isFromQuote 
+                ? `Converting quote ${quoteData?.quoteNumber} to order with pre-filled details`
+                : "Create a new patient letter campaign order"
+              }
+            </p>
+            {isFromQuote && quoteData && (
+              <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-800">
+                  <strong>Quote Details:</strong> {quoteData.subject || "No subject"} • {quoteData.estimatedRecipients?.toLocaleString() || "Unknown"} recipients • {formatCurrency(quoteData.totalCost || 0)}
+                </p>
+              </div>
+            )}
+          </div>
+          <Button
+            onClick={() => router.push("/orders")}
+            variant="outline"
+            className="flex items-center space-x-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Orders</span>
+          </Button>
+        </div>
+      </div>
       <form className="space-y-8" onSubmit={form.handleSubmit(onSubmit)}>
         <Card className="shadow-sm border border-gray-100">
           <CardContent className="p-6 space-y-6">
@@ -249,7 +404,7 @@ export default function CreateOrderPage() {
               <div>
                 <Label htmlFor="practiceId">Practice</Label>
                 <Select
-                  value={form.watch("practiceId")}
+                  value={form.watch("practiceId") || ""}
                   onValueChange={val => form.setValue("practiceId", val)}
                   disabled={loading || practices.length === 0}
                 >

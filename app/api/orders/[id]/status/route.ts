@@ -1,21 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-// import { auth } from "@/auth"; // Temporarily commented out
-import { StatusManager, type OrderStatus } from "@/lib/status-management";
+import { StatusManager, STATUS_TRANSITIONS, type OrderStatus } from "@/lib/status-management";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Temporarily bypass auth for development
-    // const session = await auth();
-    // if (!session?.user?.id) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
-    
-    // Mock user for development
-    const mockUser = { id: "1", role: "USER" as const };
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from the database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     const orderId = params.id;
     const { newStatus, comments } = await req.json();
@@ -39,12 +44,12 @@ export async function POST(
     }
 
     // Check permissions (user owns the order or is admin)
-    if (order.userId !== mockUser.id && mockUser.role !== "ADMIN") {
+    if (order.userId !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const currentStatus = order.status as OrderStatus;
-    const userRole = mockUser.role as 'ADMIN' | 'USER';
+    const userRole = user.role as 'ADMIN' | 'USER';
 
     // Validate the status transition
     const validation = StatusManager.isValidTransition(currentStatus, newStatus, userRole);
@@ -89,7 +94,7 @@ export async function POST(
           orderId: orderId,
           fromStatus: currentStatus,
           toStatus: newStatus,
-          changedBy: mockUser.id,
+          changedBy: user.id,
           changedByRole: userRole,
           comments: comments || null,
           metadata: {
@@ -100,40 +105,19 @@ export async function POST(
         include: { user: true }
       });
 
-      // Send email notification if autoNotify is enabled
-      if (transition.autoNotify) {
-        try {
-          const notificationData = {
-            emailType: 'status_change',
-            recipientEmail: order.practice?.email || order.user?.email || 'customer@example.com',
-            subject: `Order Status Updated - ${order.orderNumber}`,
-            content: `Your order ${order.orderNumber} status has been updated from "${currentStatus}" to "${newStatus}". ${comments ? `Comments: ${comments}` : ''}`,
-            orderId: orderId,
-            practiceId: order.practiceId,
-            userId: order.userId
-          };
-
-          await fetch(`${req.nextUrl.origin}/api/admin/emails`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(notificationData)
-          });
-        } catch (emailError) {
-          console.error("Failed to send status change notification:", emailError);
-        }
-      }
-
       return { updatedOrder, statusHistoryEntry };
     });
 
+    // Return the updated order with status history
     return NextResponse.json({
-      message: "Status updated successfully",
+      success: true,
       order: result.updatedOrder,
-      statusHistory: result.statusHistoryEntry
+      statusHistory: result.statusHistoryEntry,
+      message: `Order status updated to ${newStatus}`
     });
 
-  } catch (err) {
-    console.error("Error updating order status:", err);
+  } catch (error) {
+    console.error("Error updating order status:", error);
     return NextResponse.json({ error: "Failed to update order status" }, { status: 500 });
   }
 }
@@ -143,61 +127,75 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Temporarily bypass auth for development
-    // const session = await auth();
-    // if (!session?.user?.id) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
-    
-    // Mock user for development
-    const mockUser = { id: "1", role: "USER" as const };
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from the database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     const orderId = params.id;
 
-    // Get the order with status history
+    // Get the order to check permissions and current status
     const order = await prisma.orders.findUnique({
       where: { id: orderId },
-      include: { 
-        user: true, 
-        practice: true,
-        statusHistory: {
-          include: { user: true },
-          orderBy: { createdAt: 'desc' }
-        }
-      }
+      select: { userId: true, status: true }
     });
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    // Check permissions (user owns the order or is admin)
-    if (order.userId !== mockUser.id && mockUser.role !== "ADMIN") {
+    // Check if user has permission to view this order
+    if (order.userId !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const currentStatus = order.status as OrderStatus;
-    const userRole = mockUser.role as 'ADMIN' | 'USER';
-
-    // Get available transitions for current user
-    const availableTransitions = StatusManager.getAvailableTransitions(currentStatus, userRole);
-
-    // Get status display info
-    const statusInfo = StatusManager.getStatusDisplayInfo(currentStatus);
-
-    return NextResponse.json({
-      currentStatus,
-      statusInfo,
-      availableTransitions,
-      statusHistory: order.statusHistory,
-      isCustomerActionable: StatusManager.isCustomerActionable(currentStatus),
-      isAdminActionable: StatusManager.isAdminActionable(currentStatus),
-      requiresCustomerAction: StatusManager.requiresCustomerAction(currentStatus),
-      requiresAdminAction: StatusManager.requiresAdminAction(currentStatus)
+    // Get status history for this order
+    const statusHistory = await prisma.orderStatusHistory.findMany({
+      where: { orderId },
+      include: { user: true },
+      orderBy: { createdAt: 'desc' }
     });
 
-  } catch (err) {
-    console.error("Error fetching order status:", err);
-    return NextResponse.json({ error: "Failed to fetch order status" }, { status: 500 });
+    // Get available status transitions for the current status
+    const currentStatus = order.status as OrderStatus;
+    const userRole = user.role as 'ADMIN' | 'USER';
+    
+    console.log(`🔍 Status endpoint: Current status: ${currentStatus}, User role: ${userRole}`);
+    
+    // Get all possible transitions from current status
+    const allTransitions = STATUS_TRANSITIONS.filter(t => t.from === currentStatus);
+    console.log(`🔍 Status endpoint: All transitions from ${currentStatus}:`, allTransitions);
+    
+    // Filter transitions based on user role
+    const availableTransitions = allTransitions.filter(t => 
+      t.allowedRoles.includes(userRole)
+    );
+    console.log(`🔍 Status endpoint: Available transitions for ${userRole}:`, availableTransitions);
+
+    // Get status info for current status
+    const statusInfo = StatusManager.getStatusDisplayInfo(currentStatus);
+    console.log(`🔍 Status endpoint: Status info:`, statusInfo);
+
+    const responseData = { 
+      statusHistory,
+      availableTransitions,
+      statusInfo,
+      currentStatus
+    };
+    
+    console.log(`🔍 Status endpoint: Returning:`, responseData);
+    return NextResponse.json(responseData);
+  } catch (error) {
+    console.error("Error fetching status information:", error);
+    return NextResponse.json({ error: "Failed to fetch status information" }, { status: 500 });
   }
 } 

@@ -1,8 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from the database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Only allow admins to access this endpoint
+    if (user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get('limit') || '100');
     const status = searchParams.get('status');
@@ -51,7 +71,26 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { emailType, recipientEmail, subject, content, orderId, practiceId, userId } = await req.json();
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from the database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Only allow admins to access this endpoint
+    if (user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    }
+
+    const { emailType, recipientEmail, subject, content, orderId, practiceId } = await req.json();
 
     if (!emailType || !recipientEmail || !subject || !content) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -60,7 +99,7 @@ export async function POST(req: NextRequest) {
     const email = await prisma.emailNotifications.create({
       data: {
         orderId: orderId || null,
-        userId: userId || 'admin',
+        userId: user.id, // Use the authenticated admin user's ID
         practiceId: practiceId || null,
         recipientEmail,
         emailType,
@@ -68,7 +107,7 @@ export async function POST(req: NextRequest) {
         content,
         status: 'sent',
         metadata: JSON.stringify({
-          sentBy: 'admin',
+          sentBy: user.id,
           sentAt: new Date().toISOString()
         })
       },

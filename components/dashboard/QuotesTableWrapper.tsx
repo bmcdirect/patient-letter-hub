@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QuotesTable } from "@/components/dashboard/QuotesTable";
+import QuoteConversionModal from "@/components/quotes/QuoteConversionModal";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
@@ -11,6 +12,8 @@ export default function QuotesTableWrapper() {
   const [quotes, setQuotes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedQuote, setSelectedQuote] = useState<any>(null);
+  const [showConversionModal, setShowConversionModal] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -37,25 +40,9 @@ export default function QuotesTableWrapper() {
     router.push(`/quotes/create?edit=${quote.id}`);
   };
 
-  const handleConvert = async (quoteId: any) => {
-    try {
-      const res = await fetch(`/api/quotes/${quoteId}`, {
-        method: "POST",
-      });
-      if (!res.ok) throw new Error("Failed to convert quote");
-      const order = await res.json();
-      toast({
-        title: "Success",
-        description: `Quote converted to order ${order.orderNumber}`,
-      });
-      await fetchQuotes();
-    } catch (err: any) {
-      toast({
-        title: "Error",
-        description: err.message || "Failed to convert quote",
-        variant: "destructive",
-      });
-    }
+  const handleConvert = (quote: any) => {
+    setSelectedQuote(quote);
+    setShowConversionModal(true);
   };
 
   const handleDelete = async (quoteId: any) => {
@@ -72,10 +59,17 @@ export default function QuotesTableWrapper() {
     } catch (err: any) {
       toast({
         title: "Delete Failed",
-        description: err.message || "Failed to delete quote. Please try again.",
+        description: err.message || "Failed to delete quote",
         variant: "destructive",
       });
     }
+  };
+
+  const handleConversionModalClose = () => {
+    setShowConversionModal(false);
+    setSelectedQuote(null);
+    // Refresh quotes to show updated status
+    fetchQuotes();
   };
 
   if (error) {
@@ -83,13 +77,23 @@ export default function QuotesTableWrapper() {
   }
 
   return (
-    <QuotesTable
-      quotes={quotes}
-      isLoading={isLoading}
-      onRefresh={fetchQuotes}
-      onConvert={handleConvert}
-      onEdit={handleEdit}
-      onDelete={handleDelete}
-    />
+    <>
+      <QuotesTable
+        quotes={quotes}
+        isLoading={isLoading}
+        onRefresh={fetchQuotes}
+        onConvert={handleConvert}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
+
+      {selectedQuote && (
+        <QuoteConversionModal
+          quote={selectedQuote}
+          isOpen={showConversionModal}
+          onClose={handleConversionModalClose}
+        />
+      )}
+    </>
   );
 } 
