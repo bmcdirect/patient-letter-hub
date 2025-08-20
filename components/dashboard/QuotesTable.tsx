@@ -254,7 +254,7 @@ export function QuotesTable({
                       {quote.estimatedRecipients?.toLocaleString() || '0'}
                     </TableCell>
                     <TableCell className="font-medium">
-                      ${parseFloat(quote.total || "0").toLocaleString("en-US", {
+                      ${parseFloat(quote.totalCost || "0").toLocaleString("en-US", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}

@@ -51,9 +51,13 @@ export default function CreateOrderPage() {
   const [isDraft, setIsDraft] = useState(false);
   const searchParams = useSearchParams();
   const editId = searchParams?.get("edit");
+  const fromQuoteId = searchParams?.get("fromQuote");
   const isEditing = !!editId;
-  const [initialLoading, setInitialLoading] = useState(isEditing);
+  const isFromQuote = !!fromQuoteId;
+  const [initialLoading, setInitialLoading] = useState(isEditing || isFromQuote);
+  const [quoteLoading, setQuoteLoading] = useState(isFromQuote);
   const [practice, setPractice] = useState<any>(null);
+  const [quoteData, setQuoteData] = useState<any>(null);
 
   const form = useForm<OrderFormData>({
     resolver: zodResolver(orderSchema),
@@ -63,7 +67,7 @@ export default function CreateOrderPage() {
       ncoaUpdate: false,
       firstClassPostage: false,
       autoDeleteDataFile: true,
-      actualRecipients: 0,
+      actualRecipients: 1, // Changed from 0 to 1 to pass validation
       totalCost: 0,
     },
   });
@@ -81,12 +85,58 @@ export default function CreateOrderPage() {
     fetchPractice();
   }, []);
 
+  // Fetch quote data if converting from quote
+  useEffect(() => {
+    async function fetchQuoteData() {
+      if (fromQuoteId) {
+        setQuoteLoading(true);
+        try {
+          const res = await fetch(`/api/quotes/${fromQuoteId}`);
+          if (res.ok) {
+            const quote = await res.json();
+            setQuoteData(quote);
+            console.log('Fetched quote data for conversion:', quote);
+          }
+        } catch (error) {
+          console.error('Error fetching quote data:', error);
+        } finally {
+          setQuoteLoading(false);
+        }
+      }
+    }
+    fetchQuoteData();
+  }, [fromQuoteId]);
+
   // Set practiceId in form when practice is loaded
   useEffect(() => {
     if (practice && practice.id) {
       form.setValue("practiceId", practice.id);
     }
   }, [practice, form]);
+
+  // Pre-fill form with quote data when converting from quote
+  useEffect(() => {
+    if (quoteData && isFromQuote) {
+      form.setValue("practiceId", quoteData.practiceId);
+      form.setValue("subject", quoteData.subject || "");
+      form.setValue("purchaseOrder", quoteData.purchaseOrder || "");
+      form.setValue("costCenter", quoteData.costCenter || "");
+      form.setValue("colorMode", quoteData.colorMode || "color");
+      form.setValue("dataCleansing", quoteData.dataCleansing || false);
+      form.setValue("ncoaUpdate", quoteData.ncoaUpdate || false);
+      form.setValue("firstClassPostage", quoteData.firstClassPostage || false);
+      form.setValue("notes", quoteData.notes || "");
+      form.setValue("totalCost", quoteData.totalCost || 0);
+      
+      // Set local state for cost calculation
+      setColorMode(quoteData.colorMode || "color");
+      setDataCleansing(quoteData.dataCleansing || false);
+      setNcoaUpdate(quoteData.ncoaUpdate || false);
+      setFirstClassPostage(quoteData.firstClassPostage || false);
+      
+      console.log('Pre-filled form with quote data');
+    }
+  }, [quoteData, isFromQuote, form]);
 
   // Set practiceId when practices are loaded and user has a practice
   useEffect(() => {
@@ -133,7 +183,7 @@ export default function CreateOrderPage() {
   const [dataCleansing, setDataCleansing] = useState(false);
   const [ncoaUpdate, setNcoaUpdate] = useState(false);
   const [firstClassPostage, setFirstClassPostage] = useState(false);
-  const [actualRecipients, setActualRecipients] = useState(0);
+  const [actualRecipients, setActualRecipients] = useState(1);
 
   // Calculate cost breakdown based on local state
   useEffect(() => {
@@ -193,23 +243,72 @@ export default function CreateOrderPage() {
     try {
       // Prepare form data for file upload
       const formData = new FormData();
-      Object.entries(data).forEach(([key, value]) => {
-        formData.append(key, value?.toString() || '');
-      });
+      
+      // Add all form fields explicitly
+      formData.append('practiceId', data.practiceId || '');
+      formData.append('subject', data.subject || '');
+      formData.append('purchaseOrder', data.purchaseOrder || '');
+      formData.append('costCenter', data.costCenter || '');
+      // Set actualRecipients to at least 1 if no files uploaded (for draft mode)
+      const recipientCount = isDraft ? Math.max(data.actualRecipients || 1, 1) : data.actualRecipients || 1;
+      formData.append('actualRecipients', recipientCount.toString());
+      formData.append('preferredMailDate', data.preferredMailDate || new Date().toISOString().split('T')[0]);
+      formData.append('colorMode', data.colorMode || 'color');
+      formData.append('dataCleansing', data.dataCleansing?.toString() || 'false');
+      formData.append('ncoaUpdate', data.ncoaUpdate?.toString() || 'false');
+      formData.append('firstClassPostage', data.firstClassPostage?.toString() || 'false');
+      formData.append('notes', data.notes || '');
+      formData.append('totalCost', (costBreakdown?.totalCost || data.totalCost || 0).toString());
+      formData.append('status', isDraft ? 'draft' : 'pending');
+      
       // Add files
       Object.entries(uploadedFiles).forEach(([key, file]) => {
         if (file) {
           formData.append('file', file.file);
         }
       });
-      formData.append('totalCost', (costBreakdown?.totalCost || 0).toString());
-      formData.append('status', isDraft ? 'draft' : 'pending');
+      
+      // If converting from quote, add quote reference
+      if (isFromQuote && fromQuoteId) {
+        formData.append('fromQuoteId', fromQuoteId);
+      }
+      
+      // Debug logging
+      console.log('🔍 Frontend - Submitting order with data:', {
+        practiceId: data.practiceId,
+        subject: data.subject,
+        totalCost: costBreakdown?.totalCost || data.totalCost,
+        status: isDraft ? 'draft' : 'pending',
+        fromQuoteId,
+        fileCount: Object.keys(uploadedFiles).length,
+        formData: Object.fromEntries(formData.entries())
+      });
+      
       const res = await fetch("/api/orders", {
         method: "POST",
         body: formData,
       });
+      
       if (!res.ok) throw new Error(isDraft ? "Failed to save draft" : "Failed to create order");
-      toast({ title: "Success", description: isDraft ? "Order saved as draft." : "Order created!" });
+      
+      const order = await res.json();
+      
+      // If converting from quote, update quote status
+      if (isFromQuote && fromQuoteId) {
+        try {
+          await fetch(`/api/quotes/${fromQuoteId}`, {
+            method: "POST", // This will convert the quote
+          });
+        } catch (quoteErr) {
+          console.error('Failed to update quote status:', quoteErr);
+        }
+      }
+      
+      toast({ 
+        title: "Success", 
+        description: isDraft ? "Order saved as draft." : 
+          isFromQuote ? `Quote converted to order ${order.orderNumber}` : "Order created!" 
+      });
       router.push("/orders");
     } catch (err) {
       toast({ title: "Error", description: isDraft ? "Failed to save draft." : "Failed to create order.", variant: "destructive" });
@@ -228,7 +327,27 @@ export default function CreateOrderPage() {
 
   return (
     <main className="flex-1 p-8">
-      <h1 className="text-2xl font-bold mb-4">Create Order</h1>
+      <h1 className="text-2xl font-bold mb-4">
+        {isFromQuote ? `Convert Quote to Order` : isEditing ? `Edit Order` : `Create Order`}
+      </h1>
+      {isFromQuote && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          {quoteLoading ? (
+            <p className="text-blue-800">Loading quote data...</p>
+          ) : quoteData ? (
+            <>
+              <p className="text-blue-800">
+                <strong>Converting Quote:</strong> {quoteData.quoteNumber} - {quoteData.subject || 'No subject'}
+              </p>
+              <p className="text-blue-600 text-sm mt-1">
+                Please upload your files and review the order details below. The quote information has been pre-filled.
+              </p>
+            </>
+          ) : (
+            <p className="text-red-600">Failed to load quote data</p>
+          )}
+        </div>
+      )}
       <form className="space-y-8" onSubmit={form.handleSubmit(onSubmit)}>
         <Card className="shadow-sm border border-gray-100">
           <CardContent className="p-6 space-y-6">

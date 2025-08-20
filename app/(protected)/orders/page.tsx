@@ -17,10 +17,17 @@ export default function OrdersPage() {
   useEffect(() => {
     async function fetchOrders() {
       setLoading(true);
-      const res = await fetch("/api/orders");
-      const data = await res.json();
-      setOrders(data.orders || []);
-      setLoading(false);
+      try {
+        const res = await fetch("/api/orders");
+        const data = await res.json();
+        console.log('🔍 Orders page - API response:', data);
+        setOrders(data.orders || []);
+        console.log('🔍 Orders page - Set orders:', data.orders || []);
+      } catch (error) {
+        console.error('❌ Error fetching orders:', error);
+      } finally {
+        setLoading(false);
+      }
     }
     fetchOrders();
   }, []);

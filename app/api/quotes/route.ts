@@ -1,20 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { auth } from "@clerk/nextjs/server";
 
 export async function POST(req: NextRequest) {
-  // TEMP: Bypass auth for testing
-  // const session = await auth();
-  // if (!session || !session.user?.email) {
-  //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  // }
+  try {
+    // Get the current user's Clerk session
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  // Use a test user for all actions
-  const user = await prisma.user.findFirst();
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
+    // Get the user from our database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+    
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
   const data = await req.json();
+  
+  // Debug logging to see what's being received
+  console.log('🔍 Backend received quote data:', {
+    practiceId: data.practiceId,
+    estimatedRecipients: data.estimatedRecipients,
+    colorMode: data.colorMode,
+    dataCleansing: data.dataCleansing,
+    ncoaUpdate: data.ncoaUpdate,
+    firstClassPostage: data.firstClassPostage,
+    totalCost: data.totalCost,
+    totalCostType: typeof data.totalCost
+  });
+  
   if (!data.practiceId) {
     return NextResponse.json({ error: "Practice is required" }, { status: 400 });
   }
@@ -39,37 +58,75 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({ quote });
+  // Debug logging to see what was actually saved
+  console.log('✅ Backend created quote:', {
+    quoteId: quote.id,
+    quoteNumber: quote.quoteNumber,
+    totalCost: quote.totalCost,
+    totalCostType: typeof quote.totalCost
+  });
+
+    return NextResponse.json({ quote });
+  } catch (error) {
+    console.error('❌ Quotes API - Error creating quote:', error);
+    return NextResponse.json({ error: "Failed to create quote" }, { status: 500 });
+  }
 }
 
 export async function GET(req: NextRequest) {
-  // TEMP: Bypass auth for testing
-  // if (process.env.NODE_ENV === "development") {
-    const quotes = await prisma.quotes.findMany({
-      orderBy: { createdAt: "desc" },
+  try {
+    // Get the current user's Clerk session
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from our database to check their role and practice
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      include: { practice: true }
     });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    console.log('🔍 Quotes API - Current user:', {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      practiceId: user.practiceId,
+      practiceName: user.practice?.name
+    });
+
+    let quotes;
+    
+    if (user.role === 'ADMIN') {
+      // Admin sees all quotes
+      quotes = await prisma.quotes.findMany({
+        include: { practice: true, user: true },
+        orderBy: { createdAt: "desc" },
+      });
+      console.log('🔍 Quotes API - Admin user, returning all quotes:', quotes.length);
+    } else {
+      // Regular user only sees quotes from their practice
+      if (user.practiceId) {
+        quotes = await prisma.quotes.findMany({
+          where: { practiceId: user.practiceId },
+          include: { practice: true, user: true },
+          orderBy: { createdAt: "desc" },
+        });
+        console.log('🔍 Quotes API - Regular user, returning practice quotes:', quotes.length);
+      } else {
+        quotes = [];
+        console.log('🔍 Quotes API - User has no practice, returning empty');
+      }
+    }
+    
     return NextResponse.json({ quotes });
-  // }
-
-  // const session = await auth();
-  // if (!session || !session.user?.email) {
-  //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  // }
-
-  // const user = await prisma.user.findUnique({
-  //   where: { email: session.user.email },
-  // });
-  // if (!user) {
-  //   return NextResponse.json({ error: "User not found" }, { status: 404 });
-  // }
-
-  // // Get all quotes for the user (optionally filter by practice)
-  // const quotes = await prisma.quotes.findMany({
-  //   where: {
-  //     userId: user.id,
-  //   },
-  //   orderBy: { createdAt: "desc" },
-  // });
-
-  // return NextResponse.json({ quotes });
+  } catch (error) {
+    console.error('❌ Quotes API - Error fetching quotes:', error);
+    return NextResponse.json({ error: "Failed to fetch quotes" }, { status: 500 });
+  }
 } 

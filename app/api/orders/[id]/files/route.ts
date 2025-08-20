@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-// import { auth } from "@/auth"; // Temporarily commented out
+import { auth } from "@clerk/nextjs/server";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
@@ -11,14 +11,21 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Temporarily bypass auth for development
-    // const session = await auth();
-    // if (!session?.user?.id) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
+    // Get the current user's Clerk session
+    const { userId } = await auth();
     
-    // Mock user for development
-    const mockUser = { id: "1", role: "USER" as const };
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from our database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+    
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     const orderId = params.id;
 
@@ -33,7 +40,7 @@ export async function GET(
     }
 
     // Check if user has permission to view this order
-    if (order.userId !== mockUser.id && mockUser.role !== "ADMIN") {
+    if (order.userId !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -56,14 +63,21 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Temporarily bypass auth for development
-    // const session = await auth();
-    // if (!session?.user?.id) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
+    // Get the current user's Clerk session
+    const { userId } = await auth();
     
-    // Mock user for development
-    const mockUser = { id: "1", role: "USER" as const };
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from our database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+    
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     const orderId = params.id;
 
@@ -78,7 +92,7 @@ export async function POST(
     }
 
     // Check if user has permission to upload files to this order
-    if (order.userId !== mockUser.id && mockUser.role !== "ADMIN") {
+    if (order.userId !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -116,7 +130,7 @@ export async function POST(
             fileName: fileName,
             filePath: filePath,
             fileType: file.type,
-            uploadedBy: mockUser.id,
+            uploadedBy: user.id,
           },
           include: { uploader: true }
         });
@@ -168,14 +182,21 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Temporarily bypass auth for development
-    // const session = await auth();
-    // if (!session?.user?.id) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
+    // Get the current user's Clerk session
+    const { userId } = await auth();
     
-    // Mock user for development
-    const mockUser = { id: "1", role: "USER" as const };
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from our database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+    
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     const { searchParams } = new URL(req.url);
     const fileId = searchParams.get("fileId");
@@ -195,7 +216,7 @@ export async function DELETE(
     }
 
     // Check if user has permission to delete this file
-    if (file.uploadedBy !== mockUser.id && mockUser.role !== "ADMIN") {
+    if (file.uploadedBy !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 

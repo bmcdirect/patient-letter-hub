@@ -1,133 +1,259 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-import { resend } from "@/lib/email";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const orderId = params.id;
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
+    // Get the current user's Clerk session
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from our database to check their role and practice
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      include: { practice: true }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const orderId = params.id;
+
+    // Get the order with all related data
     const order = await prisma.orders.findUnique({
       where: { id: orderId },
       include: {
-        files: true,
-        user: true,
         practice: true,
-        approvals: {
-          orderBy: { createdAt: 'desc' }
-        }
+        user: true,
+        files: {
+          orderBy: { createdAt: "desc" }
+        },
+        approvals: true,
+        invoices: true,
       },
     });
+
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
-    return NextResponse.json({ order });
-  } catch (err) {
+
+    // Check if user has permission to view this order
+    if (user.role !== 'ADMIN' && order.practiceId !== user.practiceId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    console.log('🔍 Orders API - Fetched order:', {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      practiceId: order.practiceId,
+      userId: order.userId
+    });
+
+    return NextResponse.json(order);
+  } catch (error) {
+    console.error("❌ Orders API - Error fetching order:", error);
     return NextResponse.json({ error: "Failed to fetch order" }, { status: 500 });
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const orderId = params.id;
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
+    // Get the current user's Clerk session
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from our database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+    
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const orderId = params.id;
+    const body = await req.json();
+
+    // Get the existing order to check permissions
+    const existingOrder = await prisma.orders.findUnique({
+      where: { id: orderId }
+    });
+
+    if (!existingOrder) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    // Check if user has permission to edit this order
+    if (user.role !== 'ADMIN' && existingOrder.userId !== user.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    // Update the order
+    const updatedOrder = await prisma.orders.update({
+      where: { id: orderId },
+      data: {
+        subject: body.subject,
+        cost: body.cost,
+        status: body.status,
+        colorMode: body.colorMode,
+        preferredMailDate: body.preferredMailDate ? new Date(body.preferredMailDate) : undefined,
+        // Add other fields as needed
+      },
+      include: {
+        practice: true,
+        user: true,
+        files: true,
+      },
+    });
+
+    console.log('✅ Orders API - Updated order:', {
+      id: updatedOrder.id,
+      orderNumber: updatedOrder.orderNumber,
+      status: updatedOrder.status
+    });
+
+    return NextResponse.json(updatedOrder);
+  } catch (error) {
+    console.error("❌ Orders API - Error updating order:", error);
+    return NextResponse.json({ error: "Failed to update order" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // Get the current user's Clerk session
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from our database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+    
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const orderId = params.id;
+
+    // Get the existing order to check permissions
+    const existingOrder = await prisma.orders.findUnique({
+      where: { id: orderId }
+    });
+
+    if (!existingOrder) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    // Check if user has permission to delete this order
+    if (user.role !== 'ADMIN' && existingOrder.userId !== user.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    // Delete the order (this will cascade delete related files, approvals, etc.)
+    await prisma.orders.delete({
+      where: { id: orderId }
+    });
+
+    console.log('✅ Orders API - Deleted order:', {
+      id: orderId,
+      orderNumber: existingOrder.orderNumber
+    });
+
+    return NextResponse.json({ message: "Order deleted successfully" });
+  } catch (error) {
+    console.error("❌ Orders API - Error deleting order:", error);
+    return NextResponse.json({ error: "Failed to delete order" }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    // Get the current user's Clerk session
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const orderId = params.id;
     const { status } = await req.json();
+    
     if (!status) {
       return NextResponse.json({ error: "Status is required" }, { status: 400 });
     }
+
     const updatedOrder = await prisma.orders.update({
       where: { id: orderId },
       data: { status },
+      include: {
+        practice: true,
+        user: true,
+        files: true,
+      },
     });
+
+    console.log('✅ Orders API - Updated order status:', {
+      id: updatedOrder.id,
+      orderNumber: updatedOrder.orderNumber,
+      status: updatedOrder.status
+    });
+
     return NextResponse.json({ order: updatedOrder });
   } catch (err) {
+    console.error("❌ Orders API - Error updating order status:", err);
     return NextResponse.json({ error: "Failed to update order status" }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const orderId = params.id;
   try {
+    // Get the current user's Clerk session
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const orderId = params.id;
     const { to, subject, message } = await req.json();
+    
     if (!to || !subject || !message) {
       return NextResponse.json({ error: "Missing email fields" }, { status: 400 });
     }
-    // Send email using Resend
-    await resend.emails.send({
-      from: process.env.EMAIL_FROM || "noreply@yourdomain.com",
+
+    // TODO: Implement email sending functionality
+    // For now, just log the email request
+    console.log('📧 Orders API - Email request:', {
+      orderId,
       to,
       subject,
-      html: `<div>${message}</div>`
+      message
     });
-    return NextResponse.json({ success: true });
+
+    return NextResponse.json({ success: true, message: "Email request logged (not yet implemented)" });
   } catch (err) {
-    return NextResponse.json({ error: "Failed to send email" }, { status: 500 });
-  }
-}
-
-// Customer approval endpoint
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const orderId = params.id;
-  try {
-    const { revisionId, comments, decision } = await req.json();
-
-    if (!revisionId || !decision) {
-      return NextResponse.json({ error: "Revision ID and decision are required" }, { status: 400 });
-    }
-
-    // Update the approval record
-    await prisma.orderApprovals.update({
-      where: { id: revisionId },
-      data: {
-        status: decision,
-        comments: comments || null,
-        approvedBy: "customer", // This should come from session in production
-      },
-    });
-
-    // Update order status based on decision
-    let newStatus = 'approved';
-    if (decision === 'changes-requested') {
-      newStatus = 'draft'; // Return to draft for admin to make changes
-    }
-
-        const updatedOrder = await prisma.orders.update({
-      where: { id: orderId },
-      data: { 
-        status: newStatus,
-        updatedAt: new Date()
-      },
-      include: {
-        practice: true
-      }
-    });
-
-    // Send notification email to admin
-    try {
-      await resend.emails.send({
-        from: process.env.EMAIL_FROM || "noreply@yourdomain.com",
-        to: "admin@yourdomain.com", // This should be the admin email
-        subject: `Order ${updatedOrder.orderNumber} - Customer ${decision}`,
-        html: `
-          <div>
-            <h2>Customer Decision for Order ${updatedOrder.orderNumber}</h2>
-            <p><strong>Decision:</strong> ${decision}</p>
-            ${comments ? `<p><strong>Comments:</strong> ${comments}</p>` : ''}
-            <p><strong>Customer:</strong> ${updatedOrder.practice?.name || 'Unknown'}</p>
-            <p><strong>Date:</strong> ${new Date().toLocaleString()}</p>
-          </div>
-        `
-      });
-    } catch (emailError) {
-      console.error('Failed to send admin notification:', emailError);
-      // Don't fail the request if email fails
-    }
-
-    return NextResponse.json({
-      success: true,
-      order: updatedOrder,
-      message: `Order ${decision} successfully`
-    });
-
-  } catch (err) {
-    console.error('Approval error:', err);
-    return NextResponse.json({ error: "Failed to process approval" }, { status: 500 });
+    console.error("❌ Orders API - Error processing email request:", err);
+    return NextResponse.json({ error: "Failed to process email request" }, { status: 500 });
   }
 } 

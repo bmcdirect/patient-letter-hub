@@ -39,20 +39,12 @@ export default function QuotesTableWrapper() {
 
   const handleConvert = async (quoteId: any) => {
     try {
-      const res = await fetch(`/api/quotes/${quoteId}`, {
-        method: "POST",
-      });
-      if (!res.ok) throw new Error("Failed to convert quote");
-      const order = await res.json();
-      toast({
-        title: "Success",
-        description: `Quote converted to order ${order.orderNumber}`,
-      });
-      await fetchQuotes();
-    } catch (err: any) {
+      // Instead of directly converting, redirect to order creation page with quote data
+      router.push(`/orders/create?fromQuote=${quoteId}`);
+    } catch (err) {
       toast({
         title: "Error",
-        description: err.message || "Failed to convert quote",
+        description: err.message || "Failed to redirect to order creation",
         variant: "destructive",
       });
     }

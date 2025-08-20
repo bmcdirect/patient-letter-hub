@@ -171,10 +171,37 @@ export default function QuoteCreatePage() {
 
   const onSubmit = async (data: QuoteFormData) => {
     try {
+      // Force-recalculate total cost before submission to ensure accuracy
+      const finalCostBreakdown = getCostBreakdown({
+        estimatedRecipients: data.estimatedRecipients,
+        colorMode: data.colorMode,
+        dataCleansing: data.dataCleansing,
+        ncoaUpdate: data.ncoaUpdate,
+        firstClassPostage: data.firstClassPostage,
+      });
+
+      // Create the final submission data with the calculated total cost
+      const submissionData = {
+        ...data,
+        totalCost: finalCostBreakdown.totalCost
+      };
+
+      console.log('Submitting quote with calculated cost:', {
+        estimatedRecipients: data.estimatedRecipients,
+        colorMode: data.colorMode,
+        additionalServices: {
+          dataCleansing: data.dataCleansing,
+          ncoaUpdate: data.ncoaUpdate,
+          firstClassPostage: data.firstClassPostage
+        },
+        calculatedTotalCost: finalCostBreakdown.totalCost,
+        costBreakdown: finalCostBreakdown
+      });
+
       const res = await fetch(isEditing ? `/api/quotes/${editId}` : "/api/quotes", {
         method: isEditing ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(submissionData),
       });
       if (!res.ok) throw new Error(isEditing ? "Failed to update quote" : "Failed to create quote");
       toast({ title: isEditing ? "Quote updated!" : "Quote created!", description: isEditing ? "Your quote has been updated." : "Your quote has been created." });
@@ -339,6 +366,9 @@ export default function QuoteCreatePage() {
               )}
 
               <div className="flex items-center justify-end gap-4 mt-6">
+                <div className="text-sm text-gray-600 mr-auto">
+                  💡 Total cost will be automatically calculated based on your selections
+                </div>
                 <Button type="button" variant="outline" onClick={() => router.push("/quotes")}>Cancel</Button>
                 <Button type="submit" className="bg-primary text-white" disabled={initialLoading || loading}>
                   {initialLoading ? (isEditing ? "Updating..." : "Generating...") : (isEditing ? "Update Quote" : "Generate Quote")}
