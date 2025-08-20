@@ -6,6 +6,7 @@ export type OrderStatus =
   | 'waiting-approval-rev1'
   | 'waiting-approval-rev2'
   | 'waiting-approval-rev3'
+  | 'proof-ready'
   | 'approved'
   | 'in-production'
   | 'production-complete'
@@ -91,6 +92,14 @@ export const STATUS_TRANSITIONS: StatusTransition[] = [
     description: 'Customer approves proof'
   },
   {
+    from: 'approved',
+    to: 'in-production',
+    allowedRoles: ['ADMIN'],
+    requiresComment: false,
+    autoNotify: true,
+    description: 'Admin starts production after approval'
+  },
+  {
     from: 'waiting-approval',
     to: 'waiting-approval-rev1',
     allowedRoles: ['USER'],
@@ -142,9 +151,25 @@ export const STATUS_TRANSITIONS: StatusTransition[] = [
     from: 'waiting-approval-rev3',
     to: 'cancelled',
     allowedRoles: ['ADMIN'],
-    requiresComment: true,
+    requiresComment: false,
     autoNotify: true,
     description: 'Admin cancels order after max revisions'
+  },
+  {
+    from: 'proof-ready',
+    to: 'waiting-approval',
+    allowedRoles: ['ADMIN'],
+    requiresComment: false,
+    autoNotify: true,
+    description: 'Admin uploads proof for customer approval'
+  },
+  {
+    from: 'proof-ready',
+    to: 'in-production',
+    allowedRoles: ['ADMIN'],
+    requiresComment: false,
+    autoNotify: true,
+    description: 'Admin skips proof and goes directly to production'
   },
 
   // Production workflow
@@ -155,6 +180,14 @@ export const STATUS_TRANSITIONS: StatusTransition[] = [
     requiresComment: false,
     autoNotify: true,
     description: 'Admin starts production process'
+  },
+  {
+    from: 'approved',
+    to: 'on-hold',
+    allowedRoles: ['ADMIN'],
+    requiresComment: true,
+    autoNotify: true,
+    description: 'Admin puts approved order on hold'
   },
   {
     from: 'in-production',
@@ -278,6 +311,7 @@ export class StatusManager {
       'waiting-approval-rev1': { label: 'Waiting for Approval (Rev 1)', color: 'orange', description: 'Revision 1 ready for approval' },
       'waiting-approval-rev2': { label: 'Waiting for Approval (Rev 2)', color: 'orange', description: 'Revision 2 ready for approval' },
       'waiting-approval-rev3': { label: 'Waiting for Approval (Rev 3)', color: 'orange', description: 'Final revision ready for approval' },
+      'proof-ready': { label: 'Proof Ready', color: 'blue', description: 'Proof uploaded, ready for customer review' },
       approved: { label: 'Approved', color: 'green', description: 'Proof approved, ready for production' },
       'in-production': { label: 'In Production', color: 'purple', description: 'Order is being produced' },
       'production-complete': { label: 'Production Complete', color: 'indigo', description: 'Production finished' },
@@ -305,6 +339,7 @@ export class StatusManager {
       'waiting-approval-rev1': 'destructive',
       'waiting-approval-rev2': 'destructive',
       'waiting-approval-rev3': 'destructive',
+      'proof-ready': 'default',
       approved: 'secondary',
       'in-production': 'default',
       'production-complete': 'secondary',
@@ -333,6 +368,7 @@ export class StatusManager {
     return [
       'submitted',
       'in-review',
+      'proof-ready',
       'approved',
       'in-production',
       'production-complete',

@@ -133,14 +133,16 @@ export default function AdminDashboardPage() {
     fetchQuotes();
   }, []);
 
+  // Move fetchOrders outside useEffect so it can be called from other functions
+  async function fetchOrders() {
+    setOrdersLoading(true);
+    const res = await fetch("/api/admin/orders");
+    const data = await res.json();
+    setOrders(data.orders || []);
+    setOrdersLoading(false);
+  }
+
   useEffect(() => {
-    async function fetchOrders() {
-      setOrdersLoading(true);
-      const res = await fetch("/api/admin/orders");
-      const data = await res.json();
-      setOrders(data.orders || []);
-      setOrdersLoading(false);
-    }
     fetchOrders();
   }, []);
 

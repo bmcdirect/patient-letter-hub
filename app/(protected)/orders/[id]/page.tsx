@@ -38,6 +38,16 @@ interface Order {
     fileType?: string;
     createdAt: string;
   }>;
+  proofs?: Array<{
+    id: string;
+    revision: number;
+    status: string;
+    comments?: string;
+    createdAt: string;
+    approver?: {
+      name: string;
+    };
+  }>;
 }
 
 export default function OrderDetailPage() {
@@ -75,7 +85,24 @@ export default function OrderDetailPage() {
       }
 
       const data = await res.json();
-      setOrder(data);
+      
+      // Also fetch proofs for this order
+      try {
+        const proofsRes = await fetch(`/api/orders/${orderId}/proofs`);
+        if (proofsRes.ok) {
+          const proofsData = await proofsRes.json();
+          // Combine order data with proofs
+          setOrder({
+            ...data,
+            proofs: proofsData.proofs || []
+          });
+        } else {
+          setOrder(data);
+        }
+      } catch (proofsErr) {
+        console.error("Failed to fetch proofs:", proofsErr);
+        setOrder(data);
+      }
     } catch (err) {
       setError("Failed to fetch order details");
       console.error("Error fetching order:", err);
@@ -264,33 +291,75 @@ export default function OrderDetailPage() {
         </CardTitle>
         </CardHeader>
         <CardContent>
-          {order.files && order.files.length > 0 ? (
-            <div className="space-y-3">
-              {order.files.map((file) => (
-                <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <FileText className="w-5 h-5 text-blue-500" />
-                    <div>
-                      <p className="font-medium">{file.fileName}</p>
-                      <p className="text-sm text-gray-500">
-                        {file.fileType} • {new Date(file.createdAt).toLocaleDateString()}
-                      </p>
+          {/* Customer Files */}
+          {order.files && order.files.length > 0 && (
+            <div className="mb-6">
+              <h4 className="font-medium text-sm text-gray-700 mb-3">Customer Files</h4>
+              <div className="space-y-3">
+                {order.files.map((file) => (
+                  <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                    <div className="flex items-center space-x-3">
+                      <FileText className="w-5 h-5 text-blue-500" />
+                      <div>
+                        <p className="font-medium">{file.fileName}</p>
+                        <p className="text-sm text-gray-500">
+                          {file.fileType} • {new Date(file.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button variant="outline" size="sm">
+                        <Eye className="w-4 h-4 mr-2" />
+                        View
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <Download className="w-4 h-4 mr-2" />
+                        Download
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm">
-                      <Eye className="w-4 h-4 mr-2" />
-                      View
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Download className="w-4 h-4 mr-2" />
-                      Download
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          ) : (
+          )}
+
+          {/* Admin Proofs */}
+          {order.proofs && order.proofs.length > 0 && (
+            <div className="mb-6">
+              <h4 className="font-medium text-sm text-gray-700 mb-3">Design Proofs</h4>
+              <div className="space-y-3">
+                {order.proofs.map((proof) => (
+                  <div key={proof.id} className="flex items-center justify-between p-3 border rounded-lg bg-blue-50 border-blue-200">
+                    <div className="flex items-center space-x-3">
+                      <FileText className="w-5 h-5 text-green-500" />
+                      <div>
+                        <p className="font-medium">Revision {proof.revision}</p>
+                        <p className="text-sm text-gray-500">
+                          Status: {proof.status} • {new Date(proof.createdAt).toLocaleDateString()}
+                        </p>
+                        {proof.comments && (
+                          <p className="text-sm text-gray-600 mt-1">{proof.comments}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => router.push(`/orders/${orderId}/proof-review`)}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        Review
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* No Files Message */}
+          {(!order.files || order.files.length === 0) && (!order.proofs || order.proofs.length === 0) && (
             <div className="text-center py-8 text-gray-500">
               <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
               <p>No files uploaded yet</p>

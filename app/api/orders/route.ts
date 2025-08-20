@@ -107,18 +107,43 @@ export async function POST(req: NextRequest) {
     // Parse FormData instead of JSON
     const formData = await req.formData();
     
-    // Extract form fields
+    // Extract form fields - only use fields that exist in the current Orders model
     const practiceId = formData.get('practiceId') as string;
     const subject = formData.get('subject') as string;
     const totalCost = parseFloat(formData.get('totalCost') as string) || 0;
     const status = formData.get('status') as string || 'pending';
     const colorMode = formData.get('colorMode') as string;
+    const preferredMailDateRaw = formData.get('preferredMailDate') as string;
+    const fromQuoteId = formData.get('fromQuoteId') as string;
+    
+    // Sanitize and validate the preferredMailDate
+    let preferredMailDate: Date | undefined;
+    if (preferredMailDateRaw && preferredMailDateRaw.trim()) {
+      try {
+        // Remove any invalid characters and try to parse
+        const cleanDate = preferredMailDateRaw.replace(/[^\d\-]/g, '');
+        if (cleanDate && cleanDate.length >= 10) {
+          const parsedDate = new Date(cleanDate);
+          if (!isNaN(parsedDate.getTime())) {
+            preferredMailDate = parsedDate;
+            console.log('✅ Orders API - Valid date parsed:', preferredMailDate);
+          } else {
+            console.log('⚠️ Orders API - Invalid date format, ignoring:', preferredMailDateRaw);
+          }
+        }
+      } catch (dateError) {
+        console.log('⚠️ Orders API - Date parsing error, ignoring:', preferredMailDateRaw, dateError);
+      }
+    }
+    
+    // Log fields that are not supported in the current Orders model
     const dataCleansing = formData.get('dataCleansing') === 'true';
     const ncoaUpdate = formData.get('ncoaUpdate') === 'true';
     const firstClassPostage = formData.get('firstClassPostage') === 'true';
     const notes = formData.get('notes') as string;
-    const preferredMailDate = formData.get('preferredMailDate') as string;
-    const fromQuoteId = formData.get('fromQuoteId') as string;
+    const purchaseOrder = formData.get('purchaseOrder') as string;
+    const costCenter = formData.get('costCenter') as string;
+    const actualRecipients = parseInt(formData.get('actualRecipients') as string) || 0;
 
     console.log('🔍 Orders API - Creating order with data:', {
       practiceId,
@@ -126,10 +151,19 @@ export async function POST(req: NextRequest) {
       totalCost,
       status,
       colorMode,
+      preferredMailDate,
+      fromQuoteId
+    });
+    
+    // Log fields that are not supported in the current Orders model
+    console.log('⚠️ Orders API - Ignoring unsupported fields:', {
       dataCleansing,
       ncoaUpdate,
       firstClassPostage,
-      fromQuoteId
+      notes,
+      purchaseOrder,
+      costCenter,
+      actualRecipients
     });
 
     // Validate required fields
@@ -137,19 +171,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Practice ID is required" }, { status: 400 });
     }
 
-    // Create the order
+    // Create the order with only supported fields
+    const orderData = {
+      orderNumber: `O-${Date.now()}`,
+      practiceId,
+      userId: user.id,
+      status,
+      subject: subject || undefined,
+      cost: totalCost,
+      colorMode: colorMode || undefined,
+      preferredMailDate: preferredMailDate || undefined,
+    };
+    
+    console.log('🔍 Orders API - Final order data for creation:', orderData);
+    
     const order = await prisma.orders.create({
-      data: {
-        orderNumber: `O-${Date.now()}`,
-        practiceId,
-        userId: user.id,
-        status,
-        subject: subject || undefined,
-        cost: totalCost,
-        colorMode: colorMode || undefined,
-        preferredMailDate: preferredMailDate ? new Date(preferredMailDate) : undefined,
-        // Add any additional fields that might be needed
-      },
+      data: orderData,
     });
 
     console.log('✅ Orders API - Created order:', {
@@ -160,13 +197,23 @@ export async function POST(req: NextRequest) {
 
     // Handle file uploads if any
     const files = formData.getAll('file') as File[];
+    console.log(`📁 Orders API - Files received:`, {
+      count: files.length,
+      fileNames: files.map(f => f.name),
+      fileSizes: files.map(f => f.size),
+      fileTypes: files.map(f => f.type)
+    });
+    
     if (files.length > 0) {
       console.log(`📁 Orders API - Processing ${files.length} uploaded files`);
       
       // Create uploads directory if it doesn't exist
       const uploadsDir = join(process.cwd(), "uploads", order.id);
+      console.log(`📁 Orders API - Creating uploads directory:`, uploadsDir);
+      
       if (!existsSync(uploadsDir)) {
         await mkdir(uploadsDir, { recursive: true });
+        console.log(`✅ Orders API - Created uploads directory`);
       }
 
       const uploadedFiles = [];
@@ -174,55 +221,66 @@ export async function POST(req: NextRequest) {
 
       // Save each file
       for (const file of files) {
-        if (file.size > 0) {
-          const bytes = await file.arrayBuffer();
-          const buffer = Buffer.from(bytes);
-          const timestamp = Date.now();
-          const originalName = file.name;
-          const fileName = `${timestamp}_${originalName}`;
-          const filePath = join(uploadsDir, fileName);
-          await writeFile(filePath, buffer);
+        try {
+          console.log(`📁 Orders API - Processing file: ${file.name} (${file.size} bytes, ${file.type})`);
+          
+          if (file.size > 0) {
+            const bytes = await file.arrayBuffer();
+            const buffer = Buffer.from(bytes);
+            const timestamp = Date.now();
+            const originalName = file.name;
+            const fileName = `${timestamp}_${originalName}`;
+            const filePath = join(uploadsDir, fileName);
+            
+            console.log(`📁 Orders API - Writing file to: ${filePath}`);
+            await writeFile(filePath, buffer);
+            console.log(`✅ Orders API - File written successfully`);
 
-          // Save file record to database
-          const savedFile = await prisma.orderFiles.create({
-            data: {
-              orderId: order.id,
-              fileName: fileName,
-              filePath: filePath,
-              fileType: file.type,
-              uploadedBy: user.id,
-            },
-            include: { uploader: true }
-          });
-          uploadedFiles.push(savedFile);
-          console.log(`✅ Orders API - Saved file: ${fileName} for order ${order.id}`);
+            // Save file record to database
+            console.log(`📁 Orders API - Creating database record for file`);
+            const savedFile = await prisma.orderFiles.create({
+              data: {
+                orderId: order.id,
+                fileName: fileName,
+                filePath: filePath,
+                fileType: file.type,
+                uploadedBy: user.id,
+              }
+            });
+            uploadedFiles.push(savedFile);
+            console.log(`✅ Orders API - Saved file: ${fileName} for order ${order.id}`);
 
-          // If this is a CSV, parse and count records
-          if (originalName.toLowerCase().endsWith('.csv')) {
-            try {
-              const csvText = buffer.toString('utf-8');
-              const records = parseCSV(csvText, { columns: true });
-              newRecipientCount = records.length;
-              console.log(`📊 Orders API - CSV parsed: ${newRecipientCount} recipients`);
-            } catch (err) {
-              console.error('❌ Orders API - Failed to parse CSV for recipient count:', err);
+            // If this is a CSV, parse and count records
+            if (originalName.toLowerCase().endsWith('.csv')) {
+              try {
+                console.log(`📊 Orders API - Parsing CSV file for recipient count`);
+                const csvText = buffer.toString('utf-8');
+                const records = parseCSV(csvText, { columns: true });
+                newRecipientCount = records.length;
+                console.log(`📊 Orders API - CSV parsed: ${newRecipientCount} recipients`);
+              } catch (err) {
+                console.error('❌ Orders API - Failed to parse CSV for recipient count:', err);
+              }
             }
+          } else {
+            console.log(`⚠️ Orders API - Skipping empty file: ${file.name}`);
           }
+        } catch (fileError) {
+          console.error(`❌ Orders API - Error processing file ${file.name}:`, fileError);
         }
       }
 
-      // If we found a new recipient count, update the order
+      // Note: actualRecipients field doesn't exist in current Orders model
+      // CSV parsing succeeded, but we can't store recipient count in the order
       if (newRecipientCount && newRecipientCount > 0) {
-        await prisma.orders.update({
-          where: { id: order.id },
-          data: {
-            actualRecipients: newRecipientCount,
-          },
-        });
-        console.log(`✅ Orders API - Updated order with ${newRecipientCount} recipients`);
+        console.log(`📊 Orders API - CSV parsed successfully with ${newRecipientCount} recipients`);
+        console.log(`⚠️ Orders API - Cannot store recipient count - actualRecipients field not in schema`);
       }
 
       console.log(`✅ Orders API - Successfully processed ${uploadedFiles.length} files`);
+      console.log(`📁 Orders API - File processing complete. Files saved:`, uploadedFiles.map(f => f.fileName));
+    } else {
+      console.log(`📁 Orders API - No files to process`);
     }
 
     return NextResponse.json(order);

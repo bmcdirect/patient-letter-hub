@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-// import { auth } from "@/auth"; // Temporarily commented out
 import { StatusManager, type OrderStatus } from "@/lib/status-management";
 
 export async function POST(
@@ -8,14 +8,20 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Temporarily bypass auth for development
-    // const session = await auth();
-    // if (!session?.user?.id) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
+    const { userId } = await auth();
     
-    // Mock user for development
-    const mockUser = { id: "1", role: "USER" as const };
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from our database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+    
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     const orderId = params.id;
     const { newStatus, comments } = await req.json();
@@ -39,12 +45,12 @@ export async function POST(
     }
 
     // Check permissions (user owns the order or is admin)
-    if (order.userId !== mockUser.id && mockUser.role !== "ADMIN") {
+    if (order.userId !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const currentStatus = order.status as OrderStatus;
-    const userRole = mockUser.role as 'ADMIN' | 'USER';
+    const userRole = user.role as 'ADMIN' | 'USER';
 
     // Validate the status transition
     const validation = StatusManager.isValidTransition(currentStatus, newStatus, userRole);
@@ -89,7 +95,7 @@ export async function POST(
           orderId: orderId,
           fromStatus: currentStatus,
           toStatus: newStatus,
-          changedBy: mockUser.id,
+          changedBy: user.id,
           changedByRole: userRole,
           comments: comments || null,
           metadata: {
@@ -143,14 +149,20 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Temporarily bypass auth for development
-    // const session = await auth();
-    // if (!session?.user?.id) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
+    const { userId } = await auth();
     
-    // Mock user for development
-    const mockUser = { id: "1", role: "USER" as const };
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from our database
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+    
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     const orderId = params.id;
 
@@ -172,12 +184,12 @@ export async function GET(
     }
 
     // Check permissions (user owns the order or is admin)
-    if (order.userId !== mockUser.id && mockUser.role !== "ADMIN") {
+    if (order.userId !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const currentStatus = order.status as OrderStatus;
-    const userRole = mockUser.role as 'ADMIN' | 'USER';
+    const userRole = user.role as 'ADMIN' | 'USER';
 
     // Get available transitions for current user
     const availableTransitions = StatusManager.getAvailableTransitions(currentStatus, userRole);

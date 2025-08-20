@@ -46,8 +46,8 @@ export default function ProofReviewPage() {
       
       // Combine order data with proofs
       setOrder({
-        ...orderData.order,
-        files: [...(orderData.order.files || []), ...(proofsData.proofs || [])]
+        ...orderData,
+        proofs: proofsData.proofs || []
       });
     } catch (err) {
       setError('Failed to load order details');
@@ -58,12 +58,9 @@ export default function ProofReviewPage() {
   };
 
   const getLatestProof = () => {
-    if (!order?.files) return null;
-    const proofFiles = order.files.filter((f: any) => f.fileType === 'admin-proof');
-    if (proofFiles.length === 0) return null;
-    return proofFiles.sort((a: any, b: any) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )[0];
+    if (!order?.proofs || order.proofs.length === 0) return null;
+    // Proofs are already sorted by revision desc from the API
+    return order.proofs[0];
   };
 
   const getLatestApproval = () => {
@@ -77,12 +74,11 @@ export default function ProofReviewPage() {
 
     setSubmitting(true);
     try {
-      const response = await fetch(`/api/orders/${orderId}`, {
-        method: 'PUT',
+      const response = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          revisionId: latestProof.id,
-          decision: 'approved',
+          newStatus: 'approved',
           comments: comments || 'Approved without comments'
         })
       });
@@ -92,7 +88,8 @@ export default function ProofReviewPage() {
       }
 
       const result = await response.json();
-      setOrder(result.order);
+      // Refresh the order data after status change
+      await fetchOrderDetails();
       setComments("");
       alert('Proof approved successfully! Your order will now proceed to production.');
     } catch (err) {
@@ -114,12 +111,11 @@ export default function ProofReviewPage() {
 
     setSubmitting(true);
     try {
-      const response = await fetch(`/api/orders/${orderId}`, {
-        method: 'PUT',
+      const response = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          revisionId: latestProof.id,
-          decision: 'changes-requested',
+          newStatus: 'changes-requested',
           comments: comments
         })
       });
@@ -129,7 +125,8 @@ export default function ProofReviewPage() {
       }
 
       const result = await response.json();
-      setOrder(result.order);
+      // Refresh the order data after status change
+      await fetchOrderDetails();
       setComments("");
       alert('Change request submitted successfully! The design team will review your feedback.');
     } catch (err) {
@@ -233,25 +230,33 @@ export default function ProofReviewPage() {
             {/* Proof Display */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Design Proof - Revision {latestProof.revisionNumber || 1}
-                </CardTitle>
+                                 <CardTitle className="flex items-center gap-2">
+                   <FileText className="w-5 h-5" />
+                   Design Proof - Revision {latestProof.revision || 1}
+                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="bg-gray-50 p-6 rounded-lg text-center">
-                  <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">{latestProof.fileName}</h3>
-                  <p className="text-gray-600 mb-4">
-                    Uploaded {new Date(latestProof.createdAt).toLocaleDateString()}
-                  </p>
-                  <Button 
-                    onClick={() => window.open(latestProof.filePath, '_blank')}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download Proof
-                  </Button>
+                                 <div className="bg-gray-50 p-6 rounded-lg text-center">
+                   <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                   <h3 className="text-lg font-medium mb-2">Revision {latestProof.revision}</h3>
+                   <p className="text-gray-600 mb-4">
+                     Uploaded {new Date(latestProof.createdAt).toLocaleDateString()}
+                   </p>
+                   {latestProof.comments && (
+                     <p className="text-sm text-gray-600 mb-4 italic">
+                       "{latestProof.comments}"
+                     </p>
+                   )}
+                                     <Button 
+                     onClick={() => {
+                       const downloadUrl = `/api/orders/${orderId}/proofs/${latestProof.id}/download`;
+                       window.open(downloadUrl, '_blank');
+                     }}
+                     className="bg-blue-600 hover:bg-blue-700"
+                   >
+                     <Download className="w-4 h-4 mr-2" />
+                     Download Proof
+                   </Button>
                 </div>
               </CardContent>
             </Card>

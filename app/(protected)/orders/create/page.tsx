@@ -114,29 +114,34 @@ export default function CreateOrderPage() {
     }
   }, [practice, form]);
 
-  // Pre-fill form with quote data when converting from quote
-  useEffect(() => {
-    if (quoteData && isFromQuote) {
-      form.setValue("practiceId", quoteData.practiceId);
-      form.setValue("subject", quoteData.subject || "");
-      form.setValue("purchaseOrder", quoteData.purchaseOrder || "");
-      form.setValue("costCenter", quoteData.costCenter || "");
-      form.setValue("colorMode", quoteData.colorMode || "color");
-      form.setValue("dataCleansing", quoteData.dataCleansing || false);
-      form.setValue("ncoaUpdate", quoteData.ncoaUpdate || false);
-      form.setValue("firstClassPostage", quoteData.firstClassPostage || false);
-      form.setValue("notes", quoteData.notes || "");
-      form.setValue("totalCost", quoteData.totalCost || 0);
-      
-      // Set local state for cost calculation
-      setColorMode(quoteData.colorMode || "color");
-      setDataCleansing(quoteData.dataCleansing || false);
-      setNcoaUpdate(quoteData.ncoaUpdate || false);
-      setFirstClassPostage(quoteData.firstClassPostage || false);
-      
-      console.log('Pre-filled form with quote data');
-    }
-  }, [quoteData, isFromQuote, form]);
+        // Pre-fill form with quote data when converting from quote
+      useEffect(() => {
+        if (quoteData && isFromQuote) {
+          form.setValue("practiceId", quoteData.practiceId);
+          form.setValue("subject", quoteData.subject || "");
+          form.setValue("purchaseOrder", quoteData.purchaseOrder || "");
+          form.setValue("costCenter", quoteData.costCenter || "");
+          form.setValue("colorMode", quoteData.colorMode || "color");
+          form.setValue("dataCleansing", quoteData.dataCleansing || false);
+          form.setValue("ncoaUpdate", quoteData.ncoaUpdate || false);
+          form.setValue("firstClassPostage", quoteData.firstClassPostage || false);
+          form.setValue("notes", quoteData.notes || "");
+          form.setValue("totalCost", quoteData.totalCost || 0);
+          
+          // Set local state for cost calculation
+          setColorMode(quoteData.colorMode || "color");
+          setDataCleansing(quoteData.dataCleansing || false);
+          setNcoaUpdate(quoteData.ncoaUpdate || false);
+          setFirstClassPostage(quoteData.firstClassPostage || false);
+          
+          console.log('Pre-filled form with quote data:', {
+            practiceId: quoteData.practiceId,
+            subject: quoteData.subject,
+            colorMode: quoteData.colorMode,
+            totalCost: quoteData.totalCost
+          });
+        }
+      }, [quoteData, isFromQuote, form]);
 
   // Set practiceId when practices are loaded and user has a practice
   useEffect(() => {
@@ -252,7 +257,14 @@ export default function CreateOrderPage() {
       // Set actualRecipients to at least 1 if no files uploaded (for draft mode)
       const recipientCount = isDraft ? Math.max(data.actualRecipients || 1, 1) : data.actualRecipients || 1;
       formData.append('actualRecipients', recipientCount.toString());
-      formData.append('preferredMailDate', data.preferredMailDate || new Date().toISOString().split('T')[0]);
+      // Handle preferredMailDate with proper validation
+      let mailDate = data.preferredMailDate;
+      if (!mailDate || mailDate === 'Invalid Date' || mailDate.includes('252025')) {
+        // Use current date if invalid
+        mailDate = new Date().toISOString().split('T')[0];
+        console.log('⚠️ Frontend - Invalid date detected, using current date:', mailDate);
+      }
+      formData.append('preferredMailDate', mailDate);
       formData.append('colorMode', data.colorMode || 'color');
       formData.append('dataCleansing', data.dataCleansing?.toString() || 'false');
       formData.append('ncoaUpdate', data.ncoaUpdate?.toString() || 'false');
@@ -262,8 +274,14 @@ export default function CreateOrderPage() {
       formData.append('status', isDraft ? 'draft' : 'pending');
       
       // Add files
+      console.log('🔍 Frontend - Files to upload:', {
+        uploadedFilesKeys: Object.keys(uploadedFiles),
+        uploadedFilesValues: Object.values(uploadedFiles).map(f => f ? { name: f.file.name, size: f.file.size, type: f.file.type } : null)
+      });
+      
       Object.entries(uploadedFiles).forEach(([key, file]) => {
         if (file) {
+          console.log(`🔍 Frontend - Appending file: ${file.file.name} (${file.file.size} bytes)`);
           formData.append('file', file.file);
         }
       });
@@ -281,6 +299,8 @@ export default function CreateOrderPage() {
         status: isDraft ? 'draft' : 'pending',
         fromQuoteId,
         fileCount: Object.keys(uploadedFiles).length,
+        originalDate: data.preferredMailDate,
+        sanitizedDate: mailDate,
         formData: Object.fromEntries(formData.entries())
       });
       
