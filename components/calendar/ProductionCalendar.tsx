@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, Calendar, Download, Filter } from "lucide-react";
+import { useNavigationClick } from "@/hooks/useNavigationClick";
 
 interface CalendarEvent {
   id: string;
@@ -33,6 +34,7 @@ export function ProductionCalendar({
 }: ProductionCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEventType, setSelectedEventType] = useState<string>('all');
+  const handleNavigation = useNavigationClick();
 
   // Convert orders and quotes to calendar events
   const events: CalendarEvent[] = useMemo(() => {
@@ -162,9 +164,22 @@ export function ProductionCalendar({
     }
   };
 
-  const handleEventClick = (event: CalendarEvent) => {
+  const handleEventClick = (calendarEvent: CalendarEvent, domEvent: React.MouseEvent) => {
+    // Prevent default behavior and stop propagation
+    domEvent.preventDefault();
+    domEvent.stopPropagation();
+    
     if (onEventClick) {
-      onEventClick(event);
+      onEventClick(calendarEvent);
+    } else {
+      // Default navigation behavior using the navigation hook
+      if (calendarEvent.entityType === 'order') {
+        // Navigate to order details page
+        handleNavigation(`/orders/${calendarEvent.entityId}`)(domEvent);
+      } else if (calendarEvent.entityType === 'quote') {
+        // Navigate to quotes page
+        handleNavigation('/quotes')(domEvent);
+      }
     }
   };
 
@@ -331,7 +346,11 @@ export function ProductionCalendar({
                       key={event.id}
                       className={`text-xs px-2 py-1 rounded border cursor-pointer transition-colors ${getEventColor(event.type)}`}
                       title={`${event.title} - Click to view details`}
-                      onClick={() => handleEventClick(event)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleEventClick(event, e);
+                      }}
                     >
                       <div className="font-medium truncate">{event.practiceName}</div>
                       <div className="text-xs opacity-75 truncate">

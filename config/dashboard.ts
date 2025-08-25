@@ -21,13 +21,7 @@ export const sidebarLinks: SidebarNavItem[] = [
         href: "/orders/create",
         icon: "add",
         title: "Create Order",
-        // authorizeOnly: UserRole.USER, // Only customers can create orders
-      },
-      {
-        href: "/file-upload",
-        icon: "media",
-        title: "File Upload",
-        // authorizeOnly: UserRole.USER, // Only customers
+        authorizeOnly: UserRole.USER, // Only customers can create orders
       },
       {
         href: "/quotes",
@@ -38,20 +32,26 @@ export const sidebarLinks: SidebarNavItem[] = [
       {
         href: "/quotes/create",
         icon: "add",
-        title: "Request Quote",
-        // authorizeOnly: UserRole.USER, // Only customers
+        title: "Create Quote",
+        authorizeOnly: UserRole.USER, // Only customers
       },
       {
         href: "/admin",
         icon: "laptop",
         title: "Admin Panel",
-        // authorizeOnly: UserRole.ADMIN,
+        authorizeOnly: UserRole.ADMIN,
       },
       {
         href: "/admin/orders",
         icon: "package",
         title: "All Orders",
-        // authorizeOnly: UserRole.ADMIN,
+        authorizeOnly: UserRole.ADMIN,
+      },
+      {
+        href: "/file-upload",
+        icon: "media",
+        title: "File Upload",
+        authorizeOnly: UserRole.USER, // Only customers
       },
     ],
   },

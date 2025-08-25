@@ -51,24 +51,33 @@ interface Order {
 }
 
 export default function OrderDetailPage() {
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn, user, isLoaded } = useUser();
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
+  
+
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+
 
   const orderId = params.id as string;
 
   useEffect(() => {
+    // Wait for Clerk to be fully loaded before making authentication decisions
+    if (!isLoaded) {
+      return;
+    }
+    
     if (!isSignedIn) {
       router.push("/sign-in");
       return;
     }
 
     fetchOrderDetails();
-  }, [isSignedIn, router, orderId]);
+  }, [isSignedIn, isLoaded, orderId]);
 
   const fetchOrderDetails = async () => {
     try {
@@ -78,6 +87,8 @@ export default function OrderDetailPage() {
       if (!res.ok) {
         if (res.status === 404) {
           setError("Order not found");
+        } else if (res.status === 403) {
+          setError("You don't have permission to view this order");
         } else {
           setError("Failed to fetch order details");
         }
@@ -89,6 +100,7 @@ export default function OrderDetailPage() {
       // Also fetch proofs for this order
       try {
         const proofsRes = await fetch(`/api/orders/${orderId}/proofs`);
+        
         if (proofsRes.ok) {
           const proofsData = await proofsRes.json();
           // Combine order data with proofs
@@ -169,6 +181,11 @@ export default function OrderDetailPage() {
     }
   };
 
+  // Wait for Clerk to be fully loaded before making authentication decisions
+  if (!isLoaded) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+  
   if (!isSignedIn) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }

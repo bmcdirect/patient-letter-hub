@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, Download } from "lucide-react";
+import { useNavigationClick } from "@/hooks/useNavigationClick";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -13,6 +14,7 @@ export default function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const router = useRouter();
+  const handleNavigation = useNavigationClick();
 
   useEffect(() => {
     async function fetchOrders() {
@@ -62,7 +64,7 @@ export default function OrdersPage() {
               <span>Export</span>
             </Button>
             <Button 
-              onClick={() => router.push("/orders/create")}
+              onClick={handleNavigation("/orders/create")}
               className="bg-primary-500 hover:bg-primary-600 text-white flex items-center space-x-2"
             >
               <Plus className="h-4 w-4" />
@@ -173,6 +175,7 @@ export default function OrdersPage() {
               <th className="px-4 py-2 border">Subject</th>
               <th className="px-4 py-2 border">Status</th>
               <th className="px-4 py-2 border">Created</th>
+              <th className="px-4 py-2 border">Due Date</th>
               <th className="px-4 py-2 border">Actions</th>
             </tr>
           </thead>
@@ -185,9 +188,12 @@ export default function OrdersPage() {
                 <td className="px-4 py-2 border">{order.status}</td>
                 <td className="px-4 py-2 border">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "-"}</td>
                 <td className="px-4 py-2 border">
+                  {order.preferredMailDate ? new Date(order.preferredMailDate).toLocaleDateString() : "-"}
+                </td>
+                <td className="px-4 py-2 border">
                   <button
                     className="text-blue-600 underline"
-                    onClick={() => router.push(`/orders/${order.id}`)}
+                    onClick={handleNavigation(`/orders/${order.id}`)}
                   >
                     View
                   </button>

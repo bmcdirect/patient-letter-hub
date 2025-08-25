@@ -10,10 +10,27 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw, Search, Plus, Filter, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Eye, Upload, Package, CheckCircle2, Truck, Clock, Link2, Mail, FileText, MoreHorizontal } from "lucide-react";
+import { 
+  Eye, 
+  Upload, 
+  Package, 
+  CheckCircle2, 
+  Truck, 
+  Clock, 
+  Link2, 
+  Mail, 
+  FileText, 
+  MoreHorizontal,
+  Users, 
+  DollarSign, 
+  TrendingUp,
+  MessageSquare,
+  AlertTriangle
+} from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import ProofUploadModal from "@/components/admin/ProofUploadModal";
 import StatusManagementModal from "@/components/admin/StatusManagementModal";
+import CustomerFeedbackModal from "@/components/admin/CustomerFeedbackModal";
 import FileUploadComponent from "@/components/file-upload/FileUploadComponent";
 import { ProductionCalendar } from "@/components/calendar/ProductionCalendar";
 
@@ -67,6 +84,11 @@ export default function AdminDashboardPage() {
   // Status Management Modal State
   const [showStatusManagementModal, setShowStatusManagementModal] = useState(false);
   const [statusManagementOrder, setStatusManagementOrder] = useState<any>(null);
+
+  // Customer Feedback Modal State
+  const [showCustomerFeedbackModal, setShowCustomerFeedbackModal] = useState(false);
+  const [customerFeedbackOrder, setCustomerFeedbackOrder] = useState<any>(null);
+
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [emails, setEmails] = useState<any[]>([]);
   const [emailsLoading, setEmailsLoading] = useState(true);
@@ -201,6 +223,13 @@ export default function AdminDashboardPage() {
       icon: 'FileText',
       action: () => openFileViewModal(order),
       available: true
+    });
+    actions.push({
+      label: 'View Feedback',
+      icon: 'MessageSquare',
+      action: () => openCustomerFeedbackModal(order),
+      available: status === 'changes-requested',
+      reason: status === 'changes-requested' ? undefined : 'Feedback is only available when customer has requested changes.'
     });
     actions.push({
       label: 'Upload Proof',
@@ -798,13 +827,38 @@ export default function AdminDashboardPage() {
     setStatusManagementOrder(null);
   }
 
+  function openCustomerFeedbackModal(order: any) {
+    setCustomerFeedbackOrder(order);
+    setShowCustomerFeedbackModal(true);
+  }
+
+  function handleProofUploadFromFeedback(orderId: string, revisionNumber: number, comments: string) {
+    // Open the proof upload modal with the feedback order
+    const order = orders.find(o => o.id === orderId);
+    if (order) {
+      setProofUploadOrder(order);
+      setProofNotes(comments);
+      setRevisionNumber(revisionNumber);
+      setShowProofUploadModal(true);
+      setShowCustomerFeedbackModal(false);
+      setCustomerFeedbackOrder(null);
+    }
+  }
+
   return (
     <main className="flex-1 p-8">
       <h1 className="text-2xl font-bold mb-8">Admin Dashboard</h1>
       <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList className="mb-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="orders">
+            Orders
+            {orders.filter(o => o.status === 'changes-requested').length > 0 && (
+              <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 text-xs">
+                {orders.filter(o => o.status === 'changes-requested').length}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="quotes">Quotes</TabsTrigger>
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
           <TabsTrigger value="emails">Emails</TabsTrigger>
@@ -987,41 +1041,62 @@ export default function AdminDashboardPage() {
                 </CardContent>
               </Card>
 
-              {/* Recent Activity */}
+              {/* Production Calendar - Replaces Recent Activity */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
+                  <CardTitle>Production Calendar</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {recentActivity.length > 0 ? (
-                      recentActivity.map((activity, index) => (
-                        <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                          <div className={`w-3 h-3 rounded-full ${
-                            activity.type === 'order' ? 'bg-blue-500' : 'bg-purple-500'
-                          }`}></div>
-                          <div className="flex-1">
-                            <div className="font-medium">
-                              {activity.type === 'order' ? 'Order' : 'Quote'} {activity.item} {activity.action}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {activity.customer} • {activity.date ? new Date(activity.date).toLocaleDateString() : 'N/A'}
-                            </div>
-                          </div>
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            activity.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            activity.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                            activity.status?.startsWith('waiting-approval') ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {activity.status?.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                          </span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center text-gray-500 py-4">No recent activity</div>
-                    )}
-                  </div>
+                  <ProductionCalendar
+                    orders={orders}
+                    quotes={quotes}
+                    onEventClick={(event) => {
+                      if (event.entityType === 'order') {
+                        const order = orders.find(o => o.id === event.entityId);
+                        if (order) {
+                          setSelectedOrder(order);
+                          setShowOrderModal(true);
+                        }
+                      } else if (event.entityType === 'quote') {
+                        // Navigate to quotes page for editing
+                        window.location.href = '/quotes';
+                      }
+                    }}
+                    onExportSchedule={() => {
+                      // Enhanced CSV export with more details
+                      const csvContent = [
+                        ['Date', 'Practice', 'Type', 'Order/Quote #', 'Status', 'Subject', 'Preferred Mail Date', 'Production Start', 'Production End'],
+                        ...orders.map(order => [
+                          order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '',
+                          order.practiceName || order.practice?.name || '',
+                          'Order',
+                          order.orderNumber,
+                          order.status,
+                          order.subject || '',
+                          order.preferredMailDate ? new Date(order.preferredMailDate).toLocaleDateString() : '',
+                          order.productionStartDate ? new Date(order.productionStartDate).toLocaleDateString() : '',
+                          order.productionEndDate ? new Date(order.productionEndDate).toLocaleDateString() : ''
+                        ]),
+                        ...quotes.map(quote => [
+                          quote.createdAt ? new Date(quote.createdAt).toLocaleDateString() : '',
+                          quote.practiceName || quote.practice?.name || '',
+                          'Quote',
+                          quote.quoteNumber,
+                          quote.status,
+                          quote.subject || '',
+                          '', '', '', ''
+                        ])
+                      ].map(row => row.join(',')).join('\n');
+
+                      const blob = new Blob([csvContent], { type: 'text/csv' });
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `production-schedule-${new Date().toLocaleDateString()}.csv`;
+                      a.click();
+                      window.URL.revokeObjectURL(url);
+                    }}
+                  />
                 </CardContent>
               </Card>
 
@@ -1310,7 +1385,16 @@ export default function AdminDashboardPage() {
                           className="rounded"
                         />
                       </TableCell>
-                      <TableCell>{order.orderNumber}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {order.status === 'changes-requested' && (
+                            <div className="flex items-center gap-1 text-yellow-600" title="Customer feedback available">
+                              <MessageSquare className="h-4 w-4" />
+                            </div>
+                          )}
+                          {order.orderNumber}
+                        </div>
+                      </TableCell>
                       <TableCell>{order.practiceName || order.practice?.name || '-'}</TableCell>
                       <TableCell>{order.subject}</TableCell>
                       <TableCell>
@@ -1340,6 +1424,7 @@ export default function AdminDashboardPage() {
                                 {action.icon === 'Link2' && <Link2 className="mr-2 h-4 w-4" />}
                                 {action.icon === 'Mail' && <Mail className="mr-2 h-4 w-4" />}
                                 {action.icon === 'RefreshCw' && <RefreshCw className="mr-2 h-4 w-4" />}
+                                {action.icon === 'MessageSquare' && <MessageSquare className="mr-2 h-4 w-4" />}
                                 {action.label}
                                 {statusUpdating === order.id && action.isStatusChange && (
                                   <span className="ml-2">...</span>
@@ -1564,7 +1649,7 @@ export default function AdminDashboardPage() {
                   const url = window.URL.createObjectURL(blob);
                   const a = document.createElement('a');
                   a.href = url;
-                  a.download = `production-schedule-${new Date().toISOString().split('T')[0]}.csv`;
+                  a.download = `production-schedule-${new Date().toLocaleDateString()}.csv`;
                   a.click();
                   window.URL.revokeObjectURL(url);
                 }}
@@ -2151,6 +2236,16 @@ export default function AdminDashboardPage() {
           isOpen={showStatusManagementModal}
           onClose={closeStatusManagementModal}
           onSuccess={handleStatusManagementSuccess}
+        />
+      )}
+
+      {/* Customer Feedback Modal */}
+      {showCustomerFeedbackModal && customerFeedbackOrder && (
+        <CustomerFeedbackModal
+          order={customerFeedbackOrder}
+          isOpen={showCustomerFeedbackModal}
+          onClose={() => setShowCustomerFeedbackModal(false)}
+          onUploadProof={handleProofUploadFromFeedback}
         />
       )}
     </main>

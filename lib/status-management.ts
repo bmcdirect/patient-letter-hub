@@ -84,12 +84,28 @@ export const STATUS_TRANSITIONS: StatusTransition[] = [
     description: 'Admin requests changes from customer'
   },
   {
+    from: 'changes-requested',
+    to: 'waiting-approval',
+    allowedRoles: ['ADMIN'],
+    requiresComment: true,
+    autoNotify: true,
+    description: 'Admin uploads revised proof after customer requested changes'
+  },
+  {
     from: 'waiting-approval',
     to: 'approved',
     allowedRoles: ['USER'],
     requiresComment: false,
     autoNotify: true,
     description: 'Customer approves proof'
+  },
+  {
+    from: 'waiting-approval',
+    to: 'changes-requested',
+    allowedRoles: ['USER'],
+    requiresComment: true,
+    autoNotify: true,
+    description: 'Customer requests changes to proof'
   },
   {
     from: 'approved',
@@ -374,7 +390,8 @@ export class StatusManager {
       'production-complete',
       'shipped',
       'delivered',
-      'on-hold'
+      'on-hold',
+      'changes-requested'
     ].includes(status);
   }
 
