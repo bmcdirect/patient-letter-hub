@@ -131,11 +131,11 @@ export default function ProofUploadModal({ order, isOpen, onClose, onSuccess }: 
                   id="proof-file-input"
                   type="file"
                   onChange={handleFileSelect}
-                  accept=".pdf,.jpg,.jpeg,.png,.gif,.tiff,.bmp"
+                  accept=".pdf,.tiff,.bmp,.eps"
                   className="mt-1"
                 />
                 <p className="text-sm text-gray-500 mt-1">
-                  Supported formats: PDF, JPG, PNG, GIF, TIFF, BMP
+                  Supported formats: PDF, TIFF, BMP, EPS (desktop uploads only)
                 </p>
               </div>
               {/* Selected File */}

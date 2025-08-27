@@ -269,37 +269,37 @@ export default function FileUploadComponent({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FileUploadSection
               title="Practice Letterhead"
-              description="PDF or image file of practice letterhead"
+              description="PDF or image file of practice letterhead (desktop uploads only)"
               file={letterheadFile}
               setFile={setLetterheadFile}
-              accept=".pdf,.jpg,.jpeg,.png"
+              accept=".pdf,.tiff,.bmp"
               icon={FileText}
             />
 
             <FileUploadSection
               title="Logo"
-              description="Practice logo image file"
+              description="Practice logo image file (desktop uploads only)"
               file={logoFile}
               setFile={setLogoFile}
-              accept=".jpg,.jpeg,.png,.svg"
+              accept=".tiff,.bmp,.eps"
               icon={Image}
             />
 
             <FileUploadSection
               title="Envelope Design"
-              description="Custom envelope design file"
+              description="Custom envelope design file (desktop uploads only)"
               file={envelopeFile}
               setFile={setEnvelopeFile}
-              accept=".pdf,.jpg,.jpeg,.png"
+              accept=".pdf,.tiff,.bmp"
               icon={Mail}
             />
 
             <FileUploadSection
               title="Signature"
-              description="Doctor signature image file"
+              description="Doctor signature image file (desktop uploads only)"
               file={signatureFile}
               setFile={setSignatureFile}
-              accept=".jpg,.jpeg,.png"
+              accept=".tiff,.bmp"
               icon={Image}
             />
           </div>
