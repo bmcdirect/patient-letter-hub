@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import { ModeToggle } from "./mode-toggle";
 import { UserAccountNav } from "./user-account-nav";
+import { marketingConfig } from "@/config/marketing";
 
 export function NavBar() {
   const { isSignedIn, user } = useUser();
@@ -18,6 +19,20 @@ export function NavBar() {
             </span>
           </Link>
         </div>
+        
+        {/* Main Navigation Links */}
+        <nav className="hidden md:flex items-center space-x-6">
+          {marketingConfig.mainNav.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+            >
+              {item.title}
+            </Link>
+          ))}
+        </nav>
+        
         <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
           <div className="w-full flex-1 md:w-auto md:flex-none">
             {/* Add search or other nav items here */}

@@ -1,3 +1,5 @@
+"use client";
+
 import { SignUp } from "@clerk/nextjs";
 
 export default function SignUpPage() {
@@ -5,6 +7,8 @@ export default function SignUpPage() {
     <div className="flex min-h-screen items-center justify-center">
       <SignUp 
         routing="hash"
+        redirectUrl="/dashboard/profile"
+        afterSignUpUrl="/dashboard/profile"
         appearance={{
           elements: {
             formButtonPrimary: 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session-manager";
 
 export async function GET(req: NextRequest) {
   try {

@@ -24,11 +24,14 @@ export function UserAccountNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+        <Button variant="ghost" className="relative h-8 px-3 rounded-full flex items-center gap-2">
           <Avatar className="h-8 w-8">
             <AvatarImage src={user.imageUrl} alt={user.fullName || ""} />
             <AvatarFallback>{user.firstName?.charAt(0) || user.emailAddresses[0]?.emailAddress.charAt(0) || "U"}</AvatarFallback>
           </Avatar>
+          <span className="text-sm font-medium text-foreground hidden sm:inline-block">
+            {user.firstName || user.fullName || user.emailAddresses[0]?.emailAddress.split('@')[0] || "User"}
+          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -47,9 +50,7 @@ export function UserAccountNav() {
           <DropdownMenuItem asChild>
             <a href="/dashboard">Dashboard</a>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <a href="/dashboard/settings">Settings</a>
-          </DropdownMenuItem>
+
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>

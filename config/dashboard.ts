@@ -10,6 +10,7 @@ export const sidebarLinks: SidebarNavItem[] = [
         href: "/dashboard",
         icon: "dashboard",
         title: "Dashboard",
+        // Visible to both customers and admins
       },
       {
         href: "/orders",
@@ -58,10 +59,8 @@ export const sidebarLinks: SidebarNavItem[] = [
   {
     title: "OPTIONS",
     items: [
-      { href: "/dashboard/settings", icon: "settings", title: "Settings" },
       { href: "/dashboard/profile", icon: "user", title: "Profile" },
       { href: "/", icon: "home", title: "Homepage" },
-      { href: "/docs", icon: "bookOpen", title: "Documentation" },
     ],
   },
 ];

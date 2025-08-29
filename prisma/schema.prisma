@@ -54,6 +54,11 @@ model Practice {
   organizationId String?  // Clerk organization ID
   name           String
   address        String?
+  addressLine1   String?
+  addressLine2   String?
+  city           String?
+  state          String?
+  zipCode        String?
   phone          String?
   email          String?
   createdAt      DateTime @default(now()) @map(name: "created_at")
@@ -72,12 +77,18 @@ model User {
   id            String    @id @default(cuid())
   clerkId       String?   @unique  // Nullable - won't break existing users
   name          String?
+  title         String?   // Professional title
   email         String?   @unique
   emailVerified DateTime?
   image         String?
   createdAt     DateTime  @default(now()) @map(name: "created_at")
   updatedAt     DateTime  @default(now()) @map(name: "updated_at")
   role          UserRole  @default(USER)
+  
+  // Professional details
+  taxonomyCode String?   // Taxonomy code
+  npi1         String?   // NPI-1 number
+  npi2         String?   // NPI-2 number
 
   accounts Account[]
   sessions Session[]

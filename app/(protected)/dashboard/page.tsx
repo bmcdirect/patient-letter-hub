@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, FileText, Package, TrendingUp, Clock } from "lucide-react";
 import { ProductionCalendar } from "@/components/calendar/ProductionCalendar";
 import { useNavigationClick } from "@/hooks/useNavigationClick";
+import { useUser } from "@clerk/nextjs";
 
 export default function DashboardPage() {
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
   const [user, setUser] = useState<any>(null);
   const [quotes, setQuotes] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
@@ -69,10 +71,12 @@ export default function DashboardPage() {
       }
     };
 
-    fetchData();
-  }, []);
+    if (clerkLoaded && clerkUser) {
+      fetchData();
+    }
+  }, [clerkLoaded, clerkUser]);
 
-  if (loading) {
+  if (!clerkLoaded || loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center justify-center h-64">
@@ -82,38 +86,40 @@ export default function DashboardPage() {
     );
   }
 
+  if (!clerkUser) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
+          <p className="text-gray-600">Please sign in to access your dashboard.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Get user's display name from Clerk
+  const getUserDisplayName = () => {
+    if (clerkUser.firstName && clerkUser.lastName) {
+      return `${clerkUser.firstName} ${clerkUser.lastName}`;
+    } else if (clerkUser.firstName) {
+      return clerkUser.firstName;
+    } else if (clerkUser.fullName) {
+      return clerkUser.fullName;
+    } else {
+      return clerkUser.emailAddresses[0]?.emailAddress.split('@')[0] || 'User';
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Welcome, {user?.name || user?.email || 'User'}!
+          Welcome, {getUserDisplayName()}!
         </h2>
         <p className="text-gray-600">
-          Managing communications for {user?.practice?.name || user?.email || 'your practice'}
+          Managing communications for {user?.practice?.name || 'your practice'}
         </p>
       </div>
-
-      {/* Tenant Isolation Demo */}
-      <Card className="mb-8 border-blue-200 bg-blue-50">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-blue-900">
-                Multi-Tenant System Active
-              </h3>
-              <p className="text-blue-700 mt-1">
-                You are logged in as <strong>{user?.email}</strong> with tenant ID <strong>{user?.tenantId || user?.practiceId}</strong>
-              </p>
-              <p className="text-blue-600 text-sm mt-2">
-                You can only see data for your practice: {user?.practiceName || user?.email}
-              </p>
-            </div>
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-              Tenant {user?.tenantId || user?.practiceId}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">

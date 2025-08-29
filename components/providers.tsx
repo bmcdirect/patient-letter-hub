@@ -26,7 +26,6 @@ export default function Providers({ children }: ProvidersProps) {
             footerActionLink: "text-primary hover:text-primary/90",
           },
         }}
-        forceRedirectUrl="/dashboard"
       >
         <ThemeProvider
           attribute="class"

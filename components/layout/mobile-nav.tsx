@@ -9,21 +9,23 @@ import { buttonVariants } from "@/components/ui/button";
 import { ModeToggle } from "@/components/layout/mode-toggle";
 import { Icons } from "@/components/shared/icons";
 import { siteConfig } from "@/config/site";
+import { marketingConfig } from "@/config/marketing";
 import { AUTH_CONFIG } from "@/lib/auth-config.client";
-import { DocsSidebarNav } from "@/components/docs/sidebar-nav";
 
 interface NavMobileProps {
   links?: { title: string; href: string }[];
   session?: any;
-  documentation?: boolean;
 }
 
-export function NavMobile({ links, session, documentation }: NavMobileProps) {
+export function NavMobile({ links, session }: NavMobileProps) {
   const [open, setOpen] = useState(false);
   
   // Use Clerk routes when Clerk is enabled
   const loginUrl = AUTH_CONFIG.useClerk ? "/sign-in" : "/login";
   const signUpUrl = AUTH_CONFIG.useClerk ? "/sign-up" : "/register";
+  
+  // Use provided links or default to marketing navigation
+  const navigationLinks = links || marketingConfig.mainNav;
 
   return (
     <>
@@ -48,7 +50,7 @@ export function NavMobile({ links, session, documentation }: NavMobileProps) {
         )}
       >
         <ul className="grid divide-y divide-muted">
-          {links && links.length > 0 && links.map(({ title, href }) => (
+          {navigationLinks.map(({ title, href }) => (
             <li key={href} className="py-3">
               <Link
                 href={href}
@@ -108,12 +110,6 @@ export function NavMobile({ links, session, documentation }: NavMobileProps) {
             </>
           )}
         </ul>
-
-        {documentation ? (
-          <div className="mt-8 block md:hidden">
-            <DocsSidebarNav setOpen={setOpen} />
-          </div>
-        ) : null}
 
         <div className="mt-5 flex items-center justify-end space-x-4">
           <Link href={siteConfig.links.github} target="_blank" rel="noreferrer">
