@@ -96,9 +96,12 @@ export default function CreateOrderPage() {
             const quote = await res.json();
             setQuoteData(quote);
             console.log('Fetched quote data for conversion:', quote);
+            // Set initialLoading to false when quote data is loaded
+            setInitialLoading(false);
           }
         } catch (error) {
           console.error('Error fetching quote data:', error);
+          setInitialLoading(false);
         } finally {
           setQuoteLoading(false);
         }
@@ -106,6 +109,68 @@ export default function CreateOrderPage() {
     }
     fetchQuoteData();
   }, [fromQuoteId]);
+
+  // Fetch order data if editing
+  useEffect(() => {
+    async function fetchOrderData() {
+      if (editId && isEditing) {
+        setInitialLoading(true);
+        try {
+          const res = await fetch(`/api/orders/${editId}`);
+          if (res.ok) {
+            const order = await res.json();
+            console.log('Fetched order data for editing:', order);
+            
+            // Pre-populate form with existing order data
+            form.setValue("practiceId", order.practiceId || "");
+            form.setValue("subject", order.subject || "");
+            form.setValue("purchaseOrder", order.purchaseOrder || "");
+            form.setValue("costCenter", order.costCenter || "");
+            form.setValue("actualRecipients", order.actualRecipients || 1);
+            form.setValue("preferredMailDate", order.preferredMailDate ? 
+              new Date(order.preferredMailDate).toISOString().split('T')[0] : "");
+            form.setValue("colorMode", order.colorMode || "color");
+            form.setValue("dataCleansing", order.dataCleansing || false);
+            form.setValue("ncoaUpdate", order.ncoaUpdate || false);
+            form.setValue("firstClassPostage", order.firstClassPostage || false);
+            form.setValue("notes", order.notes || "");
+            form.setValue("totalCost", order.cost || 0);
+            
+            // Set local state for cost calculation
+            setColorMode(order.colorMode || "color");
+            setDataCleansing(order.dataCleansing || false);
+            setNcoaUpdate(order.ncoaUpdate || false);
+            setFirstClassPostage(order.firstClassPostage || false);
+            setActualRecipients(order.actualRecipients || 1);
+            
+            console.log('Pre-filled form with order data:', {
+              practiceId: order.practiceId,
+              subject: order.subject,
+              colorMode: order.colorMode,
+              totalCost: order.cost
+            });
+          } else {
+            console.error('Failed to fetch order data:', res.status);
+            toast({
+              title: "Error",
+              description: "Failed to load order data for editing",
+              variant: "destructive"
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching order data:', error);
+          toast({
+            title: "Error",
+            description: "Failed to load order data for editing",
+            variant: "destructive"
+          });
+        } finally {
+          setInitialLoading(false);
+        }
+      }
+    }
+    fetchOrderData();
+  }, [editId, isEditing, form, toast]);
 
   // Set practiceId in form when practice is loaded
   useEffect(() => {
@@ -128,18 +193,28 @@ export default function CreateOrderPage() {
           form.setValue("notes", quoteData.notes || "");
           form.setValue("totalCost", quoteData.totalCost || 0);
           
+          // Set required fields with defaults if missing
+          form.setValue("actualRecipients", 1); // Default to 1 for quote conversion
+          form.setValue("preferredMailDate", quoteData.preferredMailDate || new Date().toISOString().split('T')[0]);
+          
           // Set local state for cost calculation
           setColorMode(quoteData.colorMode || "color");
           setDataCleansing(quoteData.dataCleansing || false);
           setNcoaUpdate(quoteData.ncoaUpdate || false);
           setFirstClassPostage(quoteData.firstClassPostage || false);
+          setActualRecipients(1);
           
           console.log('Pre-filled form with quote data:', {
             practiceId: quoteData.practiceId,
             subject: quoteData.subject,
             colorMode: quoteData.colorMode,
-            totalCost: quoteData.totalCost
+            totalCost: quoteData.totalCost,
+            actualRecipients: 1,
+            preferredMailDate: quoteData.preferredMailDate || new Date().toISOString().split('T')[0]
           });
+          
+          // Trigger form validation after setting values
+          form.trigger();
         }
       }, [quoteData, isFromQuote, form]);
 
@@ -246,6 +321,11 @@ export default function CreateOrderPage() {
 
   const onSubmit = async (data: OrderFormData) => {
     try {
+      // For quote conversion, always submit for production (not draft)
+      if (isFromQuote) {
+        setIsDraft(false);
+      }
+      
       // Prepare form data for file upload
       const formData = new FormData();
       
@@ -298,36 +378,63 @@ export default function CreateOrderPage() {
         totalCost: costBreakdown?.totalCost || data.totalCost,
         status: isDraft ? 'draft' : 'pending',
         fromQuoteId,
+        editId,
+        isEditing,
+        isFromQuote,
         fileCount: Object.keys(uploadedFiles).length,
         originalDate: data.preferredMailDate,
         sanitizedDate: mailDate,
         formData: Object.fromEntries(formData.entries())
       });
       
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        body: formData,
-      });
+      let res;
+      if (isEditing && editId) {
+        // Update existing order
+        res = await fetch(`/api/orders/${editId}`, {
+          method: "PUT",
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            practiceId: data.practiceId,
+            subject: data.subject,
+            purchaseOrder: data.purchaseOrder,
+            costCenter: data.costCenter,
+            actualRecipients: recipientCount,
+            preferredMailDate: mailDate,
+            colorMode: data.colorMode,
+            dataCleansing: data.dataCleansing,
+            ncoaUpdate: data.ncoaUpdate,
+            firstClassPostage: data.firstClassPostage,
+            notes: data.notes,
+            cost: costBreakdown?.totalCost || data.totalCost,
+            status: isDraft ? 'draft' : 'pending',
+          }),
+        });
+      } else {
+        // Create new order
+        res = await fetch("/api/orders", {
+          method: "POST",
+          body: formData,
+        });
+      }
       
-      if (!res.ok) throw new Error(isDraft ? "Failed to save draft" : "Failed to create order");
+      if (!res.ok) throw new Error(isEditing ? 
+        (isDraft ? "Failed to update draft" : "Failed to update order") : 
+        (isDraft ? "Failed to save draft." : "Failed to create order"));
       
       const order = await res.json();
       
-      // If converting from quote, update quote status
-      if (isFromQuote && fromQuoteId) {
-        try {
-          await fetch(`/api/quotes/${fromQuoteId}`, {
-            method: "POST", // This will convert the quote
-          });
-        } catch (quoteErr) {
-          console.error('Failed to update quote status:', quoteErr);
-        }
-      }
+      // Note: Quote conversion is handled internally by the order creation API
+      // No need to make a separate call to update quote status
+      // The API will automatically convert the quote when fromQuoteId is provided
       
       toast({ 
         title: "Success", 
-        description: isDraft ? "Order saved as draft." : 
-          isFromQuote ? `Quote converted to order ${order.orderNumber}` : "Order created!" 
+        description: isEditing ? 
+          (isDraft ? "Order draft updated." : "Order updated successfully!") :
+          (isDraft ? "Order saved as draft." : 
+            isFromQuote ? `Quote converted to order ${order.orderNumber}` : "Order created!") 
       });
       router.push("/orders");
     } catch (err) {
@@ -365,6 +472,22 @@ export default function CreateOrderPage() {
             </>
           ) : (
             <p className="text-red-600">Failed to load quote data</p>
+          )}
+        </div>
+      )}
+      {isEditing && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          {initialLoading ? (
+            <p className="text-green-800">Loading order data for editing...</p>
+          ) : (
+            <>
+              <p className="text-green-800">
+                <strong>Editing Order:</strong> {editId}
+              </p>
+              <p className="text-green-600 text-sm mt-1">
+                The order information has been pre-filled. Make your changes and submit to update the order.
+              </p>
+            </>
           )}
         </div>
       )}
@@ -555,12 +678,81 @@ export default function CreateOrderPage() {
             <div className="flex items-center justify-between">
               <Button type="button" variant="outline" onClick={() => router.push("/orders")}>Cancel</Button>
               <div className="flex items-center space-x-4">
-                <Button type="button" variant="outline" onClick={onSaveDraft}>
-                  Save as Draft
-                </Button>
-                <Button type="button" onClick={onSubmitForProduction} className="bg-primary-500 hover:bg-primary-600 text-white">
-                  Submit for Production
-                </Button>
+                {isFromQuote ? (
+                  // Single Submit button for quote conversion
+                  <>
+                    <Button 
+                      type="submit" 
+                      size="lg" 
+                      className="bg-blue-600 hover:bg-blue-700 px-8 py-3" 
+                      disabled={quoteLoading || !quoteData || Object.keys(uploadedFiles).length === 0 || !form.getValues("practiceId") || !form.getValues("preferredMailDate")}
+                    >
+                      Submit
+                    </Button>
+                    {!quoteData && (
+                      <p className="text-sm text-amber-600 mt-2">
+                        Loading quote data...
+                      </p>
+                    )}
+                    {Object.keys(uploadedFiles).length === 0 && (
+                      <p className="text-sm text-amber-600 mt-2">
+                        Please upload required files to submit
+                      </p>
+                    )}
+                    {!form.getValues("practiceId") && (
+                      <p className="text-sm text-amber-600 mt-2">
+                        Practice selection is required
+                      </p>
+                    )}
+                    {!form.getValues("preferredMailDate") && (
+                      <p className="text-sm text-amber-600 mt-2">
+                        Preferred mail date is required
+                      </p>
+                    )}
+                    {/* Debug info */}
+                    <div className="text-xs text-gray-500 mt-2">
+                      <p>Debug: quoteLoading={quoteLoading.toString()}</p>
+                      <p>Debug: quoteData={quoteData ? 'loaded' : 'not loaded'}</p>
+                      <p>Debug: files={Object.keys(uploadedFiles).length}</p>
+                      <p>Debug: practiceId={form.getValues("practiceId") || 'not set'}</p>
+                      <p>Debug: preferredMailDate={form.getValues("preferredMailDate") || 'not set'}</p>
+                      <p>Debug: formValid={form.formState.isValid.toString()}</p>
+                    </div>
+                  </>
+                ) : (
+                  // Full button set for regular order creation/editing
+                  <>
+                    <Button 
+                      type="submit" 
+                      size="lg" 
+                      className="bg-blue-600 hover:bg-blue-700" 
+                      disabled={initialLoading || !form.formState.isValid}
+                    >
+                      {isEditing ? "Update Order" : "Create Order"}
+                    </Button>
+                    <div className="flex gap-3">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="lg" 
+                        className="flex-1" 
+                        onClick={onSaveDraft} 
+                        disabled={initialLoading}
+                      >
+                        Save as Draft
+                      </Button>
+                      <Button 
+                        type="button" 
+                        size="lg" 
+                        className="flex-1 bg-green-600 hover:bg-green-700" 
+                        onClick={onSubmitForProduction} 
+                        disabled={initialLoading || !form.formState.isValid}
+                      >
+                        Submit for Production
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </CardContent>

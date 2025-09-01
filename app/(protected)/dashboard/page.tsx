@@ -238,11 +238,11 @@ export default function DashboardPage() {
           <ProductionCalendar
             orders={orders}
             quotes={quotes}
-            onEventClick={(event) => {
+            onEventClick={(event, domEvent) => {
               if (event.entityType === 'order') {
-                handleNavigation(`/orders/${event.entityId}`)({} as React.MouseEvent);
+                handleNavigation(`/orders/${event.entityId}`)(domEvent);
               } else if (event.entityType === 'quote') {
-                handleNavigation('/quotes')({} as React.MouseEvent);
+                handleNavigation('/quotes')(domEvent);
               }
             }}
             onExportSchedule={() => {

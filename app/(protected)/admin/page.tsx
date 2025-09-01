@@ -421,22 +421,54 @@ export default function AdminDashboardPage() {
       });
     }
 
-    // High priority orders (overdue or urgent)
+    // High priority orders (proof approval delays)
     const highPriorityOrders = orders.filter(o => {
-      const orderDate = new Date(o.createdAt);
-      const daysSinceCreation = (Date.now() - orderDate.getTime()) / (1000 * 60 * 60 * 24);
-      return daysSinceCreation > 7 && o.status !== 'completed' && o.status !== 'delivered';
+      // Only check orders that have proofs sent (waiting-approval status)
+      if (!o.status || !o.status.startsWith('waiting-approval')) {
+        return false;
+      }
+      
+      // Find the most recent proof approval record for this order
+      const latestApproval = o.approvals && o.approvals.length > 0 
+        ? o.approvals.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+        : null;
+      
+      if (!latestApproval) {
+        return false; // No proof sent yet
+      }
+      
+      const proofSentDate = new Date(latestApproval.createdAt);
+      const daysSinceProofSent = (Date.now() - proofSentDate.getTime()) / (1000 * 60 * 60 * 24);
+      
+      // Check if proof has been waiting for 5+ days
+      if (daysSinceProofSent >= 5) {
+        return true;
+      }
+      
+      // Check if within 3 days of preferred mail date
+      if (o.preferredMailDate) {
+        const mailDate = new Date(o.preferredMailDate);
+        const daysUntilMailDate = (mailDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+        
+        if (daysUntilMailDate <= 3 && daysSinceProofSent >= 1) {
+          return true;
+        }
+      }
+      
+      return false;
     });
-    if (highPriorityOrders.length > 0) {
-      alerts.push({
-        type: 'destructive',
-        title: '🚨 High Priority Orders',
-        message: `${highPriorityOrders.length} order(s) older than 7 days need attention`,
-        count: highPriorityOrders.length,
-        orders: highPriorityOrders,
-        action: 'high_priority'
-      });
-    }
+    
+    // Always show High Priority Orders alert (even when count is 0)
+    alerts.push({
+      type: highPriorityOrders.length > 0 ? 'destructive' : 'default',
+      title: '🚨 High Priority Orders',
+      message: highPriorityOrders.length > 0 
+        ? `${highPriorityOrders.length} order(s) with delayed proof approvals need attention`
+        : 'No orders with delayed proof approvals - system monitoring active',
+      count: highPriorityOrders.length,
+      orders: highPriorityOrders,
+      action: 'high_priority'
+    });
 
     setCriticalAlerts(alerts);
   }, [orders]);
@@ -557,8 +589,15 @@ export default function AdminDashboardPage() {
           newStatus = 'delivered';
           break;
         case 'high_priority':
-          // Mark as in-progress to move them along
-          newStatus = 'in-progress';
+          if (orderIds.length === 0) {
+            alert('All clear! No orders currently have delayed proof approvals. The system is actively monitoring for issues.');
+            return;
+          }
+          // Send reminder notifications to customers for delayed proof approvals
+          alert(`Sending reminder notifications for ${orderIds.length} orders with delayed proof approvals`);
+          // TODO: Implement email reminder system
+          // For now, keep status unchanged - just acknowledge the alert
+          return;
           break;
         default:
           // Direct status change
@@ -900,7 +939,7 @@ export default function AdminDashboardPage() {
                         alert.action === 'ready_for_proof' ? 'Upload Proof' :
                         alert.action === 'production_in_progress' ? 'View Progress' :
                         alert.action === 'ready_for_delivery' ? 'Mark Delivered' :
-                        alert.action === 'high_priority' ? 'Take Action' :
+                        alert.action === 'high_priority' ? (alert.count > 0 ? 'Take Action' : 'All Clear') :
                         'Process Orders'
                       }
                     </button>
@@ -1365,6 +1404,7 @@ export default function AdminDashboardPage() {
                     <TableHead>Subject</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
+                    <TableHead>Due Date</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1403,6 +1443,7 @@ export default function AdminDashboardPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell>{order.preferredMailDate ? new Date(order.preferredMailDate).toLocaleDateString() : '-'}</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

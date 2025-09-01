@@ -171,8 +171,8 @@ export default function ContactPage() {
                     </CardHeader>
                     <CardContent>
                       <p className="text-gray-600">
-                        <a href="tel:+1-800-123-4567" className="text-green-600 hover:underline">
-                          (800) 123-4567
+                        <a href="tel:+1-978-840-9880" className="text-green-600 hover:underline">
+                          (978) 840-9880
                         </a>
                       </p>
                       <p className="text-sm text-gray-500 mt-2">
@@ -193,9 +193,8 @@ export default function ContactPage() {
                     <CardContent>
                       <p className="text-gray-600">
                         MASS Communications, Inc.<br />
-                        123 Healthcare Plaza<br />
-                        Suite 100<br />
-                        Boston, MA 02101
+                        150 Industrial Road<br />
+                        Leominster, MA 01453
                       </p>
                     </CardContent>
                   </Card>
@@ -295,7 +294,7 @@ export default function ContactPage() {
                 <CardContent>
                   <p className="text-gray-600">
                     We typically respond to all inquiries within 2 business hours. For urgent matters, 
-                    please call us directly at (800) 123-4567.
+                    please call us directly at (978) 840-9880.
                   </p>
                 </CardContent>
               </Card>

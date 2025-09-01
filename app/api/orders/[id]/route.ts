@@ -107,10 +107,17 @@ export async function PUT(
       where: { id: orderId },
       data: {
         subject: body.subject,
+        purchaseOrder: body.purchaseOrder,
+        costCenter: body.costCenter,
+        actualRecipients: body.actualRecipients,
         cost: body.cost,
         status: body.status,
         colorMode: body.colorMode,
         preferredMailDate: body.preferredMailDate ? new Date(body.preferredMailDate) : undefined,
+        dataCleansing: body.dataCleansing,
+        ncoaUpdate: body.ncoaUpdate,
+        firstClassPostage: body.firstClassPostage,
+        notes: body.notes,
         // Add other fields as needed
       },
       include: {

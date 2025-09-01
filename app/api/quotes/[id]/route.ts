@@ -80,6 +80,20 @@ export async function POST(
       return NextResponse.json({ error: "Quote not found" }, { status: 404 });
     }
     
+    // Check if quote has already been converted
+    if (quote.status === 'converted') {
+      console.log('⚠️ Quote already converted, skipping conversion:', {
+        quoteId: quote.id,
+        quoteNumber: quote.quoteNumber,
+        status: quote.status
+      });
+      return NextResponse.json({ 
+        success: false, 
+        message: "Quote has already been converted to an order",
+        status: 'already_converted'
+      });
+    }
+    
     // Debug logging
     console.log('🔍 Converting quote to order:', {
       quoteId: quote.id,

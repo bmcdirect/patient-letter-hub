@@ -22,7 +22,7 @@ interface CalendarEvent {
 interface ProductionCalendarProps {
   orders: any[];
   quotes: any[];
-  onEventClick?: (event: CalendarEvent) => void;
+  onEventClick?: (event: CalendarEvent, domEvent: React.MouseEvent) => void;
   onExportSchedule?: () => void;
 }
 
@@ -170,7 +170,8 @@ export function ProductionCalendar({
     domEvent.stopPropagation();
     
     if (onEventClick) {
-      onEventClick(calendarEvent);
+      // Pass both calendar event and DOM event to the callback
+      onEventClick(calendarEvent, domEvent);
     } else {
       // Default navigation behavior using the navigation hook
       if (calendarEvent.entityType === 'order') {

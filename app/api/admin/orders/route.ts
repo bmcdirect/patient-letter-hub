@@ -7,6 +7,11 @@ export async function GET(req: NextRequest) {
       include: {
         practice: true,
         user: true,
+        approvals: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',

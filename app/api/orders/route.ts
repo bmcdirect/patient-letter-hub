@@ -195,6 +195,32 @@ export async function POST(req: NextRequest) {
       status: order.status
     });
 
+    // Handle quote conversion if fromQuoteId is provided
+    if (fromQuoteId) {
+      try {
+        console.log('🔍 Orders API - Converting quote to order:', fromQuoteId);
+        
+        // Find and update the quote status
+        const quote = await prisma.quotes.findUnique({ where: { id: fromQuoteId } });
+        if (quote) {
+          if (quote.status === 'converted') {
+            console.log('⚠️ Orders API - Quote already converted, skipping status update');
+          } else {
+            await prisma.quotes.update({
+              where: { id: fromQuoteId },
+              data: { status: 'converted' },
+            });
+            console.log('✅ Orders API - Quote status updated to converted');
+          }
+        } else {
+          console.log('⚠️ Orders API - Quote not found for conversion:', fromQuoteId);
+        }
+      } catch (quoteError) {
+        console.error('❌ Orders API - Error converting quote:', quoteError);
+        // Don't fail the order creation if quote conversion fails
+      }
+    }
+
     // Handle file uploads if any
     const files = formData.getAll('file') as File[];
     console.log(`📁 Orders API - Files received:`, {
