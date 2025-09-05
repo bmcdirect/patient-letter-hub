@@ -13,7 +13,7 @@
     "start": "next start",
     "lint": "next lint",
     "preview": "next build && next start",
-    "postinstall": "prisma generate",
+    "postinstall": "npx prisma generate",
     "email": "email dev --dir emails --port 3333",
     "seed": "prisma db seed --preview-feature"
   },
