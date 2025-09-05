@@ -208,7 +208,7 @@ export default function AdminDashboardPage() {
   };
 
   const getStatusDependentActions = (order: any) => {
-    const actions = [];
+    const actions: Array<{label: string; icon: string; action: () => void; available: boolean}> = [];
     const status = order.status;
     // Always show all workflow actions, but only enable when valid
     actions.push({
