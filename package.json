@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev -p 3002",
-    "build": "npm install --legacy-peer-deps && prisma generate && next build",
+    "build": "next build",
     "turbo": "next dev --turbo",
     "start": "next start",
     "lint": "next lint",
