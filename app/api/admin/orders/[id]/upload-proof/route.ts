@@ -44,11 +44,28 @@ export async function POST(
     // Parse form data for file upload
     const formData = await request.formData();
     const proofFile = formData.get('proofFile') as File;
-    const revision = parseInt(formData.get('revision') as string) || 1;
-    const comments = formData.get('comments') as string || '';
+    const adminNotes = formData.get('adminNotes') as string || '';
+    const escalationReason = formData.get('escalationReason') as string || '';
 
     if (!proofFile) {
       return new NextResponse("Proof file is required", { status: 400 });
+    }
+
+    // Get current proof count for this order
+    const existingProofs = await prisma.proof.findMany({
+      where: { orderId: orderId },
+      orderBy: { proofRound: 'desc' }
+    });
+
+    const nextProofRound = existingProofs.length > 0 ? Math.max(...existingProofs.map(p => p.proofRound)) + 1 : 1;
+
+    // Check for escalation threshold
+    if (nextProofRound > 3) {
+      return NextResponse.json({ 
+        error: "Maximum proof rounds exceeded. Order requires manual escalation.",
+        needsEscalation: true,
+        currentRound: nextProofRound
+      }, { status: 400 });
     }
 
     // Create uploads directory if it doesn't exist
@@ -66,30 +83,49 @@ export async function POST(
     
     await writeFile(filePath, buffer);
 
-    // Create OrderApproval record
-    const approval = await prisma.orderApprovals.create({
+    // Create new Proof record using the new structure
+    const newProof = await prisma.proof.create({
       data: {
         orderId: orderId,
-        revision: revision,
-        status: 'pending',
-        comments: comments,
-        approvedBy: user.id,
+        proofRound: nextProofRound,
         filePath: fileName, // Store the filename for easy retrieval
+        status: 'PENDING',
+        adminNotes,
+        uploadedBy: user.id,
+        escalationReason: nextProofRound >= 3 ? escalationReason || 'Automatic escalation after 3+ rounds' : null
       }
     });
 
     // Update order status to indicate proof is ready
     await prisma.orders.update({
       where: { id: orderId },
-      data: { status: 'proof-ready' }
+      data: { 
+        status: `waiting-approval-rev${nextProofRound}`,
+        updatedAt: new Date()
+      }
     });
 
-    console.log(`✅ Admin proof uploaded: ${fileName} for order ${orderId}`);
+    // Create status history entry
+    await prisma.orderStatusHistory.create({
+      data: {
+        orderId: orderId,
+        fromStatus: existingProofs.length > 0 ? `waiting-approval-rev${existingProofs[0].proofRound}` : 'draft',
+        toStatus: `waiting-approval-rev${nextProofRound}`,
+        changedBy: user.id,
+        changedByRole: user.role,
+        comments: `Proof #${nextProofRound} uploaded${escalationReason ? ` - Escalation: ${escalationReason}` : ''}`,
+        metadata: { proofId: newProof.id, proofRound: nextProofRound }
+      }
+    });
+
+    console.log(`✅ Admin proof uploaded: ${fileName} for order ${orderId} (Proof #${nextProofRound})`);
 
     return NextResponse.json({ 
-      message: "Proof uploaded successfully",
-      approval: approval,
-      fileName: fileName
+      message: `Proof #${nextProofRound} uploaded successfully${nextProofRound >= 3 ? ' - ESCALATION REQUIRED' : ''}`,
+      proof: newProof,
+      proofRound: nextProofRound,
+      fileName: fileName,
+      needsEscalation: nextProofRound >= 3
     });
   } catch (error) {
     console.error("Error uploading proof:", error);

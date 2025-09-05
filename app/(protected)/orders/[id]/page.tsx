@@ -40,11 +40,11 @@ interface Order {
   }>;
   proofs?: Array<{
     id: string;
-    revision: number;
+    proofRound: number;
     status: string;
-    comments?: string;
-    createdAt: string;
-    approver?: {
+    userFeedback?: string;
+    uploadedAt: string;
+    uploader?: {
       name: string;
     };
   }>;
@@ -325,11 +325,30 @@ export default function OrderDetailPage() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const viewUrl = `/api/orders/${orderId}/files/${file.id}/download`;
+                          window.open(viewUrl, '_blank');
+                        }}
+                      >
                         <Eye className="w-4 h-4 mr-2" />
                         View
                       </Button>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const downloadUrl = `/api/orders/${orderId}/files/${file.id}/download`;
+                          const link = document.createElement('a');
+                          link.href = downloadUrl;
+                          link.download = file.fileName;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        }}
+                      >
                         <Download className="w-4 h-4 mr-2" />
                         Download
                       </Button>
@@ -350,12 +369,12 @@ export default function OrderDetailPage() {
                     <div className="flex items-center space-x-3">
                       <FileText className="w-5 h-5 text-green-500" />
                       <div>
-                        <p className="font-medium">Revision {proof.revision}</p>
+                        <p className="font-medium">Proof #{proof.proofRound}</p>
                         <p className="text-sm text-gray-500">
-                          Status: {proof.status} • {new Date(proof.createdAt).toLocaleDateString()}
+                          Status: {proof.status} • {new Date(proof.uploadedAt).toLocaleDateString()}
                         </p>
-                        {proof.comments && (
-                          <p className="text-sm text-gray-600 mt-1">{proof.comments}</p>
+                        {proof.userFeedback && (
+                          <p className="text-sm text-gray-600 mt-1">{proof.userFeedback}</p>
                         )}
                       </div>
                     </div>

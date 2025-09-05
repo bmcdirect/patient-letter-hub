@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FileText, Download, CheckCircle, XCircle, AlertTriangle, MessageSquare, Clock } from "lucide-react";
+import { FileText, Download, CheckCircle, XCircle, AlertTriangle, MessageSquare, Clock, AlertCircle, Phone, Mail } from "lucide-react";
 
 export default function ProofReviewPage() {
   const params = useParams();
@@ -16,24 +17,18 @@ export default function ProofReviewPage() {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [comments, setComments] = useState("");
+  const [feedback, setFeedback] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showEscalationDialog, setShowEscalationDialog] = useState(false);
+  const [escalationReason, setEscalationReason] = useState("");
 
   useEffect(() => {
     fetchOrderDetails();
   }, [orderId]);
 
-  // Debug: log order status
-  useEffect(() => {
-    if (order) {
-      // eslint-disable-next-line no-console
-      console.log('Order status:', order.status);
-    }
-  }, [order]);
-
   const fetchOrderDetails = async () => {
     try {
-      // Fetch order details
+      // Fetch order details with proofs
       const orderResponse = await fetch(`/api/orders/${orderId}`);
       if (!orderResponse.ok) {
         throw new Error('Failed to fetch order details');
@@ -59,98 +54,71 @@ export default function ProofReviewPage() {
 
   const getLatestProof = () => {
     if (!order?.proofs || order.proofs.length === 0) return null;
-    // Proofs are already sorted by revision desc from the API
-    return order.proofs[0];
+    // Find the latest PENDING proof for response
+    const pendingProof = order.proofs.find((proof: any) => proof.status === 'PENDING');
+    return pendingProof || null;
   };
 
-  const getLatestApproval = () => {
-    if (!order?.approvals) return null;
-    return order.approvals[0]; // Already sorted by createdAt desc
+  const getLatestProofForDisplay = () => {
+    if (!order?.proofs || order.proofs.length === 0) return null;
+    return order.proofs[0]; // Latest proof for display purposes
   };
 
-  const handleApproval = async () => {
+  const getProofHistory = () => {
+    if (!order?.proofs || order.proofs.length === 0) return [];
+    return order.proofs.sort((a: any, b: any) => a.proofRound - b.proofRound);
+  };
+
+  const handleProofResponse = async (action: 'APPROVED' | 'CHANGES_REQUESTED') => {
     const latestProof = getLatestProof();
     if (!latestProof) return;
 
-    setSubmitting(true);
-    try {
-      const response = await fetch(`/api/orders/${orderId}/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          newStatus: 'approved',
-          comments: comments || 'Approved without comments'
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to approve proof');
-      }
-
-      const result = await response.json();
-      // Refresh the order data after status change
-      await fetchOrderDetails();
-      setComments("");
-      alert('Proof approved successfully! Your order will now proceed to production.');
-    } catch (err) {
-      console.error('Approval error:', err);
-      alert('Failed to approve proof. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleRequestChanges = async () => {
-    if (!comments.trim()) {
-      alert('Please provide feedback about what changes are needed');
+    if (action === 'CHANGES_REQUESTED' && !feedback.trim()) {
+      alert('Please provide feedback when requesting changes.');
       return;
     }
 
-    const latestProof = getLatestProof();
-    if (!latestProof) return;
-
     setSubmitting(true);
     try {
-      const response = await fetch(`/api/orders/${orderId}/status`, {
+      const response = await fetch(`/api/orders/${orderId}/proofs/${latestProof.id}/respond`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          newStatus: 'changes-requested',
-          comments: comments
+          action,
+          feedback: action === 'CHANGES_REQUESTED' ? feedback : null
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to request changes');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to respond to proof');
       }
 
       const result = await response.json();
-      // Refresh the order data after status change
-      await fetchOrderDetails();
-      setComments("");
-      alert('Change request submitted successfully! The design team will review your feedback.');
+      
+      // Check if escalation is needed
+      if (result.orderStatus === 'escalated') {
+        setShowEscalationDialog(true);
+        setEscalationReason('Multiple proof revisions require escalation');
+      } else {
+        // Refresh the order data after status change
+        await fetchOrderDetails();
+        setFeedback("");
+        alert(result.message);
+      }
     } catch (err) {
-      console.error('Change request error:', err);
-      alert('Failed to submit change request. Please try again.');
+      console.error('Proof response error:', err);
+      alert('Failed to respond to proof. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      'waiting-approval-rev1': { label: 'Waiting for Approval (Rev 1)', variant: 'destructive' },
-      'waiting-approval-rev2': { label: 'Waiting for Approval (Rev 2)', variant: 'destructive' },
-      'waiting-approval-rev3': { label: 'Waiting for Approval (Rev 3)', variant: 'destructive' },
-      'approved': { label: 'Approved', variant: 'secondary' },
-      'changes-requested': { label: 'Changes Requested', variant: 'outline' },
-      'draft': { label: 'Draft', variant: 'default' },
-      'in-progress': { label: 'In Production', variant: 'default' },
-      'completed': { label: 'Completed', variant: 'secondary' }
-    };
-    
-    const config = statusConfig[status] || { label: status, variant: 'default' };
-    return <Badge variant={config.variant as any}>{config.label}</Badge>;
+  const handleEscalationAcknowledgment = () => {
+    setShowEscalationDialog(false);
+    setEscalationReason("");
+    alert('Thank you for your feedback. Our team will contact you directly to resolve this situation.');
+    router.push('/orders');
   };
 
   if (loading) {
@@ -181,17 +149,13 @@ export default function ProofReviewPage() {
     );
   }
 
-  const latestProof = getLatestProof();
-  const latestApproval = getLatestApproval();
-  // More robust check for waiting-approval status
+  const latestProof = getLatestProof(); // For response (PENDING only)
+  const displayProof = getLatestProofForDisplay(); // For display (latest overall)
+  const proofHistory = getProofHistory();
   const isWaitingForApproval = /^waiting-approval(-rev\d+)?$/.test(order.status || '');
+  const isEscalated = order.status === 'escalated';
 
-  // DEBUG: Add console logging to see what's happening
-  console.log('DEBUG - Order status:', order.status);
-  console.log('DEBUG - isWaitingForApproval:', isWaitingForApproval);
-  console.log('DEBUG - Latest proof:', latestProof);
-
-  if (!latestProof) {
+  if (!displayProof) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="w-full max-w-md">
@@ -208,228 +172,267 @@ export default function ProofReviewPage() {
     );
   }
 
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'PENDING':
+        return 'destructive';
+      case 'APPROVED':
+        return 'default';
+      case 'CHANGES_REQUESTED':
+        return 'secondary';
+      case 'ESCALATED':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'PENDING':
+        return 'Pending Review';
+      case 'APPROVED':
+        return 'Approved';
+      case 'CHANGES_REQUESTED':
+        return 'Changes Requested';
+      case 'ESCALATED':
+        return 'Escalated';
+      default:
+        return status;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto py-8 px-4">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Proof Review - Order #{order.orderNumber}
-          </h1>
-          <div className="flex items-center gap-4">
-            {getStatusBadge(order.status)}
-            <span className="text-gray-600">
-              Customer: {order.practice?.name || 'Unknown Practice'}
-            </span>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl font-bold text-gray-900">Proof Review</h1>
+            <Button variant="outline" onClick={() => router.push('/orders')}>
+              Back to Orders
+            </Button>
           </div>
+          
+          {/* Order Info */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Order #{order.orderNumber}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div><strong>Subject:</strong> {order.subject || 'N/A'}</div>
+                <div><strong>Practice:</strong> {order.practice?.name || 'N/A'}</div>
+                <div><strong>Status:</strong> 
+                  <Badge variant={getStatusBadgeVariant(order.status)} className="ml-2">
+                    {order.status?.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || 'Unknown'}
+                  </Badge>
+                </div>
+                <div><strong>Current Proof:</strong> #{displayProof.proofRound}</div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Proof Display */}
-            <Card>
-              <CardHeader>
-                                 <CardTitle className="flex items-center gap-2">
-                   <FileText className="w-5 h-5" />
-                   Design Proof - Revision {latestProof.revision || 1}
-                 </CardTitle>
-              </CardHeader>
-              <CardContent>
-                                 <div className="bg-gray-50 p-6 rounded-lg text-center">
-                   <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                   <h3 className="text-lg font-medium mb-2">Revision {latestProof.revision}</h3>
-                   <p className="text-gray-600 mb-4">
-                     Uploaded {new Date(latestProof.createdAt).toLocaleDateString()}
-                   </p>
-                   {latestProof.comments && (
-                     <p className="text-sm text-gray-600 mb-4 italic">
-                       "{latestProof.comments}"
-                     </p>
-                   )}
-                                     <Button 
-                     onClick={() => {
-                       const downloadUrl = `/api/orders/${orderId}/proofs/${latestProof.id}/download`;
-                       window.open(downloadUrl, '_blank');
-                     }}
-                     className="bg-blue-600 hover:bg-blue-700"
-                   >
-                     <Download className="w-4 h-4 mr-2" />
-                     Download Proof
-                   </Button>
+        {/* Escalation Warning */}
+        {isEscalated && (
+          <Alert className="mb-6 border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              <strong>Escalation Required:</strong> This order has exceeded the maximum number of proof revisions. 
+              Our team will contact you directly to resolve this situation.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Current Proof */}
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl">Current Proof</CardTitle>
+              <Badge variant={getStatusBadgeVariant(displayProof.status)}>
+                {getStatusLabel(displayProof.status)}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Proof File */}
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <FileText className="h-8 w-8 text-blue-600" />
+                  <div>
+                    <p className="font-medium">Proof File</p>
+                    <p className="text-sm text-gray-600">
+                      Uploaded on {new Date(displayProof.uploadedAt).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    const downloadUrl = `/api/orders/${orderId}/proofs/${displayProof.id}/download`;
+                    window.open(downloadUrl, '_blank');
+                  }}
+                >
+                  <Download className="w-4 w-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+            </div>
 
             {/* Admin Notes */}
-            {latestApproval?.comments && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5" />
-                    Design Team Notes
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <p className="text-gray-800">{latestApproval.comments}</p>
-                  </div>
-                </CardContent>
-              </Card>
+            {displayProof.adminNotes && (
+              <div className="border rounded-lg p-4 bg-blue-50">
+                <h4 className="font-medium text-blue-900 mb-2">Designer Notes:</h4>
+                <p className="text-blue-800">{displayProof.adminNotes}</p>
+              </div>
             )}
 
-            {/* Approval Actions - FORCED TO ALWAYS RENDER FOR DEBUGGING */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Review & Decision</CardTitle>
-                {/* DEBUG INFO */}
-                <div className="text-xs text-gray-500 bg-yellow-50 p-2 rounded">
-                  <strong>DEBUG:</strong> Status: "{order.status}" | isWaitingForApproval: {isWaitingForApproval.toString()}
+            {/* Proof History */}
+            {proofHistory.length > 1 && (
+              <div className="border rounded-lg p-4">
+                <h4 className="font-medium mb-3">Proof History:</h4>
+                <div className="space-y-2">
+                  {proofHistory.map((proof: any) => (
+                    <div key={proof.id} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium">Proof #{proof.proofRound}</span>
+                        <Badge variant={getStatusBadgeVariant(proof.status)} size="sm">
+                          {getStatusLabel(proof.status)}
+                        </Badge>
+                      </div>
+                      <span className="text-gray-500">
+                        {new Date(proof.uploadedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            {isWaitingForApproval && !isEscalated && latestProof && (
+              <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Comments (Optional for approval, required for changes)
+                    Feedback (Required for changes)
                   </label>
                   <Textarea
-                    value={comments}
-                    onChange={(e) => setComments(e.target.value)}
-                    placeholder="Add any comments about the proof or specific changes needed..."
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    placeholder="Please provide specific feedback about what changes are needed..."
                     rows={4}
+                    className="w-full"
                   />
                 </div>
+
                 <div className="flex gap-4">
                   <Button
-                    onClick={handleApproval}
-                    disabled={submitting || !isWaitingForApproval}
+                    onClick={() => handleProofResponse('APPROVED')}
+                    disabled={submitting}
                     className="flex-1 bg-green-600 hover:bg-green-700"
                   >
                     <CheckCircle className="w-4 h-4 mr-2" />
-                    {submitting ? 'Approving...' : 'Approve Proof'}
-                    {!isWaitingForApproval && ' (Disabled)'}
+                    Approve Proof
                   </Button>
+
                   <Button
-                    onClick={handleRequestChanges}
-                    disabled={submitting || !comments.trim() || !isWaitingForApproval}
+                    onClick={() => handleProofResponse('CHANGES_REQUESTED')}
+                    disabled={submitting || !feedback.trim()}
                     variant="outline"
                     className="flex-1 border-yellow-400 text-yellow-700 hover:bg-yellow-50"
                   >
                     <AlertTriangle className="w-4 h-4 mr-2" />
-                    {submitting ? 'Submitting...' : 'Request Changes'}
-                    {!isWaitingForApproval && ' (Disabled)'}
+                    Request Changes
                   </Button>
                 </div>
+
                 <p className="text-sm text-gray-600 text-center">
                   <strong>Important:</strong> Once approved, your order will proceed to production and cannot be changed.
                 </p>
-                {!isWaitingForApproval && (
-                  <p className="text-sm text-red-600 text-center">
-                    <strong>Note:</strong> Buttons are disabled because order status "{order.status}" is not waiting for approval.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Already Decided - Only show if not waiting for approval */}
-            {!isWaitingForApproval && order.status === 'approved' && (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-green-900 mb-2">Proof Approved</h3>
-                  <p className="text-green-700">This proof has been approved and is now in production.</p>
-                </CardContent>
-              </Card>
+              </div>
             )}
 
-            {!isWaitingForApproval && order.status === 'changes-requested' && (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-yellow-900 mb-2">Changes Requested</h3>
-                  <p className="text-yellow-700">Your feedback has been submitted. The design team will review and upload a revised proof.</p>
-                </CardContent>
-              </Card>
+            {/* No Pending Proof Message */}
+            {isWaitingForApproval && !isEscalated && !latestProof && (
+              <div className="text-center py-6">
+                <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">All Proofs Responded To</h3>
+                <p className="text-gray-600">
+                  You have already responded to all available proofs. Please wait for our team to upload a new proof based on your feedback.
+                </p>
+              </div>
             )}
-          </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Order Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Order Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div>
-                  <span className="font-medium">Subject:</span>
-                  <p className="text-gray-600">{order.subject}</p>
-                </div>
-                <div>
-                  <span className="font-medium">Template:</span>
-                  <p className="text-gray-600">{order.templateType || 'Not specified'}</p>
-                </div>
-                <div>
-                  <span className="font-medium">Color Mode:</span>
-                  <p className="text-gray-600">{order.colorMode || 'Not specified'}</p>
-                </div>
-                <div>
-                  <span className="font-medium">Cost:</span>
-                  <p className="text-gray-600">${order.cost?.toFixed(2) || '0.00'}</p>
-                </div>
-                <div>
-                  <span className="font-medium">Created:</span>
-                  <p className="text-gray-600">{new Date(order.createdAt).toLocaleDateString()}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Revision History */}
-            {order.approvals && order.approvals.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="w-5 h-5" />
-                    Revision History
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {order.approvals.map((approval: any, index: number) => (
-                      <div key={approval.id} className="border-l-4 border-gray-200 pl-4 py-2">
-                        <div className="flex items-center gap-2 mb-1">
-                          {approval.status === 'approved' ? (
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                          ) : (
-                            <XCircle className="w-4 h-4 text-yellow-600" />
-                          )}
-                          <span className="font-medium">
-                            {approval.status === 'approved' ? 'Approved' : 'Changes Requested'}
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            {new Date(approval.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                        {approval.comments && (
-                          <div className="text-sm text-gray-700 mt-1">
-                            {approval.comments}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+            {/* Escalated State */}
+            {isEscalated && (
+              <div className="text-center py-6">
+                <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Manual Intervention Required</h3>
+                <p className="text-gray-600 mb-4">
+                  This order has exceeded the maximum number of proof revisions. 
+                  Our customer service team will contact you directly to resolve this situation.
+                </p>
+                <div className="flex items-center justify-center space-x-4 text-sm text-gray-500">
+                  <div className="flex items-center space-x-2">
+                    <Phone className="w-4 h-4" />
+                    <span>Call: 978-840-9880</span>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex items-center space-x-2">
+                    <Mail className="w-4 h-4" />
+                    <span>Email Support</span>
+                  </div>
+                </div>
+              </div>
             )}
-          </div>
-        </div>
-
-        <div className="mt-8 text-center">
-          <Button variant="outline" onClick={() => router.push('/orders')}>
-            Back to Orders
-          </Button>
-        </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Escalation Dialog */}
+      <Dialog open={showEscalationDialog} onOpenChange={setShowEscalationDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              <span>Proof Escalation Required</span>
+            </DialogTitle>
+            <DialogDescription>
+              This order has exceeded the maximum number of proof revisions and requires manual intervention.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Additional Feedback (Optional)
+              </label>
+              <Textarea
+                value={escalationReason}
+                onChange={(e) => setEscalationReason(e.target.value)}
+                placeholder="Please provide any additional context that might help our team..."
+                rows={3}
+              />
+            </div>
+            
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Our customer service team will contact you directly to resolve this situation. 
+                You can expect a call or email within 24 hours.
+              </AlertDescription>
+            </Alert>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={handleEscalationAcknowledgment} className="w-full">
+              Acknowledge & Return to Orders
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 

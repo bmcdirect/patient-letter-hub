@@ -44,7 +44,7 @@ export async function GET(
     }
 
     // Get the proof record
-    const proof = await prisma.orderApprovals.findUnique({
+    const proof = await prisma.proof.findUnique({
       where: { id: proofId }
     });
 
@@ -52,11 +52,30 @@ export async function GET(
       return new NextResponse("Proof not found", { status: 404 });
     }
 
+    // Verify this proof belongs to the order
+    if (proof.orderId !== orderId) {
+      return new NextResponse("Proof does not belong to this order", { status: 400 });
+    }
+
     // Construct the file path for the proof using the stored filePath
-    const uploadsDir = join(process.cwd(), "uploads", orderId, "proofs");
-    const proofFilePath = join(uploadsDir, proof.filePath || '');
+    let proofFilePath;
     
-    if (!proof.filePath || !existsSync(proofFilePath)) {
+    if (proof.filePath) {
+      // If filePath is a relative path (starts with /uploads/), convert to absolute
+      if (proof.filePath.startsWith('/uploads/')) {
+        proofFilePath = join(process.cwd(), proof.filePath.substring(1)); // Remove leading /
+      } else {
+        // If it's already an absolute path, use as is
+        proofFilePath = proof.filePath;
+      }
+    } else {
+      return new NextResponse("Proof file path not found", { status: 404 });
+    }
+    
+    console.log(`🔍 Looking for proof file at: ${proofFilePath}`);
+    
+    if (!existsSync(proofFilePath)) {
+      console.log(`❌ Proof file not found at: ${proofFilePath}`);
       return new NextResponse("Proof file not found", { status: 404 });
     }
 

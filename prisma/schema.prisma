@@ -1,18 +1,10 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider     = "postgresql"
-  url          = env("DATABASE_URL")
-}
-
-enum UserRole {
-  ADMIN
-  USER
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Account {
@@ -21,21 +13,20 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String?  @db.Text
-  access_token      String?  @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String?  @db.Text
+  id_token          String?
   session_state     String?
-  createdAt         DateTime @default(now()) @map(name: "created_at")
-  updatedAt         DateTime @default(now()) @map(name: "updated_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @map("updated_at")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@index([userId])
-  @@map(name: "accounts")
+  @@map("accounts")
 }
 
 model Session {
@@ -46,70 +37,64 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@map(name: "sessions")
+  @@map("sessions")
 }
 
 model Practice {
-  id             String   @id @default(cuid())
-  organizationId String?  // Clerk organization ID
+  id             String               @id @default(cuid())
   name           String
   address        String?
+  phone          String?
+  email          String?
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @default(now()) @map("updated_at")
+  organizationId String?
   addressLine1   String?
   addressLine2   String?
   city           String?
   state          String?
   zipCode        String?
-  phone          String?
-  email          String?
-  createdAt      DateTime @default(now()) @map(name: "created_at")
-  updatedAt      DateTime @default(now()) @map(name: "updated_at")
+  emails         EmailNotifications[] @relation("PracticeEmails")
+  invoices       Invoices[]           @relation("PracticeInvoices")
+  orders         Orders[]             @relation("PracticeOrders")
+  quotes         Quotes[]             @relation("PracticeQuotes")
+  users          User[]
 
-  users     User[]
-  orders    Orders[]   @relation("PracticeOrders")
-  quotes    Quotes[]   @relation("PracticeQuotes")
-  invoices  Invoices[] @relation("PracticeInvoices")
-  emails    EmailNotifications[] @relation("PracticeEmails")
-
-  @@map(name: "practices")
+  @@map("practices")
 }
 
 model User {
-  id            String    @id @default(cuid())
-  clerkId       String?   @unique  // Nullable - won't break existing users
-  name          String?
-  title         String?   // Professional title
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  createdAt     DateTime  @default(now()) @map(name: "created_at")
-  updatedAt     DateTime  @default(now()) @map(name: "updated_at")
-  role          UserRole  @default(USER)
-  
-  // Professional details
-  taxonomyCode String?   // Taxonomy code
-  npi1         String?   // NPI-1 number
-  npi2         String?   // NPI-2 number
+  id                     String               @id @default(cuid())
+  name                   String?
+  email                  String?              @unique
+  emailVerified          DateTime?
+  image                  String?
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @default(now()) @map("updated_at")
+  role                   UserRole             @default(USER)
+  stripeCustomerId       String?              @unique @map("stripe_customer_id")
+  stripeSubscriptionId   String?              @unique @map("stripe_subscription_id")
+  stripePriceId          String?              @map("stripe_price_id")
+  stripeCurrentPeriodEnd DateTime?            @map("stripe_current_period_end")
+  practiceId             String?
+  clerkId                String?              @unique
+  npi1                   String?
+  npi2                   String?
+  taxonomyCode           String?
+  title                  String?
+  accounts               Account[]
+  emails                 EmailNotifications[] @relation("UserEmails")
+  invoices               Invoices[]           @relation("UserInvoices")
+  approvals              OrderApprovals[]     @relation("UserApprovals")
+  uploadedFiles          OrderFiles[]         @relation("UserUploadedFiles")
+  statusChanges          OrderStatusHistory[] @relation("UserStatusChanges")
+  orders                 Orders[]             @relation("UserOrders")
+  proofs                 Proof[]              @relation("UserProofs")
+  quotes                 Quotes[]             @relation("UserQuotes")
+  sessions               Session[]
+  practice               Practice?            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
-  accounts Account[]
-  sessions Session[]
-
-  stripeCustomerId       String?   @unique @map(name: "stripe_customer_id")
-  stripeSubscriptionId   String?   @unique @map(name: "stripe_subscription_id")
-  stripePriceId          String?   @map(name: "stripe_price_id")
-  stripeCurrentPeriodEnd DateTime? @map(name: "stripe_current_period_end")
-
-  practiceId String?  // Made optional for Super Admins
-  practice   Practice? @relation(fields: [practiceId], references: [id], onDelete: Cascade)  // Made optional
-
-  orders         Orders[]         @relation("UserOrders")
-  uploadedFiles  OrderFiles[]     @relation("UserUploadedFiles")
-  approvals      OrderApprovals[] @relation("UserApprovals")
-  statusChanges  OrderStatusHistory[] @relation("UserStatusChanges")
-  quotes         Quotes[]         @relation("UserQuotes")
-  invoices       Invoices[]       @relation("UserInvoices")
-  emails         EmailNotifications[] @relation("UserEmails")
-
-  @@map(name: "users")
+  @@map("users")
 }
 
 model VerificationToken {
@@ -118,35 +103,35 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
-  @@map(name: "verification_tokens")
+  @@map("verification_tokens")
 }
 
 model Orders {
-  id               String    @id @default(cuid())
-  orderNumber      String    @unique
-  practiceId       String
-  userId           String
-  status           String
-  subject          String?
-  templateType     String?
-  colorMode        String?
-  cost             Float?
-  preferredMailDate DateTime?
-  productionStartDate DateTime?
+  id                  String               @id @default(cuid())
+  orderNumber         String               @unique
+  practiceId          String
+  userId              String
+  status              String
+  subject             String?
+  templateType        String?
+  colorMode           String?
+  cost                Float?
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @default(now()) @map("updated_at")
+  fulfilledAt         DateTime?
+  preferredMailDate   DateTime?
   productionEndDate   DateTime?
-  fulfilledAt      DateTime?
-  createdAt        DateTime  @default(now()) @map(name: "created_at")
-  updatedAt        DateTime  @default(now()) @map(name: "updated_at")
+  productionStartDate DateTime?
+  emails              EmailNotifications[] @relation("OrderEmails")
+  invoices            Invoices[]           @relation("OrderInvoices")
+  approvals           OrderApprovals[]
+  files               OrderFiles[]
+  statusHistory       OrderStatusHistory[] @relation("OrderStatusHistory")
+  practice            Practice             @relation("PracticeOrders", fields: [practiceId], references: [id], onDelete: Cascade)
+  user                User                 @relation("UserOrders", fields: [userId], references: [id], onDelete: Cascade)
+  proofs              Proof[]
 
-  practice     Practice  @relation("PracticeOrders", fields: [practiceId], references: [id], onDelete: Cascade)
-  user         User      @relation("UserOrders", fields: [userId], references: [id], onDelete: Cascade)
-  files        OrderFiles[]
-  approvals    OrderApprovals[]
-  statusHistory OrderStatusHistory[] @relation("OrderStatusHistory")
-  invoices     Invoices[] @relation("OrderInvoices")
-  emails       EmailNotifications[] @relation("OrderEmails")
-
-  @@map(name: "orders")
+  @@map("orders")
 }
 
 model OrderFiles {
@@ -156,28 +141,53 @@ model OrderFiles {
   filePath   String
   fileType   String?
   uploadedBy String
-  createdAt  DateTime @default(now()) @map(name: "created_at")
-
+  createdAt  DateTime @default(now()) @map("created_at")
   order      Orders   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   uploader   User     @relation("UserUploadedFiles", fields: [uploadedBy], references: [id], onDelete: Cascade)
 
-  @@map(name: "order_files")
+  @@map("order_files")
 }
 
 model OrderApprovals {
-  id         String   @id @default(cuid())
-  orderId    String
-  revision   Int
-  status     String
-  comments   String?
-  approvedBy String
-  filePath   String?  // Store the path to the uploaded proof file
-  createdAt  DateTime @default(now()) @map(name: "created_at")
+  id               String    @id @default(cuid())
+  orderId          String
+  revision         Int
+  status           String
+  comments         String?
+  approvedBy       String
+  createdAt        DateTime  @default(now()) @map("created_at")
+  adminNotes       String?
+  escalationReason String?
+  filePath         String?
+  proofId          String?   @unique
+  respondedAt      DateTime?
+  userFeedback     String?
+  approver         User      @relation("UserApprovals", fields: [approvedBy], references: [id], onDelete: Cascade)
+  order            Orders    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  proof            Proof?    @relation(fields: [proofId], references: [id])
 
-  order      Orders   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  approver   User     @relation("UserApprovals", fields: [approvedBy], references: [id], onDelete: Cascade)
+  @@map("order_approvals")
+}
 
-  @@map(name: "order_approvals")
+model Proof {
+  id               String          @id @default(cuid())
+  orderId          String
+  proofRound       Int
+  fileUrl          String?
+  filePath         String?
+  status           ProofStatus     @default(PENDING)
+  userFeedback     String?
+  adminNotes       String?
+  uploadedBy       String
+  uploadedAt       DateTime        @default(now())
+  respondedAt      DateTime?
+  escalationReason String?
+  approval         OrderApprovals?
+  order            Orders          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  uploader         User            @relation("UserProofs", fields: [uploadedBy], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, proofRound])
+  @@map("proofs")
 }
 
 model OrderStatusHistory {
@@ -189,12 +199,11 @@ model OrderStatusHistory {
   changedByRole UserRole
   comments      String?
   metadata      Json?
-  createdAt     DateTime @default(now()) @map(name: "created_at")
-
-  order         Orders   @relation("OrderStatusHistory", fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now()) @map("created_at")
   user          User     @relation("UserStatusChanges", fields: [changedBy], references: [id], onDelete: Cascade)
+  order         Orders   @relation("OrderStatusHistory", fields: [orderId], references: [id], onDelete: Cascade)
 
-  @@map(name: "order_status_history")
+  @@map("order_status_history")
 }
 
 model Quotes {
@@ -204,21 +213,20 @@ model Quotes {
   quoteNumber         String   @unique
   status              String
   totalCost           Float?
-  purchaseOrder       String?
-  costCenter          String?
-  subject             String?
-  estimatedRecipients Int?
+  createdAt           DateTime @default(now()) @map("created_at")
   colorMode           String?
+  costCenter          String?
   dataCleansing       Boolean?
-  ncoaUpdate          Boolean?
+  estimatedRecipients Int?
   firstClassPostage   Boolean?
+  ncoaUpdate          Boolean?
   notes               String?
-  createdAt           DateTime @default(now()) @map(name: "created_at")
+  purchaseOrder       String?
+  subject             String?
+  practice            Practice @relation("PracticeQuotes", fields: [practiceId], references: [id], onDelete: Cascade)
+  user                User     @relation("UserQuotes", fields: [userId], references: [id], onDelete: Cascade)
 
-  practice   Practice @relation("PracticeQuotes", fields: [practiceId], references: [id], onDelete: Cascade)
-  user       User     @relation("UserQuotes", fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map(name: "quotes")
+  @@map("quotes")
 }
 
 model Invoices {
@@ -236,35 +244,45 @@ model Invoices {
   paymentTerms  String   @default("Net 30")
   notes         String?
   pdfPath       String?
-  createdAt     DateTime @default(now()) @map(name: "created_at")
-  updatedAt     DateTime @default(now()) @map(name: "updated_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @map("updated_at")
+  order         Orders   @relation("OrderInvoices", fields: [orderId], references: [id], onDelete: Cascade)
+  practice      Practice @relation("PracticeInvoices", fields: [practiceId], references: [id], onDelete: Cascade)
+  user          User     @relation("UserInvoices", fields: [userId], references: [id], onDelete: Cascade)
 
-  order    Orders   @relation("OrderInvoices", fields: [orderId], references: [id], onDelete: Cascade)
-  user     User     @relation("UserInvoices", fields: [userId], references: [id], onDelete: Cascade)
-  practice Practice @relation("PracticeInvoices", fields: [practiceId], references: [id], onDelete: Cascade)
-
-  @@map(name: "invoices")
+  @@map("invoices")
 }
 
 model EmailNotifications {
-  id              String   @id @default(cuid())
-  orderId         String?
-  userId          String
-  practiceId      String?
-  recipientEmail  String
-  emailType       String   // 'order_status_change', 'proof_ready', 'invoice_generated', 'custom'
-  subject         String
-  content         String   @db.Text
-  status          String   @default("sent") // 'draft', 'sent', 'failed', 'pending'
-  sentAt          DateTime @default(now())
-  errorMessage    String?
-  metadata        String?  @db.Text // JSON string for additional data
-  createdAt       DateTime @default(now()) @map(name: "created_at")
-  updatedAt       DateTime @default(now()) @map(name: "updated_at")
+  id             String    @id @default(cuid())
+  orderId        String?
+  userId         String
+  practiceId     String?
+  recipientEmail String
+  emailType      String
+  subject        String
+  content        String
+  status         String    @default("sent")
+  sentAt         DateTime  @default(now())
+  errorMessage   String?
+  metadata       String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @map("updated_at")
+  order          Orders?   @relation("OrderEmails", fields: [orderId], references: [id], onDelete: Cascade)
+  practice       Practice? @relation("PracticeEmails", fields: [practiceId], references: [id], onDelete: Cascade)
+  user           User      @relation("UserEmails", fields: [userId], references: [id], onDelete: Cascade)
 
-  order    Orders?   @relation("OrderEmails", fields: [orderId], references: [id], onDelete: Cascade)
-  user     User      @relation("UserEmails", fields: [userId], references: [id], onDelete: Cascade)
-  practice Practice? @relation("PracticeEmails", fields: [practiceId], references: [id], onDelete: Cascade)
+  @@map("email_notifications")
+}
 
-  @@map(name: "email_notifications")
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum ProofStatus {
+  PENDING
+  APPROVED
+  CHANGES_REQUESTED
+  ESCALATED
 }

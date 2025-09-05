@@ -3,15 +3,20 @@ import { prisma } from "@/lib/db";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
+import { getCurrentUser } from "@/lib/session-manager";
 
 export async function POST(req: NextRequest) {
   try {
+    // Get current user from session
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File;
     const orderId = formData.get("orderId") as string;
     const fileType = formData.get("fileType") as string || "customer_data";
-    const revisionNumber = formData.get("revisionNumber") as string;
-    const adminNotes = formData.get("adminNotes") as string;
 
     if (!file || !orderId) {
       return NextResponse.json({ error: "File and orderId are required" }, { status: 400 });
@@ -29,10 +34,11 @@ export async function POST(req: NextRequest) {
       await mkdir(orderDir, { recursive: true });
     }
 
-    // Generate unique filename
+    // Generate unique filename while preserving original name
     const timestamp = Date.now();
     const fileExtension = file.name.split('.').pop();
-    const fileName = `${fileType}_${timestamp}.${fileExtension}`;
+    const baseName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+    const fileName = `${baseName}_${timestamp}.${fileExtension}`;
     const filePath = join(orderDir, fileName);
 
     // Convert file to buffer and save
@@ -47,39 +53,16 @@ export async function POST(req: NextRequest) {
         fileName: file.name,
         filePath: `/uploads/${orderId}/${fileName}`,
         fileType: fileType,
-        uploadedBy: "admin", // This should come from session in production
+        uploadedBy: currentUser.id, // Use the authenticated user's ID
       },
     });
-
-    // If this is a proof upload, create revision record
-    if (fileType === 'admin-proof' && revisionNumber) {
-      // Create revision record in OrderApprovals table
-      await prisma.orderApprovals.create({
-        data: {
-          orderId: orderId,
-          revision: parseInt(revisionNumber),
-          status: 'pending',
-          comments: adminNotes || null,
-          approvedBy: "admin", // This should come from session in production
-        },
-      });
-
-      // Update order status to waiting-approval
-      await prisma.orders.update({
-        where: { id: orderId },
-        data: { 
-          status: `waiting-approval-rev${revisionNumber}`,
-          updatedAt: new Date()
-        },
-      });
-    }
 
     return NextResponse.json({ 
       success: true, 
       file: savedFile,
-      message: fileType === 'admin-proof' 
-        ? `Proof uploaded successfully! Revision ${revisionNumber} is ready for customer review.`
-        : 'File uploaded successfully!'
+      filePath: savedFile.filePath, // Add this for the proof creation
+      fileUrl: savedFile.filePath,  // Use filePath as fileUrl for now
+      message: 'File uploaded successfully!'
     });
 
   } catch (error) {

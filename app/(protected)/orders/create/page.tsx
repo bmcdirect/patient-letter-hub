@@ -95,7 +95,7 @@ export default function CreateOrderPage() {
           if (res.ok) {
             const quote = await res.json();
             setQuoteData(quote);
-            console.log('Fetched quote data for conversion:', quote);
+
             // Set initialLoading to false when quote data is loaded
             setInitialLoading(false);
           }
@@ -119,7 +119,7 @@ export default function CreateOrderPage() {
           const res = await fetch(`/api/orders/${editId}`);
           if (res.ok) {
             const order = await res.json();
-            console.log('Fetched order data for editing:', order);
+
             
             // Pre-populate form with existing order data
             form.setValue("practiceId", order.practiceId || "");
@@ -143,12 +143,7 @@ export default function CreateOrderPage() {
             setFirstClassPostage(order.firstClassPostage || false);
             setActualRecipients(order.actualRecipients || 1);
             
-            console.log('Pre-filled form with order data:', {
-              practiceId: order.practiceId,
-              subject: order.subject,
-              colorMode: order.colorMode,
-              totalCost: order.cost
-            });
+
           } else {
             console.error('Failed to fetch order data:', res.status);
             toast({
@@ -204,14 +199,7 @@ export default function CreateOrderPage() {
           setFirstClassPostage(quoteData.firstClassPostage || false);
           setActualRecipients(1);
           
-          console.log('Pre-filled form with quote data:', {
-            practiceId: quoteData.practiceId,
-            subject: quoteData.subject,
-            colorMode: quoteData.colorMode,
-            totalCost: quoteData.totalCost,
-            actualRecipients: 1,
-            preferredMailDate: quoteData.preferredMailDate || new Date().toISOString().split('T')[0]
-          });
+
           
           // Trigger form validation after setting values
           form.trigger();
@@ -237,7 +225,7 @@ export default function CreateOrderPage() {
           const data = await res.json();
           const practicesArray = data.practices || [];
           setPractices(practicesArray);
-          console.log('Fetched practices:', practicesArray);
+
           
           // If user has a practice assigned and it's in the list, set it as default
           if (practice && practice.id && practicesArray.length > 0) {
@@ -342,7 +330,7 @@ export default function CreateOrderPage() {
       if (!mailDate || mailDate === 'Invalid Date' || mailDate.includes('252025')) {
         // Use current date if invalid
         mailDate = new Date().toISOString().split('T')[0];
-        console.log('⚠️ Frontend - Invalid date detected, using current date:', mailDate);
+
       }
       formData.append('preferredMailDate', mailDate);
       formData.append('colorMode', data.colorMode || 'color');
@@ -354,14 +342,11 @@ export default function CreateOrderPage() {
       formData.append('status', isDraft ? 'draft' : 'pending');
       
       // Add files
-      console.log('🔍 Frontend - Files to upload:', {
-        uploadedFilesKeys: Object.keys(uploadedFiles),
-        uploadedFilesValues: Object.values(uploadedFiles).map(f => f ? { name: f.file.name, size: f.file.size, type: f.file.type } : null)
-      });
+
       
       Object.entries(uploadedFiles).forEach(([key, file]) => {
         if (file) {
-          console.log(`🔍 Frontend - Appending file: ${file.file.name} (${file.file.size} bytes)`);
+
           formData.append('file', file.file);
         }
       });
@@ -371,21 +356,7 @@ export default function CreateOrderPage() {
         formData.append('fromQuoteId', fromQuoteId);
       }
       
-      // Debug logging
-      console.log('🔍 Frontend - Submitting order with data:', {
-        practiceId: data.practiceId,
-        subject: data.subject,
-        totalCost: costBreakdown?.totalCost || data.totalCost,
-        status: isDraft ? 'draft' : 'pending',
-        fromQuoteId,
-        editId,
-        isEditing,
-        isFromQuote,
-        fileCount: Object.keys(uploadedFiles).length,
-        originalDate: data.preferredMailDate,
-        sanitizedDate: mailDate,
-        formData: Object.fromEntries(formData.entries())
-      });
+
       
       let res;
       if (isEditing && editId) {
@@ -709,15 +680,7 @@ export default function CreateOrderPage() {
                         Preferred mail date is required
                       </p>
                     )}
-                    {/* Debug info */}
-                    <div className="text-xs text-gray-500 mt-2">
-                      <p>Debug: quoteLoading={quoteLoading.toString()}</p>
-                      <p>Debug: quoteData={quoteData ? 'loaded' : 'not loaded'}</p>
-                      <p>Debug: files={Object.keys(uploadedFiles).length}</p>
-                      <p>Debug: practiceId={form.getValues("practiceId") || 'not set'}</p>
-                      <p>Debug: preferredMailDate={form.getValues("preferredMailDate") || 'not set'}</p>
-                      <p>Debug: formValid={form.formState.isValid.toString()}</p>
-                    </div>
+
                   </>
                 ) : (
                   // Full button set for regular order creation/editing

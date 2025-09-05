@@ -119,7 +119,9 @@ export async function POST(
         const buffer = Buffer.from(bytes);
         const timestamp = Date.now();
         const originalName = file.name;
-        const fileName = `${timestamp}_${originalName}`;
+        const fileExtension = originalName.split('.').pop();
+        const baseName = originalName.replace(/\.[^/.]+$/, ""); // Remove extension
+        const fileName = `${baseName}_${timestamp}.${fileExtension}`;
         const filePath = join(uploadsDir, fileName);
         await writeFile(filePath, buffer);
 
@@ -127,7 +129,7 @@ export async function POST(
         const savedFile = await prisma.orderFiles.create({
           data: {
             orderId: orderId,
-            fileName: fileName,
+            fileName: originalName, // Store original filename for display
             filePath: filePath,
             fileType: file.type,
             uploadedBy: user.id,

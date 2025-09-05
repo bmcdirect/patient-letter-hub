@@ -12,6 +12,11 @@ export async function GET(req: NextRequest) {
             createdAt: 'desc',
           },
         },
+        proofs: {
+          orderBy: {
+            proofRound: 'desc',
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',

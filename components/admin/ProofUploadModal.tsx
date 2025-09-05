@@ -1,12 +1,13 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, X, AlertCircle, CheckCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Upload, X, AlertCircle, CheckCircle, Clock, FileText } from "lucide-react";
 
 interface ProofUploadModalProps {
   order: any;
@@ -17,11 +18,32 @@ interface ProofUploadModalProps {
 
 export default function ProofUploadModal({ order, isOpen, onClose, onSuccess }: ProofUploadModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [revision, setRevision] = useState("1");
-  const [comments, setComments] = useState("");
+  const [adminNotes, setAdminNotes] = useState("");
+  const [escalationReason, setEscalationReason] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [currentProofRound, setCurrentProofRound] = useState(0);
+  const [needsEscalation, setNeedsEscalation] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && order) {
+      fetchCurrentProofInfo();
+    }
+  }, [isOpen, order]);
+
+  const fetchCurrentProofInfo = async () => {
+    try {
+      const response = await fetch(`/api/orders/${order.id}/proofs`);
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentProofRound(data.currentProofRound || 0);
+        setNeedsEscalation(data.needsEscalation || false);
+      }
+    } catch (error) {
+      console.error('Failed to fetch proof info:', error);
+    }
+  };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
@@ -33,28 +55,58 @@ export default function ProofUploadModal({ order, isOpen, onClose, onSuccess }: 
       setError("Please select a proof file to upload");
       return;
     }
+
     setUploading(true);
     setError(null);
     setSuccess(false);
+
     try {
+      // First upload the file
       const formData = new FormData();
-      formData.append("proofFile", selectedFile);
-      formData.append("adminNotes", comments);
-      formData.append("revisionNumber", revision);
-      const response = await fetch(`/api/admin/orders/${order.id}/upload-proof`, {
+      formData.append("file", selectedFile);
+      formData.append("orderId", order.id);
+      formData.append("fileType", "admin-proof");
+
+      const uploadResponse = await fetch("/api/file-upload", {
         method: "POST",
         body: formData,
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to upload proof");
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json();
+        throw new Error(errorData.error || "Failed to upload file");
       }
+
+      const uploadData = await uploadResponse.json();
+
+      // Then create the proof record
+      const proofResponse = await fetch(`/api/orders/${order.id}/proofs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filePath: uploadData.filePath,
+          fileUrl: uploadData.fileUrl,
+          adminNotes,
+          escalationReason: needsEscalation ? escalationReason : null
+        }),
+      });
+
+      if (!proofResponse.ok) {
+        const errorData = await proofResponse.json();
+        throw new Error(errorData.error || "Failed to create proof");
+      }
+
+      const proofData = await proofResponse.json();
+
       setSuccess(true);
       setSelectedFile(null);
-      setComments("");
+      setAdminNotes("");
+      setEscalationReason("");
+
       // Reset file input
       const fileInput = document.getElementById("proof-file-input") as HTMLInputElement;
       if (fileInput) fileInput.value = "";
+
       setTimeout(() => {
         onSuccess();
         onClose();
@@ -66,11 +118,10 @@ export default function ProofUploadModal({ order, isOpen, onClose, onSuccess }: 
     }
   };
 
-  const removeFile = (index: number) => {
-    setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
-  };
-
   if (!isOpen) return null;
+
+  const nextProofRound = currentProofRound + 1;
+  const isEscalationRequired = nextProofRound >= 3;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -93,125 +144,180 @@ export default function ProofUploadModal({ order, isOpen, onClose, onSuccess }: 
                 <div><strong>Order #:</strong> {order.orderNumber}</div>
                 <div><strong>Customer:</strong> {order.practice?.name || 'N/A'}</div>
                 <div><strong>Subject:</strong> {order.subject || 'N/A'}</div>
-                <div><strong>Current Status:</strong> {order.status}</div>
+                <div><strong>Current Status:</strong> 
+                  <Badge variant="outline" className="ml-2">{order.status}</Badge>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Proof Upload Form */}
+          {/* Proof Round Info */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Proof Upload</CardTitle>
+              <CardTitle className="text-lg flex items-center space-x-2">
+                <FileText className="w-5 h-5" />
+                <span>Proof #{nextProofRound}</span>
+                {isEscalationRequired && (
+                  <Badge variant="destructive">Escalation Required</Badge>
+                )}
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Revision Selection */}
-              <div>
-                <Label htmlFor="revision">Revision Number</Label>
-                <Select value={revision} onValueChange={setRevision}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Revision 1</SelectItem>
-                    <SelectItem value="2">Revision 2</SelectItem>
-                    <SelectItem value="3">Revision 3</SelectItem>
-                    <SelectItem value="4">Revision 4</SelectItem>
-                    <SelectItem value="5">Revision 5</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-gray-500 mt-1">
-                  Select the revision number for this proof upload
-                </p>
-              </div>
-
-              {/* File Upload */}
-              <div>
-                <Label htmlFor="proof-file-input">Select Proof File</Label>
-                <Input
-                  id="proof-file-input"
-                  type="file"
-                  onChange={handleFileSelect}
-                  accept=".pdf,.tiff,.bmp,.eps"
-                  className="mt-1"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Supported formats: PDF, TIFF, BMP, EPS (desktop uploads only)
-                </p>
-              </div>
-              {/* Selected File */}
-              {selectedFile && (
-                <div className="space-y-2">
-                  <Label>Selected File</Label>
-                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <span className="text-sm truncate flex-1">{selectedFile.name}</span>
-                    <span className="text-xs text-gray-500 ml-2">
-                      ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedFile(null)}
-                      className="text-red-600 hover:text-red-800 ml-2"
-                    >
-                      Remove
-                    </Button>
-                  </div>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Previous Proofs:</span>
+                  <span className="font-medium">{currentProofRound}</span>
                 </div>
-              )}
-
-              {/* Comments */}
-              <div>
-                <Label htmlFor="comments">Comments for Customer</Label>
-                <Textarea
-                  id="comments"
-                  value={comments}
-                  onChange={(e) => setComments(e.target.value)}
-                  placeholder="Add any comments or instructions for the customer..."
-                  className="mt-1"
-                  rows={3}
-                />
-              </div>
-
-              {/* Error/Success Messages */}
-              {error && (
-                <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded">
-                  <AlertCircle className="w-4 h-4" />
-                  {error}
+                <div className="flex items-center justify-between text-sm">
+                  <span>Next Proof Round:</span>
+                  <span className="font-medium text-blue-600">#{nextProofRound}</span>
                 </div>
-              )}
-
-              {success && (
-                <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded">
-                  <CheckCircle className="w-4 h-4" />
-                  Proof uploaded successfully! Order status updated and customer notified.
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 pt-4">
-                <Button variant="outline" onClick={onClose} disabled={uploading}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleUpload}
-                  disabled={!selectedFile || uploading}
-                  className="flex items-center gap-2"
-                >
-                  {uploading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4" />
-                      Upload Proof (Rev {revision})
-                    </>
-                  )}
-                </Button>
+                {isEscalationRequired && (
+                  <Alert className="border-orange-200 bg-orange-50">
+                    <AlertCircle className="h-4 w-4 text-orange-600" />
+                    <AlertDescription className="text-orange-800">
+                      <strong>Warning:</strong> This will be proof #{nextProofRound}. After 3+ revisions, 
+                      orders require manual escalation and customer contact.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
             </CardContent>
           </Card>
+
+          {/* File Upload */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Upload Proof File</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="proof-file-input">Select Proof File</Label>
+                  <Input
+                    id="proof-file-input"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.gif"
+                    onChange={handleFileSelect}
+                    className="mt-1"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Accepted formats: PDF, JPG, PNG, GIF
+                  </p>
+                </div>
+
+                {selectedFile && (
+                  <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span className="text-green-800 font-medium">{selectedFile.name}</span>
+                    <span className="text-green-600 text-sm">
+                      ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                    </span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Admin Notes */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Design Notes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="admin-notes">Notes for Customer (Optional)</Label>
+                  <Textarea
+                    id="admin-notes"
+                    value={adminNotes}
+                    onChange={(e) => setAdminNotes(e.target.value)}
+                    placeholder="Add any notes about this proof or design decisions..."
+                    rows={3}
+                    className="mt-1"
+                  />
+                </div>
+
+                {isEscalationRequired && (
+                  <div>
+                    <Label htmlFor="escalation-reason">
+                      Escalation Reason <span className="text-red-600">*</span>
+                    </Label>
+                    <Textarea
+                      id="escalation-reason"
+                      value={escalationReason}
+                      onChange={(e) => setEscalationReason(e.target.value)}
+                      placeholder="Explain why this proof requires escalation..."
+                      rows={3}
+                      className="mt-1"
+                      required
+                    />
+                    <p className="text-sm text-red-600 mt-1">
+                      Required for proof #{nextProofRound} due to escalation threshold
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Error/Success Messages */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {success && (
+            <Alert>
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>
+                Proof uploaded successfully! Proof #{nextProofRound} is ready for customer review.
+                {isEscalationRequired && " ESCALATION REQUIRED - Customer will be contacted directly."}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="flex-1"
+              disabled={uploading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpload}
+              disabled={uploading || !selectedFile || (isEscalationRequired && !escalationReason.trim())}
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
+            >
+              {uploading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Proof #{nextProofRound}
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Escalation Warning */}
+          {isEscalationRequired && (
+            <div className="text-center p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <AlertCircle className="w-8 h-8 text-orange-500 mx-auto mb-2" />
+              <p className="text-orange-800 text-sm">
+                <strong>Important:</strong> After uploading proof #{nextProofRound}, this order will be 
+                automatically escalated and our customer service team will contact the customer directly.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

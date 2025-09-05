@@ -31,6 +31,7 @@ import { Modal } from "@/components/ui/modal";
 import ProofUploadModal from "@/components/admin/ProofUploadModal";
 import StatusManagementModal from "@/components/admin/StatusManagementModal";
 import CustomerFeedbackModal from "@/components/admin/CustomerFeedbackModal";
+import EscalationManagementModal from "@/components/admin/EscalationManagementModal";
 import FileUploadComponent from "@/components/file-upload/FileUploadComponent";
 import { ProductionCalendar } from "@/components/calendar/ProductionCalendar";
 
@@ -88,6 +89,10 @@ export default function AdminDashboardPage() {
   // Customer Feedback Modal State
   const [showCustomerFeedbackModal, setShowCustomerFeedbackModal] = useState(false);
   const [customerFeedbackOrder, setCustomerFeedbackOrder] = useState<any>(null);
+
+  // Escalation Management Modal State
+  const [showEscalationManagementModal, setShowEscalationManagementModal] = useState(false);
+  const [escalationOrder, setEscalationOrder] = useState<any>(null);
 
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [emails, setEmails] = useState<any[]>([]);
@@ -231,6 +236,16 @@ export default function AdminDashboardPage() {
       available: status === 'changes-requested',
       reason: status === 'changes-requested' ? undefined : 'Feedback is only available when customer has requested changes.'
     });
+
+    // Add escalation management action for escalated orders
+    if (status === 'escalated') {
+      actions.push({
+        label: 'Manage Escalation',
+        icon: 'AlertTriangle',
+        action: () => openEscalationManagementModal(order),
+        available: true
+      });
+    }
     actions.push({
       label: 'Upload Proof',
       icon: 'Package',
@@ -871,6 +886,11 @@ export default function AdminDashboardPage() {
     setShowCustomerFeedbackModal(true);
   }
 
+  function openEscalationManagementModal(order: any) {
+    setEscalationOrder(order);
+    setShowEscalationManagementModal(true);
+  }
+
   function handleProofUploadFromFeedback(orderId: string, revisionNumber: number, comments: string) {
     // Open the proof upload modal with the feedback order
     const order = orders.find(o => o.id === orderId);
@@ -1403,6 +1423,7 @@ export default function AdminDashboardPage() {
                     <TableHead>Practice</TableHead>
                     <TableHead>Subject</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Proof Round</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Actions</TableHead>
@@ -1432,15 +1453,36 @@ export default function AdminDashboardPage() {
                               <MessageSquare className="h-4 w-4" />
                             </div>
                           )}
+                          {order.proofs && order.proofs.length >= 3 && (
+                            <div className="flex items-center gap-1 text-red-600" title="Escalation required">
+                              <AlertTriangle className="h-4 w-4" />
+                            </div>
+                          )}
                           {order.orderNumber}
                         </div>
                       </TableCell>
                       <TableCell>{order.practiceName || order.practice?.name || '-'}</TableCell>
                       <TableCell>{order.subject}</TableCell>
                       <TableCell>
-                        <Badge variant={order.status === 'pending' ? 'secondary' : order.status === 'approved' ? 'default' : order.status === 'in-progress' ? 'default' : order.status === 'completed' ? 'secondary' : order.status === 'delivered' ? 'outline' : 'secondary'}>
-                          {order.status?.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={order.status === 'pending' ? 'secondary' : order.status === 'approved' ? 'default' : order.status === 'in-progress' ? 'default' : order.status === 'completed' ? 'secondary' : order.status === 'delivered' ? 'outline' : 'secondary'}>
+                            {order.status?.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                          </Badge>
+                          {order.proofs && order.proofs.length >= 3 && (
+                            <Badge variant="destructive" className="text-xs">
+                              Escalation
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {order.proofs && order.proofs.length > 0 ? (
+                          <Badge variant="outline" className="font-mono">
+                            #{Math.max(...order.proofs.map((p: any) => p.proofRound))}
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </TableCell>
                       <TableCell>{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '-'}</TableCell>
                       <TableCell>{order.preferredMailDate ? new Date(order.preferredMailDate).toLocaleDateString() : '-'}</TableCell>
@@ -2287,6 +2329,20 @@ export default function AdminDashboardPage() {
           isOpen={showCustomerFeedbackModal}
           onClose={() => setShowCustomerFeedbackModal(false)}
           onUploadProof={handleProofUploadFromFeedback}
+        />
+      )}
+
+      {/* Escalation Management Modal */}
+      {showEscalationManagementModal && escalationOrder && (
+        <EscalationManagementModal
+          order={escalationOrder}
+          isOpen={showEscalationManagementModal}
+          onClose={() => setShowEscalationManagementModal(false)}
+          onSuccess={() => {
+            setShowEscalationManagementModal(false);
+            setEscalationOrder(null);
+            fetchOrders();
+          }}
         />
       )}
     </main>
