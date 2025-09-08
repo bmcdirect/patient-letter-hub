@@ -15,7 +15,8 @@
     "preview": "next build && next start",
     "postinstall": "npx prisma generate",
     "email": "email dev --dir emails --port 3333",
-    "seed": "prisma db seed --preview-feature"
+    "seed": "prisma db seed --preview-feature",
+    "migrate-clerk-users": "ts-node scripts/migrate-clerk-users.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
