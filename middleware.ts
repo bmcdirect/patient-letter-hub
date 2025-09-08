@@ -11,16 +11,10 @@ const isProtectedRoute = createRouteMatcher([
   '/api/admin(.*)',
 ])
 
-const isPublicRoute = createRouteMatcher([
-  '/',
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-])
-
 export default clerkMiddleware((auth, req) => {
-  // Protect routes that require authentication
-  if (isProtectedRoute(req)) {
-    auth().protect()
+  // Redirect unauthenticated users to sign-in for protected routes
+  if (isProtectedRoute(req) && !auth().userId) {
+    return NextResponse.redirect(new URL('/sign-in', req.url))
   }
   
   // Redirect authenticated users away from auth pages
