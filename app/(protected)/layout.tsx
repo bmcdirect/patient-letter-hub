@@ -1,8 +1,5 @@
-import { redirect } from "next/navigation";
-
 import { sidebarLinks } from "@/config/dashboard";
 import { getCurrentUser } from "@/lib/session-manager";
-import { getAuthUrls } from "@/lib/session-manager";
 import {
   DashboardSidebar,
   MobileSheetSidebar,
@@ -16,15 +13,25 @@ interface ProtectedLayoutProps {
 }
 
 export default async function Dashboard({ children }: ProtectedLayoutProps) {
+  // Get user data for UI rendering (no redirect logic - middleware handles auth)
   const user = await getCurrentUser();
-  const authUrls = getAuthUrls();
   
-  if (!user) redirect(authUrls.loginUrl);
+  console.log("🔍 Protected Layout - User data for UI:", user ? "User found" : "User not found");
+  if (user) {
+    console.log("✅ Protected Layout - User details:", {
+      id: user.id,
+      clerkId: user.clerkId,
+      email: user.email,
+      name: user.name,
+      role: user.role
+    });
+  }
 
+  // Filter sidebar links based on user role (if user exists)
   const filteredLinks = sidebarLinks.map((section) => ({
     ...section,
     items: section.items.filter(
-      ({ authorizeOnly }) => !authorizeOnly || authorizeOnly === user.role,
+      ({ authorizeOnly }) => !authorizeOnly || (user && authorizeOnly === user.role),
     ),
   }));
 

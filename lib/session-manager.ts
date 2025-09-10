@@ -5,22 +5,53 @@ import { clerkClient } from '@clerk/nextjs/server';
 
 export async function getCurrentUser() {
   try {
-    const { userId } = auth()
+    console.log('🔍 getCurrentUser() called')
+    
+    const { userId } = await auth()
+    console.log('📝 Clerk userId from auth():', userId)
+    console.log('📝 userId type:', typeof userId)
+    console.log('📝 userId exists:', !!userId)
     
     if (!userId) {
+      console.log('❌ No userId from Clerk auth(), returning null')
       return null
     }
 
+    console.log('🔍 Querying database for user with clerkId:', userId)
+    
     const user = await prisma.user.findUnique({
       where: {
         clerkId: userId
       },
-      include: { practice: true }
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        clerkId: true,
+        createdAt: true,
+        updatedAt: true
+      }
     })
+
+    console.log('📊 Database query result:', user)
+    console.log('📊 User found:', !!user)
+    
+    if (user) {
+      console.log('✅ User found in database:', user.email)
+    } else {
+      console.log('❌ No user found in database for clerkId:', userId)
+      
+      // Show all users for comparison
+      const allUsers = await prisma.user.findMany({
+        select: { email: true, clerkId: true }
+      })
+      console.log('📋 All users in database:', allUsers)
+    }
 
     return user
   } catch (error) {
-    console.error("Error in getCurrentUser:", error)
+    console.error('💥 getCurrentUser() error:', error)
     return null
   }
 }
