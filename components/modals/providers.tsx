@@ -1,7 +1,4 @@
-interface ProvidersProps {
-  children: React.ReactNode;
-}
-
-export default function Providers({ children }: ProvidersProps) {
+"use client";
+export default function ModalProviders({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }

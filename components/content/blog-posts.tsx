@@ -1,23 +1,15 @@
-import { Post } from "@/.contentlayer/generated";
-
-import { BlogCard } from "./blog-card";
-
+// Temporarily disabled - contentlayer/generated import removed
 export function BlogPosts({
   posts,
 }: {
-  posts: (Post & {
-    blurDataURL: string;
-  })[];
+  posts: any[];
 }) {
   return (
-    <main className="space-y-8">
-      <BlogCard data={posts[0]} horizontale priority />
-
-      <div className="grid gap-8 md:grid-cols-2 md:gap-x-6 md:gap-y-10 xl:grid-cols-3">
-        {posts.slice(1).map((post, idx) => (
-          <BlogCard data={post} key={post._id} priority={idx <= 2} />
-        ))}
+    <div className="space-y-8">
+      <div className="text-center py-8">
+        <h2 className="text-2xl font-bold">Blog temporarily disabled</h2>
+        <p className="text-muted-foreground">Contentlayer integration is being updated.</p>
       </div>
-    </main>
+    </div>
   );
 }
