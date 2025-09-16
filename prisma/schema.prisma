@@ -286,3 +286,8 @@ enum ProofStatus {
   CHANGES_REQUESTED
   ESCALATED
 }
+
+model WebhookEvent {
+  id          String   @id      // svix-id
+  processedAt DateTime @default(now())
+}

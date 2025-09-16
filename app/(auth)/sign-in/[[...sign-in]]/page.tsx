@@ -1,21 +1,21 @@
 "use client"
 
-import { SignIn, useUser } from "@clerk/nextjs"
+import { SignIn, useAuth } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef } from "react"
 
 export default function SignInPage() {
-  const { isSignedIn, isLoaded } = useUser()
+  const didRedirect = useRef(false)
+  const { isLoaded, userId } = useAuth()
   const router = useRouter()
-  const hasRedirected = useRef(false)
 
   useEffect(() => {
-    // Only redirect if user is signed in, Clerk has loaded, and we haven't redirected yet
-    if (isLoaded && isSignedIn && !hasRedirected.current) {
-      hasRedirected.current = true
-      router.push("/dashboard")
+    if (!isLoaded || didRedirect.current) return;
+    if (userId) {
+      didRedirect.current = true;
+      router.replace("/dashboard");
     }
-  }, [isSignedIn, isLoaded, router])
+  }, [isLoaded, userId, router])
 
   // Don't render anything while Clerk is loading
   if (!isLoaded) {
@@ -27,7 +27,7 @@ export default function SignInPage() {
   }
 
   // Don't render sign-in if user is already signed in (prevents flash)
-  if (isSignedIn) {
+  if (userId) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

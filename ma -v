@@ -1,0 +1,43 @@
+[1mdiff --git a/app/(auth)/sign-in/[[...sign-in]]/page.tsx b/app/(auth)/sign-in/[[...sign-in]]/page.tsx[m
+[1mindex d6d3cc2..cbacee9 100644[m
+[1m--- a/app/(auth)/sign-in/[[...sign-in]]/page.tsx[m
+[1m+++ b/app/(auth)/sign-in/[[...sign-in]]/page.tsx[m
+[36m@@ -1,21 +1,21 @@[m
+ "use client"[m
+ [m
+[31m-import { SignIn, useUser } from "@clerk/nextjs"[m
+[32m+[m[32mimport { SignIn, useAuth } from "@clerk/nextjs"[m
+ import { useRouter } from "next/navigation"[m
+ import { useEffect, useRef } from "react"[m
+ [m
+ export default function SignInPage() {[m
+[31m-  const { isSignedIn, isLoaded } = useUser()[m
+[32m+[m[32m  const didRedirect = useRef(false)[m
+[32m+[m[32m  const { isLoaded, userId } = useAuth()[m
+   const router = useRouter()[m
+[31m-  const hasRedirected = useRef(false)[m
+ [m
+   useEffect(() => {[m
+[31m-    // Only redirect if user is signed in, Clerk has loaded, and we haven't redirected yet[m
+[31m-    if (isLoaded && isSignedIn && !hasRedirected.current) {[m
+[31m-      hasRedirected.current = true[m
+[31m-      router.push("/dashboard")[m
+[32m+[m[32m    if (!isLoaded || didRedirect.current) return;[m
+[32m+[m[32m    if (userId) {[m
+[32m+[m[32m      didRedirect.current = true;[m
+[32m+[m[32m      router.replace("/dashboard");[m
+     }[m
+[31m-  }, [isSignedIn, isLoaded, router])[m
+[32m+[m[32m  }, [isLoaded, userId, router])[m
+ [m
+   // Don't render anything while Clerk is loading[m
+   if (!isLoaded) {[m
+[36m@@ -27,7 +27,7 @@[m [mexport default function SignInPage() {[m
+   }[m
+ [m
+   // Don't render sign-in if user is already signed in (prevents flash)[m
+[31m-  if (isSignedIn) {[m
+[32m+[m[32m  if (userId) {[m
+     return ([m
+       <div className="flex items-center justify-center min-h-screen">[m
+         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>[m
