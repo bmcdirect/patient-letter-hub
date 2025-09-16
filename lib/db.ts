@@ -1,23 +1,15 @@
-import { PrismaClient } from "@prisma/client"
-// import "server-only";
+import { PrismaClient } from "@prisma/client";
+// NOTE: Removed `import "server-only";` to avoid leaking into pages/ directory builds.
 
 declare global {
   // eslint-disable-next-line no-var
-  var cachedPrisma: PrismaClient
+  var prisma: PrismaClient | undefined;
 }
 
-// Debug database connection
-console.log("🔍 Database connection debug:");
-console.log("  - NODE_ENV:", process.env.NODE_ENV);
-console.log("  - DATABASE_URL exists:", !!process.env.DATABASE_URL);
-console.log("  - DATABASE_URL preview:", process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 50) + "..." : "undefined");
+export const prisma =
+  global.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+  });
 
-export let prisma: PrismaClient
-if (process.env.NODE_ENV === "production") {
-  prisma = new PrismaClient()
-} else {
-  if (!global.cachedPrisma) {
-    global.cachedPrisma = new PrismaClient()
-  }
-  prisma = global.cachedPrisma
-}
+if (process.env.NODE_ENV !== "production") global.prisma = prisma;
