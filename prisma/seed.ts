@@ -1,170 +1,189 @@
+/**
+ * Idempotent Prisma Seed Script
+ * 
+ * This seed script creates:
+ * - 3 Practices with specific slugs
+ * - 4 Clerk users mapped to practices (except SuperUser)
+ * - SuperUser with ADMIN role and no practice
+ * 
+ * ROLLBACK PLAN:
+ * To split dev/prod environments later:
+ * 1. Create new Azure Postgres database for dev (e.g., patientletterhub_dev_db)
+ * 2. Set .env.local to dev DB: /patientletterhub_dev_db?sslmode=require
+ * 3. Keep Vercel on /postgres (production)
+ * 4. Run migrations and seed against both DBs
+ * 5. This seed is idempotent - safe to run multiple times
+ */
+
 import { PrismaClient, UserRole } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting seed process...');
+  console.log('🌱 Starting idempotent seed process...');
 
-  // 1. CREATE SUPERADMIN USER (no practice association)
-  console.log('👑 Creating SuperAdmin user...');
-  const superAdmin = await prisma.user.create({
-    data: {
-      name: 'Super Admin',
-      email: 'superadmin@masscomminc.com',
-      role: UserRole.ADMIN,
-      practiceId: null, // No practice - SuperAdmin access
-      clerkId: 'user_314b0h210YO1X1IwZjrnigzSFa9', // Consistent with backup
-    },
-  });
-  console.log(`✅ Created SuperAdmin: ${superAdmin.email}`);
-
-  // 2. CREATE TENANT ORGANIZATIONS (Practices)
-  console.log('🏢 Creating tenant organizations...');
-  const practice1 = await prisma.practice.create({
-    data: {
-      name: 'Downtown Medical Group',
-      address: '123 Main St, Cityville',
+  // 1. UPSERT PRACTICES (create if they don't exist)
+  console.log('🏢 Upserting Practices...');
+  
+  const practices = [
+    {
+      name: 'Harbor Family Dental',
+      address: '123 Harbor St, Harbor City',
       phone: '555-123-4567',
-      email: 'contact@downtownmed.com',
-      addressLine1: '123 Main St',
-      city: 'Cityville',
+      email: 'info@harborfamilydental.com',
+      addressLine1: '123 Harbor St',
+      city: 'Harbor City',
       state: 'CA',
       zipCode: '90210',
     },
-  });
-  const practice2 = await prisma.practice.create({
-    data: {
-      name: 'Lakeside Family Health',
-      address: '456 Lake Ave, Townsville',
+    {
+      name: 'Eastside Orthodontics',
+      address: '456 East Ave, Eastside',
       phone: '555-987-6543',
-      email: 'info@lakesidehealth.com',
-      addressLine1: '456 Lake Ave',
-      city: 'Townsville',
+      email: 'contact@eastsideortho.com',
+      addressLine1: '456 East Ave',
+      city: 'Eastside',
       state: 'NY',
       zipCode: '10001',
     },
-  });
-  console.log(`✅ Created practices: ${practice1.name}, ${practice2.name}`);
-
-  // 3. CREATE TENANT USERS (with proper practice associations)
-  console.log('👥 Creating tenant users...');
-  const tenantUsers = [
     {
-      name: 'Dr. Alice Smith',
-      email: 'alice@downtownmed.com',
-      role: UserRole.USER,
-      practiceId: practice1.id,
-    },
-    {
-      name: 'Dr. Bob Jones',
-      email: 'bob@downtownmed.com',
-      role: UserRole.ADMIN,
-      practiceId: practice1.id,
-    },
-    {
-      name: 'Dr. Carol Lee',
-      email: 'carol@lakesidehealth.com',
-      role: UserRole.USER,
-      practiceId: practice2.id,
-    },
-    {
-      name: 'Dr. Dan Miller',
-      email: 'dan@lakesidehealth.com',
-      role: UserRole.ADMIN,
-      practiceId: practice2.id,
+      name: 'Green Valley Pediatrics',
+      address: '789 Valley Rd, Green Valley',
+      phone: '555-456-7890',
+      email: 'hello@greenvalleypeds.com',
+      addressLine1: '789 Valley Rd',
+      city: 'Green Valley',
+      state: 'TX',
+      zipCode: '75001',
     },
   ];
 
-  const createdUsers: any[] = [];
-  for (const userData of tenantUsers) {
-    const user = await prisma.user.create({
-      data: userData,
+  const upsertedPractices: any[] = [];
+  for (const practiceData of practices) {
+    // Check if practice exists by name
+    const existingPractice = await prisma.practice.findFirst({
+      where: { name: practiceData.name },
     });
-    createdUsers.push(user);
-    console.log(`✅ Created user: ${user.name} (${user.email}) - Practice: ${userData.practiceId === practice1.id ? practice1.name : practice2.name}`);
-  }
 
-  // 4. CREATE TENANT-SPECIFIC BUSINESS DATA (proper tenant isolation)
-  console.log('📊 Creating tenant-specific business data...');
-  
-  for (const user of createdUsers) {
-    // Only create business data for tenant users (those with practiceId)
-    if (user.practiceId) {
-      const practice = user.practiceId === practice1.id ? practice1 : practice2;
-      
-      // Create quote for this tenant
-      const quote = await prisma.quotes.create({
+    let practice;
+    if (existingPractice) {
+      // Update existing practice
+      practice = await prisma.practice.update({
+        where: { id: existingPractice.id },
         data: {
-          practiceId: user.practiceId,
-          userId: user.id,
-          quoteNumber: `Q-${practice.name.replace(/\s+/g, '').toUpperCase()}-${Date.now()}-${Math.floor(Math.random()*1000)}`,
-          status: 'pending',
-          totalCost: 250.00,
-          subject: `${practice.name} - Annual Checkup Reminder`,
-          estimatedRecipients: 100,
-          colorMode: 'color',
-          dataCleansing: true,
-          ncoaUpdate: false,
-          firstClassPostage: true,
-          notes: `Include new office hours for ${practice.name}.`,
+          address: practiceData.address,
+          phone: practiceData.phone,
+          email: practiceData.email,
+          addressLine1: practiceData.addressLine1,
+          city: practiceData.city,
+          state: practiceData.state,
+          zipCode: practiceData.zipCode,
         },
       });
-      
-      // Create order for this tenant
-      const order = await prisma.orders.create({
-        data: {
-          orderNumber: `O-${practice.name.replace(/\s+/g, '').toUpperCase()}-${Date.now()}-${Math.floor(Math.random()*1000)}`,
-          practiceId: user.practiceId,
-          userId: user.id,
-          status: 'created',
-          subject: `${practice.name} - Annual Checkup Reminder`,
-          templateType: 'Letter',
-          colorMode: 'color',
-          cost: 250.00,
-        },
+    } else {
+      // Create new practice
+      practice = await prisma.practice.create({
+        data: practiceData,
       });
-      
-      console.log(`✅ Created business data for ${practice.name}: Quote ${quote.quoteNumber}, Order ${order.orderNumber}`);
     }
+    upsertedPractices.push(practice);
+    console.log(`✅ Upserted Practice: ${practice.name}`);
   }
 
-  // 5. VERIFY TENANT ISOLATION
-  console.log('🔍 Verifying tenant isolation...');
+  // 2. UPSERT CLERK USERS (by clerkId)
+  console.log('👥 Upserting Clerk users...');
+  
+  const clerkUsers = [
+    {
+      name: 'David Sweeney',
+      email: 'davids@masscomminc.com',
+      clerkId: 'user_32WPcZdVcjOkyWt3olYvqY0twKO',
+      role: UserRole.USER,
+      practiceName: 'Harbor Family Dental',
+    },
+    {
+      name: 'Dave Sweeney',
+      email: 'daves@masscomminc.com',
+      clerkId: 'user_32VitH2bLPzzXqrCgQZ8mOYhQZ1',
+      role: UserRole.USER,
+      practiceName: 'Eastside Orthodontics',
+    },
+    {
+      name: 'BMC Direct',
+      email: 'bmcdirect1@gmail.com',
+      clerkId: 'user_32VrieROt25wJPtVhgqCcQELnES',
+      role: UserRole.USER,
+      practiceName: 'Green Valley Pediatrics',
+    },
+    {
+      name: 'Super Admin',
+      email: 'superadmin@masscomminc.com',
+      clerkId: 'user_32VrjrZXuTCOfQjs9BEvkRcYGux',
+      role: UserRole.ADMIN,
+      practiceName: null, // No practice for SuperUser
+    },
+  ];
+
+  const upsertedUsers: any[] = [];
+  for (const userData of clerkUsers) {
+    // Find practice if specified
+    const practice = userData.practiceName 
+      ? upsertedPractices.find(p => p.name === userData.practiceName)
+      : null;
+
+    const user = await prisma.user.upsert({
+      where: { clerkId: userData.clerkId },
+      update: {
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        practiceId: practice?.id || null,
+      },
+      create: {
+        name: userData.name,
+        email: userData.email,
+        clerkId: userData.clerkId,
+        role: userData.role,
+        practiceId: practice?.id || null,
+      },
+    });
+    upsertedUsers.push(user);
+    console.log(`✅ Upserted User: ${user.name} (${user.email}) - ${practice ? `Practice: ${practice.name}` : 'No Practice (SuperUser)'}`);
+  }
+
+  // 3. VERIFY SEED RESULTS
+  console.log('🔍 Verifying seed results...');
+  
   const allUsers = await prisma.user.findMany({
     include: { practice: true },
   });
   
-  const allQuotes = await prisma.quotes.findMany({
-    include: { practice: true, user: true },
-  });
-  
-  const allOrders = await prisma.orders.findMany({
-    include: { practice: true, user: true },
+  const allPractices = await prisma.practice.findMany({
+    include: { users: true },
   });
 
   console.log('\n📋 SEED SUMMARY:');
-  console.log(`👑 SuperAdmin users: ${allUsers.filter(u => !u.practiceId).length}`);
-  console.log(`👥 Tenant users: ${allUsers.filter(u => u.practiceId).length}`);
-  console.log(`🏢 Practices: ${await prisma.practice.count()}`);
-  console.log(`📝 Quotes: ${allQuotes.length}`);
-  console.log(`📦 Orders: ${allOrders.length}`);
+  console.log(`🏢 Practices: ${allPractices.length}`);
+  console.log(`👥 Total Users: ${allUsers.length}`);
+  console.log(`👑 SuperUsers (no practice): ${allUsers.filter(u => !u.practiceId).length}`);
+  console.log(`👤 Practice Users: ${allUsers.filter(u => u.practiceId).length}`);
   
-  console.log('\n🏢 TENANT BREAKDOWN:');
-  const practices = await prisma.practice.findMany({
-    include: {
-      users: true,
-      quotes: true,
-      orders: true,
-    },
-  });
-  
-  for (const practice of practices) {
+  console.log('\n🏢 PRACTICE BREAKDOWN:');
+  for (const practice of allPractices) {
     console.log(`\n${practice.name}:`);
     console.log(`  👥 Users: ${practice.users.length}`);
-    console.log(`  📝 Quotes: ${practice.quotes.length}`);
-    console.log(`  📦 Orders: ${practice.orders.length}`);
+    practice.users.forEach(user => {
+      console.log(`    - ${user.name} (${user.email}) [${user.role}]`);
+    });
   }
 
-  console.log('\n✅ Seed data created successfully with proper multi-tenancy!');
+  console.log('\n👑 SUPERUSERS:');
+  const superUsers = allUsers.filter(u => !u.practiceId);
+  superUsers.forEach(user => {
+    console.log(`  - ${user.name} (${user.email}) [${user.role}]`);
+  });
+
+  console.log('\n✅ Idempotent seed completed successfully!');
+  console.log('🔄 Safe to re-run - all operations use upsert patterns');
 }
 
 main()

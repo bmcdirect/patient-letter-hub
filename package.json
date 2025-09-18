@@ -19,6 +19,7 @@
     "postinstall": "npx prisma generate",
     "email": "email dev --dir emails --port 3333",
     "seed": "prisma db seed --preview-feature",
+    "db:seed": "tsx prisma/seed.ts",
     "migrate-clerk-users": "ts-node scripts/migrate-clerk-users.ts",
     "studio": "prisma studio"
   },
