@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
 export const GET = async (req: Request) => {
+  if (process.env.NODE_ENV === 'production') {
+    return new Response('Forbidden', { status: 403 });
+  }
+  
   try {
     console.log("🔍 /api/test-db-connection: Starting request");
     

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session-manager";
 
 export async function GET(req: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return new Response('Forbidden', { status: 403 });
+  }
+  
   try {
     const user = await getCurrentUser();
     if (!user) {
