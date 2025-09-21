@@ -12,11 +12,19 @@ const isProtected = createRouteMatcher([
   "/api/admin(.*)",
 ]);
 
-export default clerkMiddleware((auth, req) => {
-  const { userId } = auth();
+export default clerkMiddleware(async (auth, req) => {
+  const authResult = await auth();
+  const { userId } = authResult;
 
-  // Debug logging for redirect loop diagnosis
-  console.log("🔍 Middleware Debug:", {
+  // Enhanced debug logging for session persistence investigation
+  const cookies = req.headers.get('cookie') || '';
+  const clerkCookies = cookies.split(';').filter(cookie => 
+    cookie.includes('__session') || 
+    cookie.includes('__clerk') || 
+    cookie.includes('clerk')
+  );
+
+  console.log("🔍 Enhanced Middleware Debug:", {
     url: req.url,
     pathname: req.nextUrl.pathname,
     userId: userId,
@@ -24,7 +32,19 @@ export default clerkMiddleware((auth, req) => {
     userIdExists: !!userId,
     isProtected: isProtected(req),
     userAgent: req.headers.get('user-agent')?.substring(0, 50) + '...',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    // Full auth result for debugging
+    authResult: authResult,
+    // Session cookies analysis
+    allCookies: cookies ? cookies.split(';').length : 0,
+    clerkCookies: clerkCookies,
+    clerkCookieCount: clerkCookies.length,
+    // Clerk-specific headers
+    clerkHeaders: {
+      'clerk-auth-message': req.headers.get('clerk-auth-message'),
+      'clerk-auth-reason': req.headers.get('clerk-auth-reason'),
+      'clerk-auth-status': req.headers.get('clerk-auth-status'),
+    }
   });
 
   if (isProtected(req) && !userId) {

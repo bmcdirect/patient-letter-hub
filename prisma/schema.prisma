@@ -275,6 +275,11 @@ model EmailNotifications {
   @@map("email_notifications")
 }
 
+model WebhookEvent {
+  id          String   @id
+  processedAt DateTime @default(now())
+}
+
 enum UserRole {
   ADMIN
   USER
@@ -285,9 +290,4 @@ enum ProofStatus {
   APPROVED
   CHANGES_REQUESTED
   ESCALATED
-}
-
-model WebhookEvent {
-  id          String   @id      // svix-id
-  processedAt DateTime @default(now())
 }
