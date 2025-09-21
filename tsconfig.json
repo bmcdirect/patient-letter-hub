@@ -35,10 +35,6 @@
     "contentlayer.config.ts"
   ],
   "exclude": [
-    "node_modules",
-    "original-code/attached_assets",
-    "original-code/client/src",
-    "original-code/server",
-    "original-code/tests"
+    "node_modules"
   ]
 }
