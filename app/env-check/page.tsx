@@ -20,7 +20,7 @@ export default function EnvCheck() {
       <p>This will trigger the hydration error if you uncomment:</p>
       {/* 
       import { env } from "@/env.mjs";
-      <p><strong>env.USE_CLERK:</strong> {String(env.USE_CLERK)}</p>
+      <p><strong>env.NEXT_PUBLIC_USE_CLERK:</strong> {String(env.NEXT_PUBLIC_USE_CLERK)}</p>
       */}
       
       <h2>🔍 Debug Info:</h2>
