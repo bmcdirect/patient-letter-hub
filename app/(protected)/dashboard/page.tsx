@@ -10,7 +10,15 @@ import { useNavigationClick } from "@/hooks/useNavigationClick";
 import { useUser } from "@clerk/nextjs";
 
 export default function DashboardPage() {
+  console.log("🚀 DashboardPage: Component mounting/rendering");
+  
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
+  console.log("🔐 Clerk Auth State:", { 
+    clerkLoaded, 
+    clerkUser: clerkUser ? "User exists" : "No user",
+    clerkUserId: clerkUser?.id 
+  });
+  
   const [user, setUser] = useState<any>(null);
   const [quotes, setQuotes] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
@@ -22,32 +30,59 @@ export default function DashboardPage() {
     pending: 0,
     thisMonth: 0,
   });
+  
+  console.log("📊 Current State:", { 
+    loading, 
+    user: user ? "User data loaded" : "No user data",
+    quotesCount: quotes.length,
+    ordersCount: orders.length,
+    stats 
+  });
 
   useEffect(() => {
+    console.log("🔄 useEffect triggered:", { clerkLoaded, clerkUser: !!clerkUser });
+    
     const fetchData = async () => {
+      console.log("📡 Starting data fetch...");
       try {
         // Fetch user data
+        console.log("👤 Fetching user data...");
         const userRes = await fetch('/api/user');
+        console.log("👤 User API response:", { ok: userRes.ok, status: userRes.status });
         if (userRes.ok) {
           const userData = await userRes.json();
+          console.log("👤 User data received:", { id: userData.id, email: userData.email, practice: userData.practice?.name });
           setUser(userData);
+        } else {
+          console.error("👤 User API failed:", userRes.status, userRes.statusText);
         }
 
         // Fetch quotes
+        console.log("📋 Fetching quotes...");
         const quotesRes = await fetch('/api/quotes');
+        console.log("📋 Quotes API response:", { ok: quotesRes.ok, status: quotesRes.status });
         if (quotesRes.ok) {
           const quotesData = await quotesRes.json();
+          console.log("📋 Quotes data received:", { count: quotesData.quotes?.length || 0 });
           setQuotes(quotesData.quotes || []);
+        } else {
+          console.error("📋 Quotes API failed:", quotesRes.status, quotesRes.statusText);
         }
 
         // Fetch orders
+        console.log("📦 Fetching orders...");
         const ordersRes = await fetch('/api/orders');
+        console.log("📦 Orders API response:", { ok: ordersRes.ok, status: ordersRes.status });
         if (ordersRes.ok) {
           const ordersData = await ordersRes.json();
+          console.log("📦 Orders data received:", { count: ordersData.orders?.length || 0 });
           setOrders(ordersData.orders || []);
+        } else {
+          console.error("📦 Orders API failed:", ordersRes.status, ordersRes.statusText);
         }
 
         // Calculate stats
+        console.log("📊 Calculating stats...");
         const activeOrders = orders.filter(o => o.status === 'in-progress' || o.status === 'waiting-approval').length;
         const pending = orders.filter(o => o.status === 'pending' || o.status === 'draft').length;
         const thisMonth = orders
@@ -58,25 +93,41 @@ export default function DashboardPage() {
           })
           .reduce((sum, o) => sum + (o.cost || 0), 0);
 
-        setStats({
+        const newStats = {
           quotes: quotes.length,
           activeOrders,
           pending,
           thisMonth,
-        });
+        };
+        console.log("📊 Stats calculated:", newStats);
+        setStats(newStats);
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        console.error('❌ Error fetching dashboard data:', error);
       } finally {
+        console.log("✅ Data fetch completed, setting loading to false");
         setLoading(false);
       }
     };
 
     if (clerkLoaded && clerkUser) {
+      console.log("✅ Clerk ready, starting data fetch");
       fetchData();
+    } else {
+      console.log("⏳ Waiting for Clerk to load:", { clerkLoaded, clerkUser: !!clerkUser });
     }
   }, [clerkLoaded, clerkUser]);
 
+  // Render conditions with debug logging
+  console.log("🎯 Render conditions check:", { 
+    clerkLoaded, 
+    loading, 
+    clerkUser: !!clerkUser,
+    shouldShowSpinner: !clerkLoaded || loading,
+    shouldShowAccessDenied: !clerkUser
+  });
+
   if (!clerkLoaded || loading) {
+    console.log("⏳ Rendering loading spinner");
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center justify-center h-64">
@@ -87,6 +138,7 @@ export default function DashboardPage() {
   }
 
   if (!clerkUser) {
+    console.log("🚫 Rendering access denied");
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center">
@@ -96,6 +148,8 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  console.log("✅ Rendering main dashboard content");
 
   // Get user's display name from Clerk
   const getUserDisplayName = () => {
@@ -235,47 +289,57 @@ export default function DashboardPage() {
           <CardTitle>Production Calendar</CardTitle>
         </CardHeader>
         <CardContent>
-          <ProductionCalendar
-            orders={orders}
-            quotes={quotes}
-            onEventClick={(event, domEvent) => {
-              if (event.entityType === 'order') {
-                handleNavigation(`/orders/${event.entityId}`)(domEvent);
-              } else if (event.entityType === 'quote') {
-                handleNavigation('/quotes')(domEvent);
-              }
-            }}
-            onExportSchedule={() => {
-              // Default CSV export
-              const csvContent = [
-                ['Date', 'Practice', 'Type', 'Order/Quote #', 'Status', 'Event'],
-                ...orders.map(order => [
-                  order.preferredMailDate ? new Date(order.preferredMailDate).toLocaleDateString() : new Date(order.createdAt).toLocaleDateString(),
-                  order.practiceName || order.practice?.name || '',
-                  'Order',
-                  order.orderNumber,
-                  order.status,
-                  order.subject || ''
-                ]),
-                ...quotes.map(quote => [
-                  new Date(quote.createdAt).toLocaleDateString(),
-                  quote.practiceName || '',
-                  'Quote',
-                  quote.quoteNumber,
-                  quote.status,
-                  quote.subject || ''
-                ])
-              ].map(row => row.join(',')).join('\n');
+          {(() => {
+            console.log("📅 Rendering ProductionCalendar with data:", { 
+              ordersCount: orders.length, 
+              quotesCount: quotes.length 
+            });
+            return (
+              <ProductionCalendar
+                orders={orders}
+                quotes={quotes}
+                onEventClick={(event, domEvent) => {
+                  console.log("📅 Calendar event clicked:", event);
+                  if (event.entityType === 'order') {
+                    handleNavigation(`/orders/${event.entityId}`)(domEvent);
+                  } else if (event.entityType === 'quote') {
+                    handleNavigation('/quotes')(domEvent);
+                  }
+                }}
+                onExportSchedule={() => {
+                  console.log("📅 Exporting schedule...");
+                  // Default CSV export
+                  const csvContent = [
+                    ['Date', 'Practice', 'Type', 'Order/Quote #', 'Status', 'Event'],
+                    ...orders.map(order => [
+                      order.preferredMailDate ? new Date(order.preferredMailDate).toLocaleDateString() : new Date(order.createdAt).toLocaleDateString(),
+                      order.practiceName || order.practice?.name || '',
+                      'Order',
+                      order.orderNumber,
+                      order.status,
+                      order.subject || ''
+                    ]),
+                    ...quotes.map(quote => [
+                      new Date(quote.createdAt).toLocaleDateString(),
+                      quote.practiceName || '',
+                      'Quote',
+                      quote.quoteNumber,
+                      quote.status,
+                      quote.subject || ''
+                    ])
+                  ].map(row => row.join(',')).join('\n');
 
-              const blob = new Blob([csvContent], { type: 'text/csv' });
-              const url = window.URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `production-schedule-${new Date().toLocaleDateString()}.csv`;
-              a.click();
-              window.URL.revokeObjectURL(url);
-            }}
-          />
+                  const blob = new Blob([csvContent], { type: 'text/csv' });
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `production-schedule-${new Date().toLocaleDateString()}.csv`;
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                }}
+              />
+            );
+          })()}
         </CardContent>
       </Card>
     </div>
