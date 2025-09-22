@@ -7,24 +7,33 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log(`🔍 Files API - Starting request for file: ${params.id}`);
+    
     // Get the current user's Clerk session
     const { userId } = await auth();
+    console.log(`🔍 Files API - User ID: ${userId}`);
     
     if (!userId) {
+      console.log('❌ Files API - No user ID found');
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Get the user from our database
+    console.log('🔍 Files API - Fetching user from database...');
     const user = await prisma.user.findUnique({
       where: { clerkId: userId },
       include: { practice: true }
     });
     
     if (!user) {
+      console.log('❌ Files API - User not found in database');
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
+    
+    console.log(`✅ Files API - User found: ${user.email}, role: ${user.role}`);
 
     // Get the file from database
+    console.log(`🔍 Files API - Fetching file: ${params.id}`);
     const file = await prisma.orderFiles.findUnique({
       where: { id: params.id },
       include: {
@@ -38,8 +47,11 @@ export async function GET(
     });
 
     if (!file) {
+      console.log(`❌ Files API - File not found: ${params.id}`);
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
+    
+    console.log(`✅ Files API - File found: ${file.fileName}, orderId: ${file.orderId}`);
 
     // Check if user has access to this file
     const hasAccess = 
@@ -47,33 +59,65 @@ export async function GET(
       (user.practiceId && file.order.practiceId === user.practiceId) || // User from same practice
       file.uploadedBy === user.id; // User uploaded the file
 
+    console.log(`🔍 Files API - Access check:`, {
+      userRole: user.role,
+      userPracticeId: user.practiceId,
+      fileOrderPracticeId: file.order.practiceId,
+      fileUploadedBy: file.uploadedBy,
+      userId: user.id,
+      hasAccess
+    });
+
     if (!hasAccess) {
+      console.log('❌ Files API - Access denied');
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
     // Check if file data exists
     if (!file.fileData) {
+      console.log('❌ Files API - File data not found');
       return NextResponse.json({ error: "File data not found" }, { status: 404 });
+    }
+    
+    console.log(`✅ Files API - File data found: ${file.fileData.length} bytes`);
+
+    // Ensure fileData is a Buffer
+    let fileBuffer: Buffer;
+    if (Buffer.isBuffer(file.fileData)) {
+      fileBuffer = file.fileData;
+    } else if (file.fileData instanceof Uint8Array) {
+      fileBuffer = Buffer.from(file.fileData);
+    } else {
+      console.log('❌ Files API - Invalid file data type:', typeof file.fileData);
+      return NextResponse.json({ error: "Invalid file data format" }, { status: 500 });
     }
 
     // Set appropriate headers for file download
     const headers = new Headers();
     headers.set('Content-Type', file.fileType || 'application/octet-stream');
     headers.set('Content-Disposition', `attachment; filename="${file.fileName}"`);
-    headers.set('Content-Length', file.fileSize?.toString() || '0');
+    headers.set('Content-Length', fileBuffer.length.toString());
     headers.set('Cache-Control', 'private, max-age=3600'); // Cache for 1 hour
 
-    console.log(`📁 Files API - Serving file: ${file.fileName} (${file.fileSize} bytes, ${file.fileType})`);
+    console.log(`📁 Files API - Serving file: ${file.fileName} (${fileBuffer.length} bytes, ${file.fileType})`);
 
     // Return the file data as a response
-    return new NextResponse(file.fileData, {
+    return new NextResponse(fileBuffer, {
       status: 200,
       headers,
     });
 
   } catch (error) {
-    console.error("❌ Files API - Error serving file:", error);
-    return NextResponse.json({ error: "Failed to serve file" }, { status: 500 });
+    console.error("❌ Files API - Error serving file:", {
+      error: error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      fileId: params.id
+    });
+    return NextResponse.json({ 
+      error: "Failed to serve file",
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
 

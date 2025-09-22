@@ -68,19 +68,30 @@ export default function OrderFilesDisplay({
   const fetchFiles = async () => {
     try {
       setLoading(true);
+      console.log(`🔍 OrderFilesDisplay - Fetching files for order: ${orderId}`);
+      
       const response = await fetch(`/api/orders/${orderId}/files`);
       
+      console.log(`🔍 OrderFilesDisplay - Response status: ${response.status}`);
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch files');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ OrderFilesDisplay - API error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        throw new Error(`Failed to fetch files: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
+      console.log(`✅ OrderFilesDisplay - Files received:`, data);
       setFiles(data.files || []);
     } catch (error) {
-      console.error('Error fetching files:', error);
+      console.error('❌ OrderFilesDisplay - Error fetching files:', error);
       toast({
         title: "Error",
-        description: "Failed to load files",
+        description: error instanceof Error ? error.message : "Failed to load files",
         variant: "destructive"
       });
     } finally {
