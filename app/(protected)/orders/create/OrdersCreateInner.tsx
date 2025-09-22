@@ -465,19 +465,6 @@ export default function OrdersCreateInner() {
       <form className="space-y-8" onSubmit={form.handleSubmit(onSubmit)}>
         <Card className="shadow-sm border border-gray-100">
           <CardContent className="p-6 space-y-6">
-            <div className="mb-4">
-              <Label>Location</Label>
-              <div className="p-3 bg-gray-50 rounded border text-gray-700">
-                {practice ? (
-                  <>
-                    <div>{practice.name} - {practice.phone}</div>
-                    {practice.email && <div>{practice.email}</div>}
-                  </>
-                ) : (
-                  <span>Loading location...</span>
-                )}
-              </div>
-            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <Label htmlFor="practiceId">Practice</Label>
