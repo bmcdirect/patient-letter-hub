@@ -116,6 +116,13 @@ model Orders {
   templateType        String?
   colorMode           String?
   cost                Float?
+  purchaseOrder       String?
+  costCenter          String?
+  actualRecipients    Int?
+  dataCleansing       Boolean              @default(false)
+  ncoaUpdate          Boolean              @default(false)
+  firstClassPostage   Boolean              @default(false)
+  notes               String?
   createdAt           DateTime             @default(now()) @map("created_at")
   updatedAt           DateTime             @default(now()) @map("updated_at")
   fulfilledAt         DateTime?

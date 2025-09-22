@@ -115,6 +115,13 @@ export async function POST(
       colorMode: quote.colorMode,
       cost: quote.totalCost,
       status: 'pending',
+      purchaseOrder: quote.purchaseOrder,
+      costCenter: quote.costCenter,
+      actualRecipients: quote.estimatedRecipients,
+      dataCleansing: quote.dataCleansing || false,
+      ncoaUpdate: quote.ncoaUpdate || false,
+      firstClassPostage: quote.firstClassPostage || false,
+      notes: quote.notes,
     };
     
     console.log('📝 Creating order with data:', orderData);

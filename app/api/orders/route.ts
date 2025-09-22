@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
       }
     }
     
-    // Log fields that are not supported in the current Orders model
+    // Extract additional order fields
     const dataCleansing = formData.get('dataCleansing') === 'true';
     const ncoaUpdate = formData.get('ncoaUpdate') === 'true';
     const firstClassPostage = formData.get('firstClassPostage') === 'true';
@@ -156,11 +156,7 @@ export async function POST(req: NextRequest) {
       status,
       colorMode,
       preferredMailDate,
-      fromQuoteId
-    });
-    
-    // Log fields that are not supported in the current Orders model
-    console.log('⚠️ Orders API - Ignoring unsupported fields:', {
+      fromQuoteId,
       dataCleansing,
       ncoaUpdate,
       firstClassPostage,
@@ -191,7 +187,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to validate practice" }, { status: 500 });
     }
 
-    // Create the order with only supported fields
+    // Create the order with all supported fields
     const orderData = {
       orderNumber: `O-${Date.now()}`,
       practiceId,
@@ -201,6 +197,13 @@ export async function POST(req: NextRequest) {
       cost: totalCost,
       colorMode: colorMode || undefined,
       preferredMailDate: preferredMailDate || undefined,
+      purchaseOrder: purchaseOrder || undefined,
+      costCenter: costCenter || undefined,
+      actualRecipients: actualRecipients || undefined,
+      dataCleansing: dataCleansing || false,
+      ncoaUpdate: ncoaUpdate || false,
+      firstClassPostage: firstClassPostage || false,
+      notes: notes || undefined,
     };
     
     console.log('🔍 Orders API - Final order data for creation:', orderData);
