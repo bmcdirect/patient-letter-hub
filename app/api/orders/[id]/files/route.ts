@@ -9,8 +9,13 @@ export async function GET(
   try {
     console.log(`🔍 Order Files API - Starting request for order: ${params.id}`);
     
-    // Get the current user's Clerk session
-    const { userId } = await auth();
+    // Add timeout wrapper for auth
+    const authPromise = auth();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Auth timeout')), 5000)
+    );
+    
+    const { userId } = await Promise.race([authPromise, timeoutPromise]) as any;
     console.log(`🔍 Order Files API - User ID: ${userId}`);
     
     if (!userId) {
@@ -18,12 +23,23 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get the user from our database
+    // Get the user from our database with timeout
     console.log('🔍 Order Files API - Fetching user from database...');
-    const user = await prisma.user.findUnique({
+    const userPromise = prisma.user.findUnique({
       where: { clerkId: userId },
-      include: { practice: true }
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        practiceId: true
+      }
     });
+    
+    const userTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('User query timeout')), 10000)
+    );
+    
+    const user = await Promise.race([userPromise, userTimeoutPromise]) as any;
     
     if (!user) {
       console.log('❌ Order Files API - User not found in database');
@@ -32,15 +48,23 @@ export async function GET(
     
     console.log(`✅ Order Files API - User found: ${user.email}, role: ${user.role}, practiceId: ${user.practiceId}`);
 
-    // Get the order to check access
+    // Get the order to check access with timeout
     console.log(`🔍 Order Files API - Fetching order: ${params.id}`);
-    const order = await prisma.orders.findUnique({
+    const orderPromise = prisma.orders.findUnique({
       where: { id: params.id },
-      include: {
-        practice: true,
-        user: true
+      select: {
+        id: true,
+        orderNumber: true,
+        practiceId: true,
+        userId: true
       }
     });
+    
+    const orderTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Order query timeout')), 10000)
+    );
+    
+    const order = await Promise.race([orderPromise, orderTimeoutPromise]) as any;
 
     if (!order) {
       console.log(`❌ Order Files API - Order not found: ${params.id}`);
@@ -69,9 +93,9 @@ export async function GET(
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
-    // Get files for this order (without file data for performance)
+    // Get files for this order (without file data for performance) with timeout
     console.log(`🔍 Order Files API - Fetching files for order: ${params.id}`);
-    const files = await prisma.orderFiles.findMany({
+    const filesPromise = prisma.orderFiles.findMany({
       where: { orderId: params.id },
       select: {
         id: true,
@@ -93,8 +117,14 @@ export async function GET(
         createdAt: 'desc'
       }
     });
+    
+    const filesTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Files query timeout')), 10000)
+    );
+    
+    const files = await Promise.race([filesPromise, filesTimeoutPromise]) as any;
 
-    console.log(`✅ Order Files API - Found ${files.length} files for order ${params.id}:`, files.map(f => ({ id: f.id, fileName: f.fileName, fileSize: f.fileSize })));
+    console.log(`✅ Order Files API - Found ${files.length} files for order ${params.id}:`, files.map((f: any) => ({ id: f.id, fileName: f.fileName, fileSize: f.fileSize })));
 
     return NextResponse.json({ files });
 

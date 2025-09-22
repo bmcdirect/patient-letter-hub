@@ -9,8 +9,13 @@ export async function GET(
   try {
     console.log(`🔍 Files API - Starting request for file: ${params.id}`);
     
-    // Get the current user's Clerk session
-    const { userId } = await auth();
+    // Add timeout wrapper for auth
+    const authPromise = auth();
+    const authTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Auth timeout')), 5000)
+    );
+    
+    const { userId } = await Promise.race([authPromise, authTimeoutPromise]) as any;
     console.log(`🔍 Files API - User ID: ${userId}`);
     
     if (!userId) {
@@ -18,12 +23,23 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get the user from our database
+    // Get the user from our database with timeout
     console.log('🔍 Files API - Fetching user from database...');
-    const user = await prisma.user.findUnique({
+    const userPromise = prisma.user.findUnique({
       where: { clerkId: userId },
-      include: { practice: true }
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        practiceId: true
+      }
     });
+    
+    const userTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('User query timeout')), 10000)
+    );
+    
+    const user = await Promise.race([userPromise, userTimeoutPromise]) as any;
     
     if (!user) {
       console.log('❌ Files API - User not found in database');
@@ -32,19 +48,32 @@ export async function GET(
     
     console.log(`✅ Files API - User found: ${user.email}, role: ${user.role}`);
 
-    // Get the file from database
+    // Get the file from database with timeout
     console.log(`🔍 Files API - Fetching file: ${params.id}`);
-    const file = await prisma.orderFiles.findUnique({
+    const filePromise = prisma.orderFiles.findUnique({
       where: { id: params.id },
-      include: {
+      select: {
+        id: true,
+        fileName: true,
+        fileType: true,
+        fileSize: true,
+        fileData: true,
+        uploadedBy: true,
+        orderId: true,
         order: {
-          include: {
-            practice: true,
-            user: true
+          select: {
+            practiceId: true,
+            userId: true
           }
         }
       }
     });
+    
+    const fileTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('File query timeout')), 10000)
+    );
+    
+    const file = await Promise.race([filePromise, fileTimeoutPromise]) as any;
 
     if (!file) {
       console.log(`❌ Files API - File not found: ${params.id}`);
