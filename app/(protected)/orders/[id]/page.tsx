@@ -311,11 +311,13 @@ export default function OrderDetailPage() {
         <CardContent>
           {/* Customer Files - Using new database-backed component */}
           <div className="mb-6">
-            <OrderFilesDisplay 
-              orderId={orderId} 
-              canDelete={user?.id === order.user?.id || user?.publicMetadata?.role === 'ADMIN'}
-              onFileDeleted={fetchOrderDetails}
-            />
+            {orderId && (
+              <OrderFilesDisplay 
+                orderId={orderId} 
+                canDelete={user?.id === order.user?.id || user?.publicMetadata?.role === 'ADMIN'}
+                onFileDeleted={fetchOrderDetails}
+              />
+            )}
           </div>
 
           {/* Admin Proofs */}

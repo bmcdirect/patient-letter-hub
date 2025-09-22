@@ -100,8 +100,11 @@ export default function OrderFilesDisplay({
   };
 
   useEffect(() => {
-    if (orderId) {
+    if (orderId && orderId.trim() !== '') {
+      console.log(`🔍 OrderFilesDisplay - useEffect triggered with orderId: ${orderId}`);
       fetchFiles();
+    } else {
+      console.log(`⚠️ OrderFilesDisplay - Invalid orderId: ${orderId}`);
     }
   }, [orderId]);
 
