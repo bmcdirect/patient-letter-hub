@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
-import { parse as parseCSV } from 'csv-parse/sync';
+// File handling imports removed for Vercel serverless compatibility
+// import { writeFile, mkdir } from "fs/promises";
+// import { join } from "path";
+// import { existsSync } from "fs";
+// import { parse as parseCSV } from 'csv-parse/sync';
 
 export async function GET(req: NextRequest) {
   try {
@@ -256,7 +257,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Handle file uploads if any
+    // Handle file uploads if any (Vercel serverless compatible)
     const files = formData.getAll('file') as File[];
     console.log(`📁 Orders API - Files received:`, {
       count: files.length,
@@ -266,80 +267,16 @@ export async function POST(req: NextRequest) {
     });
     
     if (files.length > 0) {
-      console.log(`📁 Orders API - Processing ${files.length} uploaded files`);
+      console.log(`📁 Orders API - File upload detected but skipping processing for Vercel serverless compatibility`);
+      console.log(`📁 Orders API - Files will be processed when cloud storage is implemented`);
       
-      // Create uploads directory if it doesn't exist
-      const uploadsDir = join(process.cwd(), "uploads", order.id);
-      console.log(`📁 Orders API - Creating uploads directory:`, uploadsDir);
+      // TODO: Implement cloud storage (Vercel Blob, AWS S3, etc.)
+      // For now, just log the file information without processing
+      files.forEach((file, index) => {
+        console.log(`📁 Orders API - File ${index + 1}: ${file.name} (${file.size} bytes, ${file.type})`);
+      });
       
-      if (!existsSync(uploadsDir)) {
-        await mkdir(uploadsDir, { recursive: true });
-        console.log(`✅ Orders API - Created uploads directory`);
-      }
-
-      const uploadedFiles = [];
-      let newRecipientCount: number | null = null;
-
-      // Save each file
-      for (const file of files) {
-        try {
-          console.log(`📁 Orders API - Processing file: ${file.name} (${file.size} bytes, ${file.type})`);
-          
-          if (file.size > 0) {
-            const bytes = await file.arrayBuffer();
-            const buffer = Buffer.from(bytes);
-            const timestamp = Date.now();
-            const originalName = file.name;
-            const fileName = `${timestamp}_${originalName}`;
-            const filePath = join(uploadsDir, fileName);
-            
-            console.log(`📁 Orders API - Writing file to: ${filePath}`);
-            await writeFile(filePath, buffer);
-            console.log(`✅ Orders API - File written successfully`);
-
-            // Save file record to database
-            console.log(`📁 Orders API - Creating database record for file`);
-            const savedFile = await prisma.orderFiles.create({
-              data: {
-                orderId: order.id,
-                fileName: fileName,
-                filePath: filePath,
-                fileType: file.type,
-                uploadedBy: user.id,
-              }
-            });
-            uploadedFiles.push(savedFile);
-            console.log(`✅ Orders API - Saved file: ${fileName} for order ${order.id}`);
-
-            // If this is a CSV, parse and count records
-            if (originalName.toLowerCase().endsWith('.csv')) {
-              try {
-                console.log(`📊 Orders API - Parsing CSV file for recipient count`);
-                const csvText = buffer.toString('utf-8');
-                const records = parseCSV(csvText, { columns: true });
-                newRecipientCount = records.length;
-                console.log(`📊 Orders API - CSV parsed: ${newRecipientCount} recipients`);
-              } catch (err) {
-                console.error('❌ Orders API - Failed to parse CSV for recipient count:', err);
-              }
-            }
-          } else {
-            console.log(`⚠️ Orders API - Skipping empty file: ${file.name}`);
-          }
-        } catch (fileError) {
-          console.error(`❌ Orders API - Error processing file ${file.name}:`, fileError);
-        }
-      }
-
-      // Note: actualRecipients field doesn't exist in current Orders model
-      // CSV parsing succeeded, but we can't store recipient count in the order
-      if (newRecipientCount && newRecipientCount > 0) {
-        console.log(`📊 Orders API - CSV parsed successfully with ${newRecipientCount} recipients`);
-        console.log(`⚠️ Orders API - Cannot store recipient count - actualRecipients field not in schema`);
-      }
-
-      console.log(`✅ Orders API - Successfully processed ${uploadedFiles.length} files`);
-      console.log(`📁 Orders API - File processing complete. Files saved:`, uploadedFiles.map(f => f.fileName));
+      console.log(`📁 Orders API - File processing skipped - order created successfully without file storage`);
     } else {
       console.log(`📁 Orders API - No files to process`);
     }
