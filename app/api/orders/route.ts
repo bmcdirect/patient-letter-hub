@@ -167,7 +167,8 @@ export async function POST(req: NextRequest) {
     });
 
     // Validate required fields
-    if (!practiceId) {
+    if (!practiceId || practiceId.trim() === '') {
+      console.log('❌ Orders API - Practice ID validation failed:', { practiceId, isEmpty: !practiceId, isBlank: practiceId?.trim() === '' });
       return NextResponse.json({ error: "Practice ID is required" }, { status: 400 });
     }
 
@@ -185,9 +186,16 @@ export async function POST(req: NextRequest) {
     
     console.log('🔍 Orders API - Final order data for creation:', orderData);
     
-    const order = await prisma.orders.create({
-      data: orderData,
-    });
+    let order;
+    try {
+      order = await prisma.orders.create({
+        data: orderData,
+      });
+      console.log('✅ Orders API - Order created successfully:', order.id);
+    } catch (dbError) {
+      console.error('❌ Orders API - Database error creating order:', dbError);
+      return NextResponse.json({ error: "Failed to create order in database" }, { status: 500 });
+    }
 
     console.log('✅ Orders API - Created order:', {
       id: order.id,

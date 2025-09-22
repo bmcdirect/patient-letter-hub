@@ -55,6 +55,7 @@ export default function QuotesCreateInner() {
   const form = useForm<QuoteFormData>({
     resolver: zodResolver(quoteSchema),
     defaultValues: {
+      practiceId: "",
       colorMode: "color",
       dataCleansing: false,
       ncoaUpdate: false,
@@ -171,6 +172,16 @@ export default function QuotesCreateInner() {
 
   const onSubmit = async (data: QuoteFormData) => {
     try {
+      // Validate required fields before submission
+      if (!data.practiceId || data.practiceId.trim() === '') {
+        toast({ 
+          title: "Error", 
+          description: "Please select a practice before submitting.", 
+          variant: "destructive" 
+        });
+        return;
+      }
+
       // Force-recalculate total cost before submission to ensure accuracy
       const finalCostBreakdown = getCostBreakdown({
         estimatedRecipients: data.estimatedRecipients,
@@ -222,7 +233,7 @@ export default function QuotesCreateInner() {
                 <div>
                   <Label htmlFor="practiceId">Practice</Label>
                   <Select
-                    value={form.watch("practiceId")}
+                    value={form.watch("practiceId") || ""}
                     onValueChange={val => form.setValue("practiceId", val)}
                     disabled={loading || practices.length === 0}
                   >

@@ -62,6 +62,7 @@ export default function OrdersCreateInner() {
   const form = useForm<OrderFormData>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
+      practiceId: "",
       colorMode: "color",
       dataCleansing: false,
       ncoaUpdate: false,
@@ -309,6 +310,16 @@ export default function OrdersCreateInner() {
 
   const onSubmit = async (data: OrderFormData) => {
     try {
+      // Validate required fields before submission
+      if (!data.practiceId || data.practiceId.trim() === '') {
+        toast({ 
+          title: "Error", 
+          description: "Please select a practice before submitting.", 
+          variant: "destructive" 
+        });
+        return;
+      }
+
       // For quote conversion, always submit for production (not draft)
       if (isFromQuote) {
         setIsDraft(false);
@@ -469,7 +480,7 @@ export default function OrdersCreateInner() {
               <div>
                 <Label htmlFor="practiceId">Practice</Label>
                 <Select
-                  value={form.watch("practiceId")}
+                  value={form.watch("practiceId") || ""}
                   onValueChange={val => form.setValue("practiceId", val)}
                   disabled={loading || practices.length === 0}
                 >
