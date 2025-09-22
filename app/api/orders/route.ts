@@ -107,6 +107,9 @@ export async function POST(req: NextRequest) {
     // Parse FormData instead of JSON
     const formData = await req.formData();
     
+    // Debug: Log all form data keys
+    console.log('🔍 Orders API - Form data keys:', Array.from(formData.keys()));
+    
     // Extract form fields - only use fields that exist in the current Orders model
     const practiceId = formData.get('practiceId') as string;
     const subject = formData.get('subject') as string;
@@ -172,6 +175,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Practice ID is required" }, { status: 400 });
     }
 
+    // Validate that the practice exists
+    try {
+      const practice = await prisma.practice.findUnique({
+        where: { id: practiceId }
+      });
+      if (!practice) {
+        console.log('❌ Orders API - Practice not found:', practiceId);
+        return NextResponse.json({ error: "Practice not found" }, { status: 400 });
+      }
+      console.log('✅ Orders API - Practice validated:', practice.name);
+    } catch (practiceError) {
+      console.error('❌ Orders API - Error validating practice:', practiceError);
+      return NextResponse.json({ error: "Failed to validate practice" }, { status: 500 });
+    }
+
     // Create the order with only supported fields
     const orderData = {
       orderNumber: `O-${Date.now()}`,
@@ -188,13 +206,22 @@ export async function POST(req: NextRequest) {
     
     let order;
     try {
+      console.log('🔍 Orders API - Attempting to create order with data:', JSON.stringify(orderData, null, 2));
       order = await prisma.orders.create({
         data: orderData,
       });
       console.log('✅ Orders API - Order created successfully:', order.id);
     } catch (dbError) {
-      console.error('❌ Orders API - Database error creating order:', dbError);
-      return NextResponse.json({ error: "Failed to create order in database" }, { status: 500 });
+      console.error('❌ Orders API - Database error creating order:', {
+        error: dbError,
+        message: dbError instanceof Error ? dbError.message : 'Unknown error',
+        stack: dbError instanceof Error ? dbError.stack : undefined,
+        orderData: JSON.stringify(orderData, null, 2)
+      });
+      return NextResponse.json({ 
+        error: "Failed to create order in database", 
+        details: dbError instanceof Error ? dbError.message : 'Unknown database error'
+      }, { status: 500 });
     }
 
     console.log('✅ Orders API - Created order:', {

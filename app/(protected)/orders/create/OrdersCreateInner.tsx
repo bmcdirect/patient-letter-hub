@@ -48,7 +48,6 @@ export default function OrdersCreateInner() {
   const [loading, setLoading] = useState(true);
   const [costBreakdown, setCostBreakdown] = useState<any>(null);
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, UploadedFile | null>>({});
-  const [isDraft, setIsDraft] = useState(false);
   const searchParams = useSearchParams();
   const editId = searchParams?.get("edit");
   const fromQuoteId = searchParams?.get("fromQuote");
@@ -320,10 +319,7 @@ export default function OrdersCreateInner() {
         return;
       }
 
-      // For quote conversion, always submit for production (not draft)
-      if (isFromQuote) {
-        setIsDraft(false);
-      }
+      // Always submit as pending
       
       // Prepare form data for file upload
       const formData = new FormData();
@@ -333,8 +329,8 @@ export default function OrdersCreateInner() {
       formData.append('subject', data.subject || '');
       formData.append('purchaseOrder', data.purchaseOrder || '');
       formData.append('costCenter', data.costCenter || '');
-      // Set actualRecipients to at least 1 if no files uploaded (for draft mode)
-      const recipientCount = isDraft ? Math.max(data.actualRecipients || 1, 1) : data.actualRecipients || 1;
+      // Set actualRecipients to at least 1
+      const recipientCount = Math.max(data.actualRecipients || 1, 1);
       formData.append('actualRecipients', recipientCount.toString());
       // Handle preferredMailDate with proper validation
       let mailDate = data.preferredMailDate;
@@ -350,7 +346,7 @@ export default function OrdersCreateInner() {
       formData.append('firstClassPostage', data.firstClassPostage?.toString() || 'false');
       formData.append('notes', data.notes || '');
       formData.append('totalCost', (costBreakdown?.totalCost || data.totalCost || 0).toString());
-      formData.append('status', isDraft ? 'draft' : 'pending');
+      formData.append('status', 'pending');
       
       // Add files
 
@@ -390,7 +386,7 @@ export default function OrdersCreateInner() {
             firstClassPostage: data.firstClassPostage,
             notes: data.notes,
             cost: costBreakdown?.totalCost || data.totalCost,
-            status: isDraft ? 'draft' : 'pending',
+            status: 'pending',
           }),
         });
       } else {
@@ -402,8 +398,8 @@ export default function OrdersCreateInner() {
       }
       
       if (!res.ok) throw new Error(isEditing ? 
-        (isDraft ? "Failed to update draft" : "Failed to update order") : 
-        (isDraft ? "Failed to save draft." : "Failed to create order"));
+        "Failed to update order" : 
+        "Failed to create order");
       
       const order = await res.json();
       
@@ -414,25 +410,15 @@ export default function OrdersCreateInner() {
       toast({ 
         title: "Success", 
         description: isEditing ? 
-          (isDraft ? "Order draft updated." : "Order updated successfully!") :
-          (isDraft ? "Order saved as draft." : 
-            isFromQuote ? `Quote converted to order ${order.orderNumber}` : "Order created!") 
+          "Order updated successfully!" :
+          (isFromQuote ? `Quote converted to order ${order.orderNumber}` : "Order created!") 
       });
       router.push("/orders");
     } catch (err) {
-      toast({ title: "Error", description: isDraft ? "Failed to save draft." : "Failed to create order.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to create order.", variant: "destructive" });
     }
   };
 
-  const onSaveDraft = () => {
-    setIsDraft(true);
-    form.handleSubmit(onSubmit)();
-  };
-
-  const onSubmitForProduction = () => {
-    setIsDraft(false);
-    form.handleSubmit(onSubmit)();
-  };
 
   return (
     <main className="flex-1 p-8">
@@ -681,38 +667,15 @@ export default function OrdersCreateInner() {
 
                   </>
                 ) : (
-                  // Full button set for regular order creation/editing
-                  <>
-                    <Button 
-                      type="submit" 
-                      size="lg" 
-                      className="bg-blue-600 hover:bg-blue-700" 
-                      disabled={initialLoading || !form.formState.isValid}
-                    >
-                      {isEditing ? "Update Order" : "Create Order"}
-                    </Button>
-                    <div className="flex gap-3">
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="lg" 
-                        className="flex-1" 
-                        onClick={onSaveDraft} 
-                        disabled={initialLoading}
-                      >
-                        Save as Draft
-                      </Button>
-                      <Button 
-                        type="button" 
-                        size="lg" 
-                        className="flex-1 bg-green-600 hover:bg-green-700" 
-                        onClick={onSubmitForProduction} 
-                        disabled={initialLoading || !form.formState.isValid}
-                      >
-                        Submit for Production
-                      </Button>
-                    </div>
-                  </>
+                  // Single button for order creation/editing
+                  <Button 
+                    type="submit" 
+                    size="lg" 
+                    className="bg-blue-600 hover:bg-blue-700 px-8 py-3" 
+                    disabled={initialLoading || !form.formState.isValid}
+                  >
+                    {isEditing ? "Update Order" : "Create Order"}
+                  </Button>
                 )}
               </div>
             </div>
