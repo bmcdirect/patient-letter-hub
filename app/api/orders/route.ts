@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Handle file uploads if any (Vercel serverless compatible)
+    // Handle file uploads - store in database using BYTEA
     const files = formData.getAll('file') as File[];
     console.log(`📁 Orders API - Files received:`, {
       count: files.length,
@@ -267,16 +267,40 @@ export async function POST(req: NextRequest) {
     });
     
     if (files.length > 0) {
-      console.log(`📁 Orders API - File upload detected but skipping processing for Vercel serverless compatibility`);
-      console.log(`📁 Orders API - Files will be processed when cloud storage is implemented`);
+      console.log(`📁 Orders API - Processing ${files.length} files for database storage`);
       
-      // TODO: Implement cloud storage (Vercel Blob, AWS S3, etc.)
-      // For now, just log the file information without processing
-      files.forEach((file, index) => {
-        console.log(`📁 Orders API - File ${index + 1}: ${file.name} (${file.size} bytes, ${file.type})`);
-      });
-      
-      console.log(`📁 Orders API - File processing skipped - order created successfully without file storage`);
+      try {
+        // Process each file and store in database
+        for (const file of files) {
+          if (file.size === 0) {
+            console.log(`⚠️ Orders API - Skipping empty file: ${file.name}`);
+            continue;
+          }
+          
+          // Convert file to buffer for BYTEA storage
+          const fileBuffer = Buffer.from(await file.arrayBuffer());
+          
+          // Store file in database
+          await prisma.orderFiles.create({
+            data: {
+              orderId: order.id,
+              fileName: file.name,
+              fileType: file.type || 'application/octet-stream',
+              fileSize: file.size,
+              fileData: fileBuffer,
+              uploadedBy: user.id,
+            }
+          });
+          
+          console.log(`✅ Orders API - File stored in database: ${file.name} (${file.size} bytes)`);
+        }
+        
+        console.log(`✅ Orders API - All files processed and stored in database`);
+      } catch (fileError) {
+        console.error('❌ Orders API - Error storing files in database:', fileError);
+        // Don't fail the order creation if file storage fails
+        console.log('⚠️ Orders API - Order created successfully, but file storage failed');
+      }
     } else {
       console.log(`📁 Orders API - No files to process`);
     }

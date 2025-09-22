@@ -19,6 +19,7 @@ import {
   Building
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import OrderFilesDisplay from "@/components/file-upload/OrderFilesDisplay";
 
 interface Order {
   id: string;
@@ -308,56 +309,14 @@ export default function OrderDetailPage() {
         </CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Customer Files */}
-          {order.files && order.files.length > 0 && (
-            <div className="mb-6">
-              <h4 className="font-medium text-sm text-gray-700 mb-3">Customer Files</h4>
-              <div className="space-y-3">
-                {order.files.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-                    <div className="flex items-center space-x-3">
-                      <FileText className="w-5 h-5 text-blue-500" />
-                      <div>
-                        <p className="font-medium">{file.fileName}</p>
-                        <p className="text-sm text-gray-500">
-                          {file.fileType} • {new Date(file.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          const viewUrl = `/api/orders/${orderId}/files/${file.id}/download`;
-                          window.open(viewUrl, '_blank');
-                        }}
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        View
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          const downloadUrl = `/api/orders/${orderId}/files/${file.id}/download`;
-                          const link = document.createElement('a');
-                          link.href = downloadUrl;
-                          link.download = file.fileName;
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                        }}
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Customer Files - Using new database-backed component */}
+          <div className="mb-6">
+            <OrderFilesDisplay 
+              orderId={orderId} 
+              canDelete={user?.id === order.user?.id || user?.publicMetadata?.role === 'ADMIN'}
+              onFileDeleted={fetchOrderDetails}
+            />
+          </div>
 
           {/* Admin Proofs */}
           {order.proofs && order.proofs.length > 0 && (
@@ -394,17 +353,13 @@ export default function OrderDetailPage() {
             </div>
           )}
 
-          {/* No Files Message */}
-          {(!order.files || order.files.length === 0) && (!order.proofs || order.proofs.length === 0) && (
-            <div className="text-center py-8 text-gray-500">
-              <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p>No files uploaded yet</p>
-              <Button onClick={handleFileUpload} className="mt-2">
-                <Upload className="w-4 h-4 mr-2" />
-                Upload First File
-              </Button>
-            </div>
-          )}
+          {/* Upload Files Button - Always show for easy access */}
+          <div className="text-center py-4">
+            <Button onClick={handleFileUpload} variant="outline">
+              <Upload className="w-4 h-4 mr-2" />
+              Upload Files
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

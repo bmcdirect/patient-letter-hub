@@ -138,8 +138,9 @@ model OrderFiles {
   id         String   @id @default(cuid())
   orderId    String
   fileName   String
-  filePath   String
   fileType   String?
+  fileSize   Int?
+  fileData   Bytes?   // BYTEA column for binary file data
   uploadedBy String
   createdAt  DateTime @default(now()) @map("created_at")
   order      Orders   @relation(fields: [orderId], references: [id], onDelete: Cascade)
