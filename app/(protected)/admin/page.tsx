@@ -794,15 +794,28 @@ export default function AdminDashboardPage() {
           userId: emailOrder.userId
         })
       });
-      if (!res.ok) throw new Error("Failed to send email");
-      setEmailSuccess(true);
+      
+      const responseData = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(responseData.message || "Failed to send email");
+      }
+      
+      if (responseData.success) {
+        setEmailSuccess(true);
+        console.log('✅ Email sent successfully:', responseData.message);
+      } else {
+        setEmailError(responseData.message || "Email delivery failed");
+        console.error('❌ Email delivery failed:', responseData.error);
+      }
       
       // Refresh emails list
       const emailsRes = await fetch("/api/admin/emails");
       const emailsData = await emailsRes.json();
       setEmails(emailsData || []);
-    } catch (err) {
-      setEmailError("Failed to send email. Please try again.");
+    } catch (err: any) {
+      setEmailError(err.message || "Failed to send email. Please try again.");
+      console.error('❌ Email sending error:', err);
     } finally {
       setEmailSending(false);
     }

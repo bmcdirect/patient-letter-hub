@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { StatusManager, type OrderStatus } from "@/lib/status-management";
+import { EmailService } from "@/lib/email";
 
 export async function POST(
   req: NextRequest,
@@ -109,23 +110,59 @@ export async function POST(
       // Send email notification if autoNotify is enabled
       if (transition.autoNotify) {
         try {
-          const notificationData = {
-            emailType: 'status_change',
-            recipientEmail: order.practice?.email || order.user?.email || 'customer@example.com',
-            subject: `Order Status Updated - ${order.orderNumber}`,
-            content: `Your order ${order.orderNumber} status has been updated from "${currentStatus}" to "${newStatus}". ${comments ? `Comments: ${comments}` : ''}`,
-            orderId: orderId,
-            practiceId: order.practiceId,
-            userId: order.userId
-          };
+          const recipientEmail = order.practice?.email || order.user?.email;
+          
+          if (recipientEmail) {
+            const emailService = new EmailService();
+            await emailService.sendStatusUpdateEmail(
+              recipientEmail,
+              order.orderNumber,
+              currentStatus,
+              newStatus,
+              comments
+            );
 
-          await fetch(`${req.nextUrl.origin}/api/admin/emails`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(notificationData)
-          });
-        } catch (emailError) {
+            // Create email notification record
+            await tx.emailNotifications.create({
+              data: {
+                orderId: orderId,
+                userId: order.userId,
+                practiceId: order.practiceId,
+                recipientEmail,
+                emailType: 'status_change',
+                subject: `Order Status Updated - ${order.orderNumber}`,
+                content: `Your order ${order.orderNumber} status has been updated from "${currentStatus}" to "${newStatus}". ${comments ? `Comments: ${comments}` : ''}`,
+                status: 'sent',
+                metadata: JSON.stringify({
+                  sentBy: 'system',
+                  sentAt: new Date().toISOString(),
+                  transitionDescription: transition.description
+                })
+              }
+            });
+          }
+        } catch (emailError: any) {
           console.error("Failed to send status change notification:", emailError);
+          
+          // Create failed email notification record
+          await tx.emailNotifications.create({
+            data: {
+              orderId: orderId,
+              userId: order.userId,
+              practiceId: order.practiceId,
+              recipientEmail: order.practice?.email || order.user?.email || 'unknown',
+              emailType: 'status_change',
+              subject: `Order Status Updated - ${order.orderNumber}`,
+              content: `Your order ${order.orderNumber} status has been updated from "${currentStatus}" to "${newStatus}". ${comments ? `Comments: ${comments}` : ''}`,
+              status: 'failed',
+              errorMessage: emailError.message || 'Unknown error',
+              metadata: JSON.stringify({
+                sentBy: 'system',
+                attemptedAt: new Date().toISOString(),
+                error: emailError.message
+              })
+            }
+          });
         }
       }
 

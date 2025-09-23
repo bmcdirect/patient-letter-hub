@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
+import { EmailService } from "@/lib/email";
 // File handling imports removed for Vercel serverless compatibility
 // import { writeFile, mkdir } from "fs/promises";
 // import { join } from "path";
@@ -306,6 +307,73 @@ export async function POST(req: NextRequest) {
       }
     } else {
       console.log(`📁 Orders API - No files to process`);
+    }
+
+    // Send order confirmation email
+    try {
+      const practice = await prisma.practice.findUnique({
+        where: { id: order.practiceId },
+        select: { email: true, name: true }
+      });
+
+      const recipientEmail = practice?.email || user.email;
+      
+      if (recipientEmail) {
+        const emailService = new EmailService();
+        await emailService.sendOrderConfirmationEmail(recipientEmail, order.orderNumber);
+
+        // Create email notification record
+        await prisma.emailNotifications.create({
+          data: {
+            orderId: order.id,
+            userId: user.id,
+            practiceId: order.practiceId,
+            recipientEmail,
+            emailType: 'order_confirmation',
+            subject: `Order Confirmation - ${order.orderNumber}`,
+            content: `Your order ${order.orderNumber} has been confirmed and is being processed.`,
+            status: 'sent',
+            metadata: JSON.stringify({
+              sentBy: 'system',
+              sentAt: new Date().toISOString(),
+              orderSubject: order.subject
+            })
+          }
+        });
+
+        console.log(`✅ Orders API - Order confirmation email sent to: ${recipientEmail}`);
+      } else {
+        console.log(`⚠️ Orders API - No email address found for order confirmation`);
+      }
+    } catch (emailError: any) {
+      console.error('❌ Orders API - Error sending order confirmation email:', emailError);
+      
+      // Create failed email notification record
+      try {
+        await prisma.emailNotifications.create({
+          data: {
+            orderId: order.id,
+            userId: user.id,
+            practiceId: order.practiceId,
+            recipientEmail: 'unknown',
+            emailType: 'order_confirmation',
+            subject: `Order Confirmation - ${order.orderNumber}`,
+            content: `Your order ${order.orderNumber} has been confirmed and is being processed.`,
+            status: 'failed',
+            errorMessage: emailError.message || 'Unknown error',
+            metadata: JSON.stringify({
+              sentBy: 'system',
+              attemptedAt: new Date().toISOString(),
+              error: emailError.message
+            })
+          }
+        });
+      } catch (dbError) {
+        console.error('❌ Orders API - Error creating failed email record:', dbError);
+      }
+      
+      // Don't fail the order creation if email fails
+      console.log('⚠️ Orders API - Order created successfully, but confirmation email failed');
     }
 
     return NextResponse.json(order);

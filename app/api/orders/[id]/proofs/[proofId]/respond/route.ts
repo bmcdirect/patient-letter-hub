@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
+import { EmailService } from "@/lib/email";
 
 export async function POST(
   request: NextRequest,
@@ -123,19 +124,61 @@ export async function POST(
       }
     });
 
-    // Create email notification record
-    await prisma.emailNotifications.create({
-      data: {
-        orderId: params.id,
-        userId: user.id,
-        practiceId: order.practiceId,
-        recipientEmail: user.email || '',
-        emailType: 'proof_response',
-        subject: `Proof ${action.toLowerCase()} - Order #${order.orderNumber}`,
-        content: `Your response to Proof #${proof.proofRound} has been recorded. ${action === 'APPROVED' ? 'Your order will now proceed to production.' : 'Our team will review your feedback and upload a revised proof.'}`,
-        metadata: JSON.stringify({ proofId: proof.id, action, feedback })
-      }
-    });
+    // Create email notification record and send email
+    try {
+      const emailService = new EmailService();
+      await emailService.sendProofResponseEmail(
+        user.email || '',
+        order.orderNumber,
+        action,
+        feedback
+      );
+
+      await prisma.emailNotifications.create({
+        data: {
+          orderId: params.id,
+          userId: user.id,
+          practiceId: order.practiceId,
+          recipientEmail: user.email || '',
+          emailType: 'proof_response',
+          subject: `Proof ${action.toLowerCase()} - Order #${order.orderNumber}`,
+          content: `Your response to Proof #${proof.proofRound} has been recorded. ${action === 'APPROVED' ? 'Your order will now proceed to production.' : 'Our team will review your feedback and upload a revised proof.'}`,
+          status: 'sent',
+          metadata: JSON.stringify({ 
+            proofId: proof.id, 
+            action, 
+            feedback,
+            sentBy: 'system',
+            sentAt: new Date().toISOString()
+          })
+        }
+      });
+    } catch (emailError: any) {
+      console.error("Failed to send proof response email:", emailError);
+      
+      // Create failed email notification record
+      await prisma.emailNotifications.create({
+        data: {
+          orderId: params.id,
+          userId: user.id,
+          practiceId: order.practiceId,
+          recipientEmail: user.email || '',
+          emailType: 'proof_response',
+          subject: `Proof ${action.toLowerCase()} - Order #${order.orderNumber}`,
+          content: `Your response to Proof #${proof.proofRound} has been recorded. ${action === 'APPROVED' ? 'Your order will now proceed to production.' : 'Our team will review your feedback and upload a revised proof.'}`,
+          status: 'failed',
+          errorMessage: emailError.message || 'Unknown error',
+          metadata: JSON.stringify({ 
+            proofId: proof.id, 
+            action, 
+            feedback,
+            sentBy: 'system',
+            attemptedAt: new Date().toISOString(),
+            error: emailError.message
+          })
+        }
+      });
+    }
 
     console.log(`✅ Proof #${proof.proofRound} ${action.toLowerCase()} for order ${params.id}`);
 
