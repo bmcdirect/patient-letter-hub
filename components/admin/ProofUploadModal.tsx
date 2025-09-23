@@ -61,42 +61,25 @@ export default function ProofUploadModal({ order, isOpen, onClose, onSuccess }: 
     setSuccess(false);
 
     try {
-      // First upload the file
+      // Use the new PostgreSQL-based proof upload endpoint
       const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("orderId", order.id);
-      formData.append("fileType", "admin-proof");
+      formData.append("proofFile", selectedFile);
+      formData.append("adminNotes", adminNotes);
+      if (needsEscalation) {
+        formData.append("escalationReason", escalationReason);
+      }
 
-      const uploadResponse = await fetch("/api/file-upload", {
+      const response = await fetch(`/api/admin/orders/${order.id}/upload-proof`, {
         method: "POST",
         body: formData,
       });
 
-      if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json();
-        throw new Error(errorData.error || "Failed to upload file");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to upload proof");
       }
 
-      const uploadData = await uploadResponse.json();
-
-      // Then create the proof record
-      const proofResponse = await fetch(`/api/orders/${order.id}/proofs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filePath: uploadData.filePath,
-          fileUrl: uploadData.fileUrl,
-          adminNotes,
-          escalationReason: needsEscalation ? escalationReason : null
-        }),
-      });
-
-      if (!proofResponse.ok) {
-        const errorData = await proofResponse.json();
-        throw new Error(errorData.error || "Failed to create proof");
-      }
-
-      const proofData = await proofResponse.json();
+      const data = await response.json();
 
       setSuccess(true);
       setSelectedFile(null);
