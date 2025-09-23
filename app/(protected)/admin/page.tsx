@@ -164,8 +164,10 @@ export default function AdminDashboardPage() {
   // Move fetchOrders outside useEffect so it can be called from other functions
   async function fetchOrders() {
     setOrdersLoading(true);
-    // Add cache-busting parameter to prevent browser caching
-    const res = await fetch(`/api/admin/orders?t=${Date.now()}`);
+    // Add multiple cache-busting parameters to prevent browser caching
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(7);
+    const res = await fetch(`/api/admin/orders?t=${timestamp}&r=${random}&cb=${Date.now()}`);
     const data = await res.json();
     setOrders(data.orders || []);
     setOrdersLoading(false);
@@ -173,6 +175,13 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     fetchOrders();
+    
+    // Set up automatic refresh every 30 seconds to catch new orders
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -1232,9 +1241,9 @@ export default function AdminDashboardPage() {
                 <Filter className="h-4 w-4 mr-2" />
                 {showAdvancedFilters ? 'Hide' : 'Advanced'} Filters
               </Button>
-              <Button variant="outline" size="sm" onClick={() => fetchOrders()}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
+              <Button variant="outline" size="sm" onClick={() => fetchOrders()} disabled={ordersLoading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${ordersLoading ? 'animate-spin' : ''}`} />
+                {ordersLoading ? 'Refreshing...' : 'Refresh'}
               </Button>
               <Link href="/orders/create" className="bg-primary-500 text-white flex items-center px-4 py-2 rounded-md font-medium hover:bg-primary-600 transition">
                 <Plus className="h-4 w-4 mr-2" />New Order
