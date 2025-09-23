@@ -152,7 +152,8 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     async function fetchQuotes() {
       setQuotesLoading(true);
-      const res = await fetch("/api/admin/quotes");
+      // Add cache-busting parameter to prevent browser caching
+      const res = await fetch(`/api/admin/quotes?t=${Date.now()}`);
       const data = await res.json();
       setQuotes(data.quotes || []);
       setQuotesLoading(false);
@@ -163,11 +164,9 @@ export default function AdminDashboardPage() {
   // Move fetchOrders outside useEffect so it can be called from other functions
   async function fetchOrders() {
     setOrdersLoading(true);
-    console.log('🔍 Admin Dashboard - Fetching orders...');
-    const res = await fetch("/api/admin/orders");
+    // Add cache-busting parameter to prevent browser caching
+    const res = await fetch(`/api/admin/orders?t=${Date.now()}`);
     const data = await res.json();
-    console.log('🔍 Admin Dashboard - Orders received:', data.orders?.length || 0, 'orders');
-    console.log('🔍 Admin Dashboard - Order numbers:', data.orders?.map((o: any) => o.orderNumber) || []);
     setOrders(data.orders || []);
     setOrdersLoading(false);
   }
