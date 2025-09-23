@@ -163,8 +163,11 @@ export default function AdminDashboardPage() {
   // Move fetchOrders outside useEffect so it can be called from other functions
   async function fetchOrders() {
     setOrdersLoading(true);
+    console.log('🔍 Admin Dashboard - Fetching orders...');
     const res = await fetch("/api/admin/orders");
     const data = await res.json();
+    console.log('🔍 Admin Dashboard - Orders received:', data.orders?.length || 0, 'orders');
+    console.log('🔍 Admin Dashboard - Order numbers:', data.orders?.map((o: any) => o.orderNumber) || []);
     setOrders(data.orders || []);
     setOrdersLoading(false);
   }
@@ -1230,7 +1233,7 @@ export default function AdminDashboardPage() {
                 <Filter className="h-4 w-4 mr-2" />
                 {showAdvancedFilters ? 'Hide' : 'Advanced'} Filters
               </Button>
-              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+              <Button variant="outline" size="sm" onClick={() => fetchOrders()}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
