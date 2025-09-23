@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
 import { getCurrentUser } from "@/lib/session-manager";
 
 export async function POST(req: NextRequest) {
@@ -22,46 +19,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "File and orderId are required" }, { status: 400 });
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), "uploads");
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
-    }
-
-    // Create order-specific directory
-    const orderDir = join(uploadsDir, orderId);
-    if (!existsSync(orderDir)) {
-      await mkdir(orderDir, { recursive: true });
-    }
-
-    // Generate unique filename while preserving original name
-    const timestamp = Date.now();
-    const fileExtension = file.name.split('.').pop();
-    const baseName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
-    const fileName = `${baseName}_${timestamp}.${fileExtension}`;
-    const filePath = join(orderDir, fileName);
-
-    // Convert file to buffer and save
+    // Convert file to buffer for database storage
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
+    const fileBuffer = Buffer.from(bytes);
 
-    // Save file metadata to database
+    // Save file metadata and binary data to database
     const savedFile = await prisma.orderFiles.create({
       data: {
         orderId: orderId,
         fileName: file.name,
-        filePath: `/uploads/${orderId}/${fileName}`,
-        fileType: fileType,
+        fileType: file.type || 'application/octet-stream',
+        fileSize: file.size,
+        fileData: fileBuffer, // Store binary data in BYTEA column
         uploadedBy: currentUser.id, // Use the authenticated user's ID
       },
     });
 
+    console.log(`✅ File uploaded to database: ${file.name} (${file.size} bytes) for order ${orderId}`);
+
     return NextResponse.json({ 
       success: true, 
       file: savedFile,
-      filePath: savedFile.filePath, // Add this for the proof creation
-      fileUrl: savedFile.filePath,  // Use filePath as fileUrl for now
       message: 'File uploaded successfully!'
     });
 
