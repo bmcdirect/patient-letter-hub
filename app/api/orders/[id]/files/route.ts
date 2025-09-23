@@ -108,8 +108,7 @@ export async function GET(
           select: {
             id: true,
             email: true,
-            firstName: true,
-            lastName: true
+            name: true
           }
         }
       },

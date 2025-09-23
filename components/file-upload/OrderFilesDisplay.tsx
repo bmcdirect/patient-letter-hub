@@ -14,8 +14,7 @@ export interface OrderFile {
   uploader: {
     id: string;
     email: string;
-    firstName: string | null;
-    lastName: string | null;
+    name: string | null;
   };
 }
 
@@ -205,9 +204,7 @@ export default function OrderFilesDisplay({
       <div className="space-y-2">
         {files.map((file) => {
           const Icon = getFileIcon(file.fileType);
-          const uploaderName = file.uploader.firstName && file.uploader.lastName 
-            ? `${file.uploader.firstName} ${file.uploader.lastName}`
-            : file.uploader.email;
+          const uploaderName = file.uploader.name || file.uploader.email;
           
           return (
             <div
