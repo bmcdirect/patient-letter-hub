@@ -301,22 +301,27 @@ export default function AdminDashboardPage() {
 
     setStatusUpdating(orderId);
     try {
-      const response = await fetch(`/api/orders/${orderId}`, {
-        method: 'PATCH',
+      // Use the correct status update endpoint
+      const response = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ 
+          newStatus: newStatus,
+          comments: `Status updated by admin`
+        })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update status');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update status');
       }
 
-      // Update local state optimistically
-      setOrders(prevOrders => 
-        prevOrders.map(o => 
-          o.id === orderId ? { ...o, status: newStatus } : o
-        )
-      );
+      // Refresh orders to get updated data with cache-busting
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(7);
+      const res = await fetch(`/api/admin/orders?t=${timestamp}&r=${random}&cb=${Date.now()}`);
+      const data = await res.json();
+      setOrders(data.orders || []);
 
       // Trigger email notification for status change
       try {
