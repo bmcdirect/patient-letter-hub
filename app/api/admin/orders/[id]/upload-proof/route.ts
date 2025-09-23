@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
 
 export async function POST(
   request: NextRequest,
@@ -68,27 +65,19 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), "uploads", orderId, "proofs");
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
-    }
-
-    // Save the proof file
+    // Convert file to buffer for database storage
     const bytes = await proofFile.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const timestamp = Date.now();
-    const fileName = `admin-proof_${timestamp}_${proofFile.name}`;
-    const filePath = join(uploadsDir, fileName);
-    
-    await writeFile(filePath, buffer);
+    const fileBuffer = Buffer.from(bytes);
 
-    // Create new Proof record using the new structure
+    // Create new Proof record with PostgreSQL storage
     const newProof = await prisma.proof.create({
       data: {
         orderId: orderId,
         proofRound: nextProofRound,
-        filePath: fileName, // Store the filename for easy retrieval
+        fileName: proofFile.name,
+        fileType: proofFile.type || 'application/octet-stream',
+        fileSize: proofFile.size,
+        fileData: fileBuffer,
         status: 'PENDING',
         adminNotes,
         uploadedBy: user.id,
@@ -118,13 +107,13 @@ export async function POST(
       }
     });
 
-    console.log(`✅ Admin proof uploaded: ${fileName} for order ${orderId} (Proof #${nextProofRound})`);
+    console.log(`✅ Admin proof uploaded: ${proofFile.name} for order ${orderId} (Proof #${nextProofRound})`);
 
     return NextResponse.json({ 
       message: `Proof #${nextProofRound} uploaded successfully${nextProofRound >= 3 ? ' - ESCALATION REQUIRED' : ''}`,
       proof: newProof,
       proofRound: nextProofRound,
-      fileName: fileName,
+      fileName: proofFile.name,
       needsEscalation: nextProofRound >= 3
     });
   } catch (error) {

@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getCurrentUser } from "@/lib/session-manager";
 import { prisma } from "@/lib/db";
-import { readFile } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
 
 export async function GET(
   request: NextRequest,
@@ -41,22 +38,37 @@ export async function GET(
       return new NextResponse("Unauthorized", { status: 403 });
     }
 
-    // Check if file exists on disk
-    if (!existsSync(file.filePath)) {
-      return new NextResponse("File not found on disk", { status: 404 });
+    // Check if file has data
+    if (!file.fileData) {
+      return new NextResponse("File data not found", { status: 404 });
     }
 
-    // Read the file
-    const fileBuffer = await readFile(file.filePath);
+    // Ensure fileData is a Buffer
+    let fileBuffer: Buffer;
+    if (Buffer.isBuffer(file.fileData)) {
+      fileBuffer = file.fileData;
+    } else if (file.fileData instanceof Uint8Array) {
+      fileBuffer = Buffer.from(file.fileData);
+    } else {
+      console.log('❌ Order File Download - Invalid file data type:', typeof file.fileData);
+      return new NextResponse("Invalid file data format", { status: 500 });
+    }
 
-    // Return the file with appropriate headers
+    // Set appropriate headers for file download
+    const headers = new Headers();
+    headers.set('Content-Type', file.fileType || 'application/octet-stream');
+    headers.set('Content-Disposition', `attachment; filename="${file.fileName}"`);
+    headers.set('Content-Length', fileBuffer.length.toString());
+    headers.set('Cache-Control', 'private, max-age=3600');
+
+    console.log(`📁 Order File Download - Serving file: ${file.fileName} (${fileBuffer.length} bytes, ${file.fileType})`);
+
+    // Return the file data as a response
     return new NextResponse(fileBuffer, {
-      headers: {
-        'Content-Type': file.fileType || 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="${file.fileName}"`,
-        'Content-Length': fileBuffer.length.toString(),
-      },
+      status: 200,
+      headers,
     });
+
   } catch (error) {
     console.error("Error downloading file:", error);
     return new NextResponse("Internal Server Error", { status: 500 });

@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
-import { readFile } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
 
 export async function GET(
   request: NextRequest,
@@ -57,38 +54,37 @@ export async function GET(
       return new NextResponse("Proof does not belong to this order", { status: 400 });
     }
 
-    // Construct the file path for the proof using the stored filePath
-    let proofFilePath;
-    
-    if (proof.filePath) {
-      // If filePath is a relative path (starts with /uploads/), convert to absolute
-      if (proof.filePath.startsWith('/uploads/')) {
-        proofFilePath = join(process.cwd(), proof.filePath.substring(1)); // Remove leading /
-      } else {
-        // If it's already an absolute path, use as is
-        proofFilePath = proof.filePath;
-      }
+    // Check if proof has file data
+    if (!proof.fileData) {
+      return new NextResponse("Proof file data not found", { status: 404 });
+    }
+
+    // Ensure fileData is a Buffer
+    let fileBuffer: Buffer;
+    if (Buffer.isBuffer(proof.fileData)) {
+      fileBuffer = proof.fileData;
+    } else if (proof.fileData instanceof Uint8Array) {
+      fileBuffer = Buffer.from(proof.fileData);
     } else {
-      return new NextResponse("Proof file path not found", { status: 404 });
-    }
-    
-    console.log(`🔍 Looking for proof file at: ${proofFilePath}`);
-    
-    if (!existsSync(proofFilePath)) {
-      console.log(`❌ Proof file not found at: ${proofFilePath}`);
-      return new NextResponse("Proof file not found", { status: 404 });
+      console.log('❌ Proof Download - Invalid file data type:', typeof proof.fileData);
+      return new NextResponse("Invalid file data format", { status: 500 });
     }
 
-    // Read and return the file
-    const fileBuffer = await readFile(proofFilePath);
-    const fileName = proofFilePath.split('/').pop() || 'proof.pdf';
+    // Set appropriate headers for file download
+    const headers = new Headers();
+    headers.set('Content-Type', proof.fileType || 'application/octet-stream');
+    headers.set('Content-Disposition', `attachment; filename="${proof.fileName || 'proof.pdf'}"`);
+    headers.set('Content-Length', fileBuffer.length.toString());
+    headers.set('Cache-Control', 'private, max-age=3600');
 
+    console.log(`📁 Proof Download - Serving proof: ${proof.fileName} (${fileBuffer.length} bytes, ${proof.fileType})`);
+
+    // Return the file data as a response
     return new NextResponse(fileBuffer, {
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="${fileName}"`,
-      },
+      status: 200,
+      headers,
     });
+
   } catch (error) {
     console.error("Error downloading proof:", error);
     return new NextResponse("Internal Server Error", { status: 500 });

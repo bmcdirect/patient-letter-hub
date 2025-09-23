@@ -183,6 +183,10 @@ model Proof {
   proofRound       Int
   fileUrl          String?
   filePath         String?
+  fileName         String?
+  fileType         String?
+  fileSize         Int?
+  fileData         Bytes?          // BYTEA column for binary file data
   status           ProofStatus     @default(PENDING)
   userFeedback     String?
   adminNotes       String?
