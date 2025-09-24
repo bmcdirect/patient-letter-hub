@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 
 // Create SMTP transporter for Microsoft 365 with alias support
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.office365.com',
   port: parseInt(process.env.SMTP_PORT || '587'),
   secure: false, // true for 465, false for other ports
