@@ -45,8 +45,30 @@ export async function PUT(request: Request) {
     console.log("🔍 getCurrentUser result:", user ? "User found" : "User not found");
     
     if (!user) {
-      console.log("❌ User not found in database");
-      return new NextResponse("User not found", { status: 404 });
+      console.log("❌ User not found in database - attempting to create user");
+      
+      // Try to create user from Clerk data
+      const clerkUser = await auth();
+      if (clerkUser.userId) {
+        try {
+          const newUser = await prisma.user.create({
+            data: {
+              clerkId: clerkUser.userId,
+              email: clerkUser.sessionClaims?.email || "",
+              name: `${clerkUser.sessionClaims?.firstName || ""} ${clerkUser.sessionClaims?.lastName || ""}`.trim(),
+              role: "USER",
+            },
+            include: { practice: true }
+          });
+          console.log("✅ Created new user:", newUser.id);
+          user = newUser;
+        } catch (createError) {
+          console.error("❌ Failed to create user:", createError);
+          return new NextResponse("User not found and could not be created", { status: 404 });
+        }
+      } else {
+        return new NextResponse("User not found", { status: 404 });
+      }
     }
 
     console.log("🔍 User data:", {

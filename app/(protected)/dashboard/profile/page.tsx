@@ -260,7 +260,7 @@ export default function ProfilePage() {
             </p>
             <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-800 px-4 py-2 rounded-full text-sm font-medium">
               <Shield className="h-4 w-4" />
-              Step 1 of 2: Complete Your Profile
+              Complete Your Profile
             </div>
           </div>
         ) : (
@@ -285,8 +285,7 @@ export default function ProfilePage() {
                 <ul className="text-sm text-blue-800 space-y-1">
                   <li>• Your practice information will be securely stored</li>
                   <li>• You'll be redirected to your dashboard</li>
-                  <li>• Start creating your first patient letter order</li>
-                  <li>• Access HIPAA-compliant templates and tools</li>
+                  <li>• Start creating your first HIPAA-compliant patient letter order</li>
                 </ul>
               </div>
             </div>
@@ -566,9 +565,9 @@ export default function ProfilePage() {
                   After completing your profile, you'll be redirected to your dashboard
                 </p>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-blue-600 h-2 rounded-full" style={{ width: '50%' }}></div>
+                  <div className="bg-blue-600 h-2 rounded-full transition-all duration-300" style={{ width: `${form.formState.isValid ? '100' : '50'}%` }}></div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">50% Complete</p>
+                <p className="text-xs text-muted-foreground mt-1">{form.formState.isValid ? '100% Complete' : '50% Complete'}</p>
               </div>
             )}
             
