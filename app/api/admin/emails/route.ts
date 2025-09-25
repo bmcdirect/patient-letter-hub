@@ -1,9 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { EmailService } from "@/lib/email";
 
 export async function GET(req: NextRequest) {
   try {
+    // SECURITY FIX: Add authentication check
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get the user from our database to check their role
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // SECURITY FIX: Only admins can access this endpoint
+    if (user.role !== 'ADMIN') {
+      return NextResponse.json({ error: "Forbidden - Admin access required" }, { status: 403 });
+    }
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get('limit') || '100');
     const status = searchParams.get('status');
