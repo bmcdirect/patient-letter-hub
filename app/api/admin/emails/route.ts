@@ -52,8 +52,52 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { emailType, recipientEmail, subject, content, orderId, practiceId, userId } = await req.json();
+    const { emailType, recipientEmail, subject, content, orderId, practiceId, userId, email, userName } = await req.json();
 
+    // Handle welcome email type
+    if (emailType === "welcome") {
+      if (!email || !userName) {
+        return NextResponse.json({ error: "Missing email or userName for welcome email" }, { status: 400 });
+      }
+
+      try {
+        const emailService = new EmailService();
+        await emailService.sendWelcomeEmail(email, userName);
+
+        // Create database record for welcome email
+        const emailRecord = await prisma.emailNotifications.create({
+          data: {
+            userId: 'system',
+            recipientEmail: email,
+            emailType: 'welcome',
+            subject: 'Welcome to PatientLetterHub - Your HIPAA-Compliant Letter Solution!',
+            content: `Welcome email sent to ${userName} (${email})`,
+            status: 'sent',
+            metadata: JSON.stringify({
+              sentBy: 'system',
+              sentAt: new Date().toISOString(),
+              userName: userName
+            })
+          }
+        });
+
+        return NextResponse.json({ 
+          success: true, 
+          email: emailRecord,
+          message: "Welcome email sent successfully"
+        });
+
+      } catch (emailError: any) {
+        console.error('Failed to send welcome email:', emailError);
+        return NextResponse.json({ 
+          success: false, 
+          error: "Failed to send welcome email",
+          message: emailError.message || "Welcome email delivery failed"
+        }, { status: 500 });
+      }
+    }
+
+    // Handle other email types
     if (!emailType || !recipientEmail || !subject || !content) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }

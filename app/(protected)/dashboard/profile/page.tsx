@@ -194,8 +194,30 @@ export default function ProfilePage() {
             : "Your profile has been updated successfully!",
         });
         
-        // Redirect new users to dashboard after profile completion
+        // Send welcome email for new users
         if (wasNewUser) {
+          try {
+            const welcomeResponse = await fetch("/api/admin/emails", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                type: "welcome",
+                email: data.email,
+                userName: data.name,
+              }),
+            });
+            
+            if (welcomeResponse.ok) {
+              console.log("✅ Welcome email sent successfully");
+            } else {
+              console.error("❌ Failed to send welcome email");
+            }
+          } catch (emailError) {
+            console.error("❌ Error sending welcome email:", emailError);
+          }
+          
           setTimeout(() => {
             window.location.href = "/dashboard";
           }, 2000); // Give user 2 seconds to see the success message
