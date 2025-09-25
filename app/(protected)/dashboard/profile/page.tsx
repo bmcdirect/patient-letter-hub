@@ -203,7 +203,7 @@ export default function ProfilePage() {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                type: "welcome",
+                emailType: "welcome",
                 email: data.email,
                 userName: data.name,
               }),
