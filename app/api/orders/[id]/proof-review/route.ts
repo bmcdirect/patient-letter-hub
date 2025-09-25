@@ -8,18 +8,35 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log('🔍 Proof Review API - Starting GET request');
+    console.log('   Order ID:', params.id);
+    console.log('   Proof ID:', req.url.includes('proofId=') ? new URL(req.url).searchParams.get('proofId') : 'Not provided');
+    
     const { userId } = await auth();
     
     if (!userId) {
+      console.log('❌ Proof Review API - No Clerk user ID');
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    console.log('✅ Proof Review API - Clerk user ID:', userId);
 
     // Get the user from our database
     const user = await getCurrentUser();
     
     if (!user) {
+      console.log('❌ Proof Review API - User not found in database');
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
+
+    console.log('✅ Proof Review API - User found:', {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      practiceId: user.practiceId,
+      practiceName: user.practice?.name
+    });
 
     const { id: orderId } = params;
     const { searchParams } = new URL(req.url);
@@ -37,7 +54,7 @@ export async function GET(
         practice: true,
         proofs: {
           where: { id: proofId },
-          orderBy: { createdAt: 'desc' }
+          orderBy: { proofRound: 'desc' }
         }
       }
     });
@@ -71,7 +88,7 @@ export async function GET(
         fileType: proof.fileType,
         fileSize: proof.fileSize,
         status: proof.status,
-        createdAt: proof.createdAt
+        uploadedAt: proof.uploadedAt
       }
     });
 
