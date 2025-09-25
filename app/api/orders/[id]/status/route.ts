@@ -153,13 +153,36 @@ export async function POST(
               case 'waiting-approval-rev2':
               case 'waiting-approval-rev3':
                 // Get the latest proof for this order
+                console.log('🔍 ORDER STATUS API - Getting latest proof for order:', orderId);
                 const latestProof = await tx.proof.findFirst({
                   where: { orderId: orderId },
                   orderBy: { createdAt: 'desc' }
                 });
                 
+                console.log('🔍 ORDER STATUS API - Latest proof query result:');
+                console.log('   Proof found:', !!latestProof);
+                if (latestProof) {
+                  console.log('   Proof details:', {
+                    id: latestProof.id,
+                    orderId: latestProof.orderId,
+                    proofRound: latestProof.proofRound,
+                    status: latestProof.status,
+                    fileName: latestProof.fileName
+                  });
+                } else {
+                  console.log('   No proof found for order:', orderId);
+                }
+                
                 if (latestProof) {
                   const revisionNumber = newStatus.includes('rev') ? parseInt(newStatus.split('rev')[1]) : undefined;
+                  console.log('🔍 ORDER STATUS API - Sending proof ready email:');
+                  console.log('   Recipient email:', recipientEmail);
+                  console.log('   Order number:', order.orderNumber);
+                  console.log('   Practice name:', order.practice?.name);
+                  console.log('   Proof ID:', latestProof.id);
+                  console.log('   Order ID:', order.id);
+                  console.log('   Revision number:', revisionNumber);
+                  
                   await emailService.sendProofReadyEmail(recipientEmail, {
                     orderNumber: order.orderNumber,
                     practiceName: order.practice?.name || 'Your Practice',
@@ -171,6 +194,10 @@ export async function POST(
                   emailType = 'proof_ready';
                   subject = `Proof Ready for Review${revisionNumber ? ` (Revision ${revisionNumber})` : ''} - ${order.orderNumber} | PatientLetterHub`;
                   content = `Proof ready notification sent for ${order.orderNumber}`;
+                  
+                  console.log('✅ ORDER STATUS API - Proof ready email sent successfully');
+                } else {
+                  console.log('❌ ORDER STATUS API - Cannot send proof ready email - no proof found');
                 }
                 break;
 
