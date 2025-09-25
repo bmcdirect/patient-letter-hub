@@ -343,7 +343,7 @@ export default function OrderDetailPage() {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => router.push(`/orders/${orderId}/proof-review`)}
+                        onClick={() => router.push(`/orders/${orderId}/proof-review?proofId=${proof.id}`)}
                       >
                         <Eye className="w-4 h-4 mr-2" />
                         Review
@@ -383,7 +383,19 @@ export default function OrderDetailPage() {
             </Button>
             
             <Button 
-              onClick={() => router.push(`/orders/${orderId}/proof-review`)} 
+              onClick={() => {
+                // Get the latest proof for this order
+                const latestProof = order.proofs && order.proofs.length > 0 
+                  ? order.proofs.sort((a: any, b: any) => b.proofRound - a.proofRound)[0]
+                  : null;
+                
+                if (latestProof) {
+                  router.push(`/orders/${orderId}/proof-review?proofId=${latestProof.id}`);
+                } else {
+                  // Show error if no proofs available
+                  alert('No proofs available for this order yet.');
+                }
+              }} 
               variant="outline" 
               className="h-20 flex-col"
             >

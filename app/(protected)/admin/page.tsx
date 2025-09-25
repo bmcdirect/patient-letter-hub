@@ -822,10 +822,21 @@ export default function AdminDashboardPage() {
   }
 
   async function handleCopyProofLink(order: any) {
-    const proofReviewUrl = `${window.location.origin}/orders/${order.id}/proof-review`;
+    // Get the latest proof for this order
+    const latestProof = order.proofs && order.proofs.length > 0 
+      ? order.proofs.sort((a: any, b: any) => b.proofRound - a.proofRound)[0]
+      : null;
+    
+    if (!latestProof) {
+      setCopySuccess(`No proof available for Order #${order.orderNumber}`);
+      setTimeout(() => setCopySuccess(null), 3000);
+      return;
+    }
+    
+    const proofReviewUrl = `${window.location.origin}/orders/${order.id}/proof-review?proofId=${latestProof.id}`;
     try {
       await navigator.clipboard.writeText(proofReviewUrl);
-      setCopySuccess(`Proof review link copied for Order #${order.orderNumber}`);
+      setCopySuccess(`Proof review link copied for Order #${order.orderNumber} (Proof #${latestProof.proofRound})`);
       setTimeout(() => setCopySuccess(null), 3000);
     } catch (err) {
       // Fallback for older browsers
@@ -835,7 +846,7 @@ export default function AdminDashboardPage() {
       textArea.select();
       document.execCommand('copy');
       document.body.removeChild(textArea);
-      setCopySuccess(`Proof review link copied for Order #${order.orderNumber}`);
+      setCopySuccess(`Proof review link copied for Order #${order.orderNumber} (Proof #${latestProof.proofRound})`);
       setTimeout(() => setCopySuccess(null), 3000);
     }
   }
