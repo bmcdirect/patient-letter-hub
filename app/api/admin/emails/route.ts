@@ -69,10 +69,24 @@ export async function POST(req: NextRequest) {
         await emailService.sendWelcomeEmail(email, userName);
         console.log("✅ Welcome email sent successfully to:", email);
 
+        // Find the user who is receiving the welcome email
+        const user = await prisma.user.findUnique({
+          where: { email: email }
+        });
+
+        if (!user) {
+          console.error('❌ User not found for welcome email:', email);
+          return NextResponse.json({ 
+            success: false, 
+            error: "User not found for welcome email",
+            message: "Cannot create email notification record"
+          }, { status: 404 });
+        }
+
         // Create database record for welcome email
         const emailRecord = await prisma.emailNotifications.create({
           data: {
-            userId: 'system',
+            userId: user.id,
             recipientEmail: email,
             emailType: 'welcome',
             subject: 'Welcome to PatientLetterHub - Your HIPAA-Compliant Letter Solution!',
