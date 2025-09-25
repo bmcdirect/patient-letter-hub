@@ -119,6 +119,28 @@ export async function GET(req: NextRequest) {
 
     console.log(`5️⃣ SIMILAR USERS: ${similarUsers.length} found`);
 
+    // 6. Test getCurrentUser with target user's Clerk ID
+    let getCurrentUserTest = null;
+    if (targetUser.clerkId) {
+      try {
+        // Simulate what getCurrentUser would return
+        const testUser = await prisma.user.findUnique({
+          where: { clerkId: targetUser.clerkId },
+          include: { practice: true }
+        });
+        getCurrentUserTest = testUser ? {
+          id: testUser.id,
+          email: testUser.email,
+          name: testUser.name,
+          role: testUser.role,
+          practiceId: testUser.practiceId,
+          practiceName: testUser.practice?.name
+        } : null;
+      } catch (error) {
+        console.log('Error testing getCurrentUser:', error);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       targetEmail,
@@ -151,6 +173,7 @@ export async function GET(req: NextRequest) {
         clerkId: u.clerkId,
         practiceName: u.practice?.name
       })),
+      getCurrentUserTest,
       diagnosis: {
         userExists: !!targetUser,
         orderExists: !!order,
@@ -158,10 +181,12 @@ export async function GET(req: NextRequest) {
         userOwnsOrder: ownershipCheck.userOwnsOrder,
         orderBelongsToUserPractice: ownershipCheck.orderBelongsToUserPractice,
         getCurrentUserWouldWork: !!targetUser.clerkId,
+        nameFieldIssue: !targetUser.name ? "User name is null/empty in database" : "Name field has data",
         possibleIssues: [
           !targetUser.clerkId ? "User has no Clerk ID - getCurrentUser will fail" : null,
           !ownershipCheck.userOwnsOrder ? "User doesn't own the order" : null,
-          !ownershipCheck.orderBelongsToUserPractice ? "Order doesn't belong to user's practice" : null
+          !ownershipCheck.orderBelongsToUserPractice ? "Order doesn't belong to user's practice" : null,
+          !targetUser.name ? "User name field is empty - profile will show blank name" : null
         ].filter(Boolean)
       }
     });
