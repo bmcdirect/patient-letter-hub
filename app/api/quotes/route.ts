@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
+import { getCurrentUser } from "@/lib/session-manager";
 
 export async function POST(req: NextRequest) {
   try {
@@ -83,10 +84,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get the user from our database to check their role and practice
-    const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
-      include: { practice: true }
-    });
+    const user = await getCurrentUser();
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });

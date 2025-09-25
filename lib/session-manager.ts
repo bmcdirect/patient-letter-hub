@@ -5,54 +5,102 @@ import { clerkClient } from '@clerk/nextjs/server';
 
 export async function getCurrentUser() {
   try {
-    console.log('🔍 getCurrentUser() called')
-    
-    const { userId } = await auth()
-    console.log('📝 Clerk userId from auth():', userId)
-    console.log('📝 userId type:', typeof userId)
-    console.log('📝 userId exists:', !!userId)
-    
+    console.log('🔧 Starting Clerk session check...');
+
+    const { userId } = await auth();
+    console.log('🔧 Clerk userId:', userId);
+
     if (!userId) {
-      console.log('❌ No userId from Clerk auth(), returning null')
-      return null
+      console.log('❌ No Clerk user ID found - user not authenticated');
+      return null;
     }
 
-    console.log('🔍 Querying database for user with clerkId:', userId)
-    
-    const user = await prisma.user.findUnique({
-      where: {
-        clerkId: userId
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        clerkId: true,
-        createdAt: true,
-        updatedAt: true
-      }
-    })
+    // 1. Try to find user in your DB by clerkId (always include practice)
+    let user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      include: { practice: true }
+    });
 
-    console.log('📊 Database query result:', user)
-    console.log('📊 User found:', !!user)
-    
     if (user) {
-      console.log('✅ User found in database:', user.email)
-    } else {
-      console.log('❌ No user found in database for clerkId:', userId)
-      
-      // Show all users for comparison
-      const allUsers = await prisma.user.findMany({
-        select: { email: true, clerkId: true }
-      })
-      console.log('📋 All users in database:', allUsers)
+      console.log('✅ Found user by clerkId:', user.email);
+      console.log('📋 User details:', {
+        role: user.role,
+        practiceId: user.practiceId,
+        practiceName: user.practice?.name || 'None',
+        hasPractice: !!user.practice
+      });
+
+      // Validate practice relationship
+      if (user.practiceId && !user.practice) {
+        console.error('⚠️  User has practiceId but no practice data:', {
+          userId: user.id,
+          practiceId: user.practiceId
+        });
+        // Return user without practice data - let UI handle gracefully
+        return user;
+      }
+
+      return user;
     }
 
-    return user
+    // 2. If not found by clerkId, fetch user from Clerk
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const clerkEmail = clerkUser.emailAddresses[0]?.emailAddress;
+
+    console.log('🔧 Clerk user data:', {
+      id: clerkUser.id,
+      email: clerkEmail,
+      firstName: clerkUser.firstName,
+      lastName: clerkUser.lastName
+    });
+
+    if (!clerkEmail) {
+      console.log('❌ No email found in Clerk user');
+      return null;
+    }
+
+    // 3. Try to find existing user by email (for linking existing accounts)
+    user = await prisma.user.findUnique({
+      where: { email: clerkEmail },
+      include: { practice: true }
+    });
+
+    if (user) {
+      // 4. Link existing Prisma user to Clerk
+      console.log('🔗 Linking existing Prisma user to Clerk:', user.email);
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { clerkId: userId },
+        include: { practice: true }
+      });
+      console.log('✅ Successfully linked user to Clerk');
+      console.log('📋 User details:', {
+        role: user.role,
+        practiceId: user.practiceId,
+        practiceName: user.practice?.name || 'None',
+        hasPractice: !!user.practice
+      });
+
+      // Validate practice relationship
+      if (user.practiceId && !user.practice) {
+        console.error('⚠️  User has practiceId but no practice data after linking:', {
+          userId: user.id,
+          practiceId: user.practiceId
+        });
+        // Return user without practice data - let UI handle gracefully
+        return user;
+      }
+
+      return user;
+    }
+
+    // 5. If user not found anywhere, they need to complete sign-up
+    console.log('⚠️  User not found in database - needs to complete sign-up process');
+    return null;
+
   } catch (error) {
-    console.error('💥 getCurrentUser() error:', error)
-    return null
+    console.error('❌ Error in getCurrentUser:', error);
+    return null;
   }
 }
 
@@ -67,7 +115,7 @@ export function shouldUseClerk() {
   return AUTH_CONFIG.useClerk;
 }
 
-// Helper function to get user by Clerk ID
+// Helper function to get user by Clerk ID (always include practice)
 export async function getUserByClerkId(clerkId: string) {
   return await prisma.user.findUnique({
     where: { clerkId },
@@ -80,8 +128,19 @@ export async function upsertUserWithClerkId(clerkId: string, userData: {
   email: string;
   name?: string;
   role?: 'ADMIN' | 'USER';
-  practiceId?: string | null;
+  practiceId?: string;
 }) {
+  // Validate practiceId if provided
+  if (userData.practiceId) {
+    const practice = await prisma.practice.findUnique({
+      where: { id: userData.practiceId }
+    });
+    
+    if (!practice) {
+      throw new Error(`Practice with ID ${userData.practiceId} not found`);
+    }
+  }
+
   return await prisma.user.upsert({
     where: { clerkId },
     update: {
@@ -95,7 +154,7 @@ export async function upsertUserWithClerkId(clerkId: string, userData: {
       email: userData.email,
       name: userData.name,
       role: userData.role || 'USER',
-      practiceId: userData.practiceId || null,
+      practiceId: userData.practiceId || null, // Allow null for SuperAdmin
     },
     include: { practice: true }
   });
