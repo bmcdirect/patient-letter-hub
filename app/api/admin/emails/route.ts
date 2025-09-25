@@ -52,10 +52,73 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { emailType, recipientEmail, subject, content, orderId, practiceId, userId, email, userName } = await req.json();
+    const { emailType, recipientEmail, subject, content, orderId, practiceId, userId, email, userName, orderNumber, practiceName, templateType, cost, estimatedRecipients } = await req.json();
 
-    // Handle welcome email type
-    if (emailType === "welcome") {
+          // Handle order lifecycle email types
+          if (emailType === "order_confirmation") {
+            console.log("📧 Order confirmation email request received:", { orderNumber, practiceName });
+            
+            if (!orderNumber || !practiceName) {
+              console.error("❌ Missing required fields for order confirmation email:", { orderNumber, practiceName });
+              return NextResponse.json({ error: "Missing orderNumber or practiceName for order confirmation email" }, { status: 400 });
+            }
+
+            try {
+              console.log("📧 Attempting to send order confirmation email...");
+              const emailService = new EmailService();
+              await emailService.sendOrderConfirmationEmail(email, {
+                orderNumber,
+                practiceName,
+                subject,
+                templateType,
+                cost,
+                estimatedRecipients
+              });
+              console.log("✅ Order confirmation email sent successfully to:", email);
+
+              // Create database record for order confirmation email
+              const emailRecord = await prisma.emailNotifications.create({
+                data: {
+                  userId: user.id,
+                  recipientEmail: email,
+                  emailType: 'order_confirmation',
+                  subject: `Order Confirmation - ${orderNumber} | PatientLetterHub`,
+                  content: `Order confirmation email sent for ${orderNumber}`,
+                  status: 'sent',
+                  metadata: JSON.stringify({
+                    sentBy: 'system',
+                    sentAt: new Date().toISOString(),
+                    orderNumber: orderNumber,
+                    practiceName: practiceName
+                  })
+                }
+              });
+
+              return NextResponse.json({ 
+                success: true, 
+                email: emailRecord,
+                message: "Order confirmation email sent successfully"
+              });
+
+            } catch (emailError: any) {
+              console.error('❌ Failed to send order confirmation email:', {
+                error: emailError,
+                message: emailError.message,
+                stack: emailError.stack,
+                email: email,
+                orderNumber: orderNumber
+              });
+              return NextResponse.json({ 
+                success: false, 
+                error: "Failed to send order confirmation email",
+                message: emailError.message || "Order confirmation email delivery failed",
+                details: emailError.toString()
+              }, { status: 500 });
+            }
+          }
+
+          // Handle welcome email type
+          if (emailType === "welcome") {
       console.log("🎉 Welcome email request received:", { email, userName });
       
       if (!email || !userName) {

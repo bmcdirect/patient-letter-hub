@@ -107,39 +107,160 @@ export async function POST(
         include: { user: true }
       });
 
-      // Send email notification if autoNotify is enabled
+      // Send specific email notifications based on status change
       if (transition.autoNotify) {
         try {
           const recipientEmail = order.practice?.email || order.user?.email;
           
           if (recipientEmail) {
             const emailService = new EmailService();
-            await emailService.sendStatusUpdateEmail(
-              recipientEmail,
-              order.orderNumber,
-              currentStatus,
-              newStatus,
-              comments
-            );
+            let emailSent = false;
+            let emailType = 'status_change';
+            let subject = `Order Status Updated - ${order.orderNumber}`;
+            let content = `Your order ${order.orderNumber} status has been updated from "${currentStatus}" to "${newStatus}". ${comments ? `Comments: ${comments}` : ''}`;
+
+            // Send specific emails based on the new status
+            switch (newStatus) {
+              case 'submitted':
+                await emailService.sendOrderConfirmationEmail(recipientEmail, {
+                  orderNumber: order.orderNumber,
+                  practiceName: order.practice?.name || 'Your Practice',
+                  subject: order.subject,
+                  templateType: order.templateType,
+                  cost: order.cost,
+                  estimatedRecipients: order.actualRecipients
+                });
+                emailSent = true;
+                emailType = 'order_confirmation';
+                subject = `Order Confirmation - ${order.orderNumber} | PatientLetterHub`;
+                content = `Order confirmation email sent for ${order.orderNumber}`;
+                break;
+
+              case 'in-production':
+                await emailService.sendOrderInProductionEmail(recipientEmail, {
+                  orderNumber: order.orderNumber,
+                  practiceName: order.practice?.name || 'Your Practice',
+                  estimatedCompletionDate: order.productionEndDate ? new Date(order.productionEndDate).toLocaleDateString() : undefined
+                });
+                emailSent = true;
+                emailType = 'order_in_production';
+                subject = `Order In Production - ${order.orderNumber} | PatientLetterHub`;
+                content = `Order in production notification sent for ${order.orderNumber}`;
+                break;
+
+              case 'waiting-approval':
+              case 'waiting-approval-rev1':
+              case 'waiting-approval-rev2':
+              case 'waiting-approval-rev3':
+                // Get the latest proof for this order
+                const latestProof = await tx.proof.findFirst({
+                  where: { orderId: orderId },
+                  orderBy: { createdAt: 'desc' }
+                });
+                
+                if (latestProof) {
+                  const revisionNumber = newStatus.includes('rev') ? parseInt(newStatus.split('rev')[1]) : undefined;
+                  await emailService.sendProofReadyEmail(recipientEmail, {
+                    orderNumber: order.orderNumber,
+                    practiceName: order.practice?.name || 'Your Practice',
+                    proofId: latestProof.id,
+                    revisionNumber: revisionNumber
+                  });
+                  emailSent = true;
+                  emailType = 'proof_ready';
+                  subject = `Proof Ready for Review${revisionNumber ? ` (Revision ${revisionNumber})` : ''} - ${order.orderNumber} | PatientLetterHub`;
+                  content = `Proof ready notification sent for ${order.orderNumber}`;
+                }
+                break;
+
+              case 'approved':
+                // Determine revision number from previous status
+                const revisionNumber = currentStatus.includes('rev') ? parseInt(currentStatus.split('rev')[1]) : undefined;
+                await emailService.sendProofApprovedEmail(recipientEmail, {
+                  orderNumber: order.orderNumber,
+                  practiceName: order.practice?.name || 'Your Practice',
+                  revisionNumber: revisionNumber
+                });
+                emailSent = true;
+                emailType = 'proof_approved';
+                subject = `Proof Approved${revisionNumber ? ` (Revision ${revisionNumber})` : ''} - ${order.orderNumber} | PatientLetterHub`;
+                content = `Proof approved notification sent for ${order.orderNumber}`;
+                break;
+
+              case 'production-complete':
+                await emailService.sendOrderCompletedEmail(recipientEmail, {
+                  orderNumber: order.orderNumber,
+                  practiceName: order.practice?.name || 'Your Practice',
+                  completionDate: new Date().toLocaleDateString(),
+                  trackingNumber: undefined // Will be added when shipped
+                });
+                emailSent = true;
+                emailType = 'order_completed';
+                subject = `Order Completed - ${order.orderNumber} | PatientLetterHub`;
+                content = `Order completed notification sent for ${order.orderNumber}`;
+                break;
+
+              case 'shipped':
+                await emailService.sendOrderMailedEmail(recipientEmail, {
+                  orderNumber: order.orderNumber,
+                  practiceName: order.practice?.name || 'Your Practice',
+                  mailingDate: new Date().toLocaleDateString(),
+                  trackingNumber: undefined, // Will be added when available
+                  estimatedDelivery: undefined // Will be calculated
+                });
+                emailSent = true;
+                emailType = 'order_mailed';
+                subject = `Order Mailed - ${order.orderNumber} | PatientLetterHub`;
+                content = `Order mailed notification sent for ${order.orderNumber}`;
+                break;
+
+              case 'completed':
+                await emailService.sendOrderThankYouEmail(recipientEmail, {
+                  orderNumber: order.orderNumber,
+                  practiceName: order.practice?.name || 'Your Practice',
+                  completionDate: new Date().toLocaleDateString()
+                });
+                emailSent = true;
+                emailType = 'order_thank_you';
+                subject = `Thank You - ${order.orderNumber} | PatientLetterHub`;
+                content = `Order thank you email sent for ${order.orderNumber}`;
+                break;
+
+              default:
+                // For other status changes, send a generic status update email
+                await emailService.sendStatusUpdateEmail(
+                  recipientEmail,
+                  order.orderNumber,
+                  currentStatus,
+                  newStatus,
+                  comments
+                );
+                emailSent = true;
+                break;
+            }
 
             // Create email notification record
-            await tx.emailNotifications.create({
-              data: {
-                orderId: orderId,
-                userId: order.userId,
-                practiceId: order.practiceId,
-                recipientEmail,
-                emailType: 'status_change',
-                subject: `Order Status Updated - ${order.orderNumber}`,
-                content: `Your order ${order.orderNumber} status has been updated from "${currentStatus}" to "${newStatus}". ${comments ? `Comments: ${comments}` : ''}`,
-                status: 'sent',
-                metadata: JSON.stringify({
-                  sentBy: 'system',
-                  sentAt: new Date().toISOString(),
-                  transitionDescription: transition.description
-                })
-              }
-            });
+            if (emailSent) {
+              await tx.emailNotifications.create({
+                data: {
+                  orderId: orderId,
+                  userId: order.userId,
+                  practiceId: order.practiceId,
+                  recipientEmail,
+                  emailType,
+                  subject,
+                  content,
+                  status: 'sent',
+                  metadata: JSON.stringify({
+                    sentBy: 'system',
+                    sentAt: new Date().toISOString(),
+                    transitionDescription: transition.description,
+                    fromStatus: currentStatus,
+                    toStatus: newStatus
+                  })
+                }
+              });
+            }
           }
         } catch (emailError: any) {
           console.error("Failed to send status change notification:", emailError);
@@ -159,7 +280,9 @@ export async function POST(
               metadata: JSON.stringify({
                 sentBy: 'system',
                 attemptedAt: new Date().toISOString(),
-                error: emailError.message
+                error: emailError.message,
+                fromStatus: currentStatus,
+                toStatus: newStatus
               })
             }
           });
