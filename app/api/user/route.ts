@@ -41,7 +41,7 @@ export async function PUT(request: Request) {
   try {
     console.log("🔍 PUT /api/user called");
     
-    const user = await getCurrentUser();
+    let user = await getCurrentUser();
     console.log("🔍 getCurrentUser result:", user ? "User found" : "User not found");
     
     if (!user) {
