@@ -15,7 +15,7 @@ Create or update your `.env.local` file with these variables:
 SMTP_HOST=smtp.office365.com
 SMTP_PORT=587
 SMTP_USER=davids@patientletterhub.com
-SMTP_PASS=Health2025#Data$Secure!
+SMTP_PASS=YOUR_SMTP_PASSWORD_HERE
 SMTP_FROM=noreply@patientletterhub.com
 ```
 
@@ -86,7 +86,7 @@ const transporter = nodemailer.createTransporter({
   secure: false,
   auth: {
     user: 'davids@patientletterhub.com', // Primary account for auth
-    pass: 'Health2025#Data$Secure!',     // App password
+    pass: 'YOUR_SMTP_PASSWORD_HERE',     // App password
   },
   tls: {
     ciphers: 'SSLv3',

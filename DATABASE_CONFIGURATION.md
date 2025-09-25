@@ -12,16 +12,16 @@ Both development and production environments now use the **same Azure PostgreSQL
 
 ## Connection String
 ```
-DATABASE_URL="postgresql://plh_admin:Maryland2%21%40pLh3@patientletterhub-dev-postgres.postgres.database.azure.com:5432/postgres?sslmode=require"
+DATABASE_URL="postgresql://username:password@hostname:5432/database?sslmode=require"
 ```
 
-**Note**: Password encoding: `Maryland2!@pLh3` → `Maryland2%21%40pLh3`
+**Note**: Password encoding: `password!@symbols` → `password%21%40symbols`
 
 ## Environment Configuration
 
 ### Local Development (.env.local)
 ```bash
-DATABASE_URL="postgresql://plh_admin:Maryland2%21%40pLh3@patientletterhub-dev-postgres.postgres.database.azure.com:5432/postgres?sslmode=require"
+DATABASE_URL="postgresql://username:password@hostname:5432/database?sslmode=require"
 NEXT_PUBLIC_APP_URL=https://www.patientletterhub.com
 NEXT_PUBLIC_USE_CLERK=true
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_ZnJhbmstbWFuYXRlZS03Ni5jbGVyay5hY2NvdW50cy5kZXYk
