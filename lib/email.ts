@@ -53,38 +53,6 @@ export class EmailService {
     }
   }
 
-  async sendOrderConfirmationEmail(email: string, orderNumber: string) {
-    try {
-      const mailOptions = {
-        from: "customerservice@patientletterhub.com",
-        to: email,
-        subject: `Order Confirmation - ${orderNumber} | Patient Letter Hub`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #2563eb;">Order Confirmed!</h1>
-            <p>Your order <strong>${orderNumber}</strong> has been successfully confirmed and is now being processed.</p>
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <h3 style="margin-top: 0; color: #374151;">Order Details</h3>
-              <p><strong>Order Number:</strong> ${orderNumber}</p>
-              <p><strong>Status:</strong> Confirmed</p>
-              <p><strong>Confirmation Date:</strong> ${new Date().toLocaleDateString()}</p>
-            </div>
-            <p>Our team will begin processing your order and you will receive updates as we progress through each stage.</p>
-            <p>Thank you for choosing Patient Letter Hub for your healthcare communication needs!</p>
-            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-            <p style="color: #6b7280; font-size: 12px;">This is an automated confirmation email. Please do not reply to this message.</p>
-          </div>
-        `,
-      };
-
-      const info = await transporter.sendMail(mailOptions);
-      console.log("Order confirmation email sent:", info.messageId);
-      return info;
-    } catch (error) {
-      console.error("Failed to send order confirmation email:", error);
-      throw error;
-    }
-  }
 
   async sendCustomEmail(email: string, subject: string, content: string) {
     try {
@@ -441,10 +409,11 @@ export class EmailService {
     orderNumber: string;
     practiceName: string;
     proofId: string;
+    orderId: string;
     revisionNumber?: number;
   }) {
     try {
-      const proofLink = `${this.baseUrl}/orders/${orderData.orderNumber}/proof-review?proofId=${orderData.proofId}`;
+      const proofLink = `${this.baseUrl}/orders/${orderData.orderId}/proof-review?proofId=${orderData.proofId}`;
       const revisionText = orderData.revisionNumber ? ` (Revision ${orderData.revisionNumber})` : '';
       
       const mailOptions = {

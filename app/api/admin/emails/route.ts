@@ -97,10 +97,15 @@ export async function POST(req: NextRequest) {
               });
               console.log("✅ Order confirmation email sent successfully to:", email);
 
+              // Find the user by email to get their ID
+              const recipientUser = await prisma.user.findUnique({
+                where: { email: email }
+              });
+
               // Create database record for order confirmation email
               const emailRecord = await prisma.emailNotifications.create({
                 data: {
-                  userId: user.id,
+                  userId: recipientUser?.id || user.id,
                   recipientEmail: email,
                   emailType: 'order_confirmation',
                   subject: `Order Confirmation - ${orderNumber} | PatientLetterHub`,

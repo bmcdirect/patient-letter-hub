@@ -164,6 +164,7 @@ export async function POST(
                     orderNumber: order.orderNumber,
                     practiceName: order.practice?.name || 'Your Practice',
                     proofId: latestProof.id,
+                    orderId: order.id,
                     revisionNumber: revisionNumber
                   });
                   emailSent = true;
