@@ -242,9 +242,10 @@ export default function ProfilePage() {
             });
           }
           
-          setTimeout(() => {
-            window.location.href = "/dashboard";
-          }, 2000); // Give user 2 seconds to see the success message
+          // Auto-redirect disabled for debugging
+          // setTimeout(() => {
+          //   window.location.href = "/dashboard";
+          // }, 2000); // Give user 2 seconds to see the success message
         }
       } else {
         const errorText = await response.text();
