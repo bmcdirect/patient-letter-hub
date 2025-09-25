@@ -210,12 +210,36 @@ export default function ProfilePage() {
             });
             
             if (welcomeResponse.ok) {
-              console.log("✅ Welcome email sent successfully");
+              const welcomeResult = await welcomeResponse.json();
+              console.log("✅ Welcome email sent successfully:", welcomeResult);
             } else {
-              console.error("❌ Failed to send welcome email");
+              const errorText = await welcomeResponse.text();
+              console.error("❌ Failed to send welcome email:", {
+                status: welcomeResponse.status,
+                statusText: welcomeResponse.statusText,
+                error: errorText
+              });
+              
+              // Show error to user
+              toast({
+                title: "Welcome Email Issue",
+                description: `Email sending failed: ${welcomeResponse.status} ${errorText}`,
+                variant: "destructive",
+              });
             }
           } catch (emailError) {
-            console.error("❌ Error sending welcome email:", emailError);
+            console.error("❌ Error sending welcome email:", {
+              error: emailError,
+              message: emailError.message,
+              stack: emailError.stack
+            });
+            
+            // Show error to user
+            toast({
+              title: "Welcome Email Error",
+              description: `Email sending error: ${emailError.message}`,
+              variant: "destructive",
+            });
           }
           
           setTimeout(() => {

@@ -56,13 +56,18 @@ export async function POST(req: NextRequest) {
 
     // Handle welcome email type
     if (emailType === "welcome") {
+      console.log("🎉 Welcome email request received:", { email, userName });
+      
       if (!email || !userName) {
+        console.error("❌ Missing required fields for welcome email:", { email, userName });
         return NextResponse.json({ error: "Missing email or userName for welcome email" }, { status: 400 });
       }
 
       try {
+        console.log("📧 Attempting to send welcome email...");
         const emailService = new EmailService();
         await emailService.sendWelcomeEmail(email, userName);
+        console.log("✅ Welcome email sent successfully to:", email);
 
         // Create database record for welcome email
         const emailRecord = await prisma.emailNotifications.create({
@@ -88,11 +93,18 @@ export async function POST(req: NextRequest) {
         });
 
       } catch (emailError: any) {
-        console.error('Failed to send welcome email:', emailError);
+        console.error('❌ Failed to send welcome email:', {
+          error: emailError,
+          message: emailError.message,
+          stack: emailError.stack,
+          email: email,
+          userName: userName
+        });
         return NextResponse.json({ 
           success: false, 
           error: "Failed to send welcome email",
-          message: emailError.message || "Welcome email delivery failed"
+          message: emailError.message || "Welcome email delivery failed",
+          details: emailError.toString()
         }, { status: 500 });
       }
     }
