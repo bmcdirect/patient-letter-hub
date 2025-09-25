@@ -11,7 +11,6 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-  CommandTrigger,
 } from "@/components/ui/command";
 import {
   Popover,

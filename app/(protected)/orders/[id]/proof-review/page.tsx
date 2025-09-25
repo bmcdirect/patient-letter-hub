@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, FileText, Calendar, User } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 
 interface ProofData {
   id: string;
@@ -30,6 +30,7 @@ interface OrderData {
 export default function ProofReviewPage() {
   const params = useParams();
   const orderId = params.id as string;
+  const { toast } = useToast();
   
   const [order, setOrder] = useState<OrderData | null>(null);
   const [proof, setProof] = useState<ProofData | null>(null);
