@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, XCircle, FileText, Calendar, User } from "lucide-react";
+import { CheckCircle, XCircle, FileText, Calendar, User, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 interface ProofData {
@@ -257,21 +257,101 @@ export default function ProofReviewPage() {
         </CardContent>
       </Card>
 
-      {/* Proof Preview Placeholder */}
+      {/* Proof Preview */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Proof Preview</CardTitle>
           <CardDescription>
-            Your patient letter proof will be displayed here. For now, this is a placeholder.
+            Review your patient letter proof carefully before making a decision.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 mb-2">Proof Preview</p>
-            <p className="text-sm text-gray-400">
-              In a full implementation, this would show the actual proof document
-            </p>
+          <div className="space-y-4">
+            {/* Proof Information */}
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-blue-900">Proof #{proof.proofRound}</h4>
+                  <p className="text-sm text-blue-700">
+                    {proof.fileName} • {Math.round(proof.fileSize / 1024)} KB
+                  </p>
+                  <p className="text-sm text-blue-600">
+                    Uploaded: {new Date(proof.uploadedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Badge variant="outline" className="text-blue-600 border-blue-300">
+                    {proof.status}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Proof Display */}
+            <div className="border rounded-lg overflow-hidden">
+              {proof.fileType?.startsWith('image/') ? (
+                <div className="p-4 text-center">
+                  <img 
+                    src={`/api/orders/${orderId}/proofs/${proof.id}/download`}
+                    alt={`Proof #${proof.proofRound}`}
+                    className="max-w-full max-h-96 mx-auto rounded shadow-sm"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.nextElementSibling.style.display = 'block';
+                    }}
+                  />
+                  <div style={{ display: 'none' }} className="p-8 text-gray-500">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <p>Image preview not available</p>
+                    <p className="text-sm">Please download the file to view</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-8 text-center text-gray-500">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <p className="mb-2">Document Preview</p>
+                  <p className="text-sm mb-4">
+                    This proof document cannot be previewed inline.
+                  </p>
+                  <div className="flex justify-center space-x-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => window.open(`/api/orders/${orderId}/proofs/${proof.id}/download`, '_blank')}
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      View Document
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = `/api/orders/${orderId}/proofs/${proof.id}/download`;
+                        link.download = proof.fileName || `proof-${proof.proofRound}.pdf`;
+                        link.click();
+                      }}
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      Download
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Important Notice */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+                <div>
+                  <h4 className="font-semibold text-yellow-800 mb-1">Important</h4>
+                  <p className="text-sm text-yellow-700">
+                    Please review all details carefully before approving. Once approved, 
+                    this proof will proceed to production. If you need changes, 
+                    please request them with specific comments.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
