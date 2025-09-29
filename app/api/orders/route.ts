@@ -2,11 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { EmailService } from "@/lib/email";
-// File handling imports removed for Vercel serverless compatibility
-// import { writeFile, mkdir } from "fs/promises";
-// import { join } from "path";
-// import { existsSync } from "fs";
-// import { parse as parseCSV } from 'csv-parse/sync';
 
 export async function GET(req: NextRequest) {
   try {

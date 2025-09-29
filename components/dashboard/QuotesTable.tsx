@@ -58,7 +58,6 @@ import {
 } from "@/components/ui/table";
 
 // Types
-// import type { Quote } from "@/types"; // TODO: Adapt to new data model
 
 interface QuotesTableProps {
   quotes: any[]; // TODO: Replace with correct type
