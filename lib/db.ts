@@ -1,5 +1,4 @@
 import { PrismaClient } from "@prisma/client";
-// NOTE: Removed `import "server-only";` to avoid leaking into pages/ directory builds.
 
 declare global {
   // eslint-disable-next-line no-var
