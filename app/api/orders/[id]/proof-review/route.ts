@@ -8,61 +8,28 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log('🔍 PROOF REVIEW API - DETAILED FLOW TRACE');
-    console.log('==========================================');
-    console.log('   Request URL:', req.url);
-    console.log('   Order ID from params:', params.id);
-    console.log('   Full URL:', req.url);
-    
     const { searchParams } = new URL(req.url);
     const proofId = searchParams.get('proofId');
-    console.log('   Proof ID from URL:', proofId);
-    console.log('   All URL params:', Object.fromEntries(searchParams.entries()));
     
     const { userId } = await auth();
     
     if (!userId) {
-      console.log('❌ PROOF REVIEW API - No Clerk user ID');
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log('✅ PROOF REVIEW API - Clerk user ID:', userId);
-
-    // Get the user from our database
-    console.log('🔍 PROOF REVIEW API - Calling getCurrentUser()...');
     const user = await getCurrentUser();
     
     if (!user) {
-      console.log('❌ PROOF REVIEW API - User not found in database');
-      console.log('   This means getCurrentUser() returned null');
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    console.log('✅ PROOF REVIEW API - User found:', {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      practiceId: user.practiceId,
-      practiceName: user.practice?.name,
-      clerkId: user.clerkId
-    });
-
     const { id: orderId } = params;
-    console.log('🔍 PROOF REVIEW API - Processing request:');
-    console.log('   Order ID:', orderId);
-    console.log('   Proof ID:', proofId);
 
     if (!proofId) {
-      console.log('❌ PROOF REVIEW API - No proofId provided');
       return NextResponse.json({ error: "Proof ID is required" }, { status: 400 });
     }
 
     // Get the order with proof
-    console.log('🔍 PROOF REVIEW API - Querying database for order...');
-    console.log('   Query: orders.findUnique where id =', orderId);
-    console.log('   Include: user, practice, proofs where id =', proofId);
-    
     const order = await prisma.orders.findUnique({
       where: { id: orderId },
       include: { 
@@ -75,44 +42,12 @@ export async function GET(
       }
     });
 
-    console.log('🔍 PROOF REVIEW API - Database query result:');
-    console.log('   Order found:', !!order);
-    if (order) {
-      console.log('   Order details:', {
-        id: order.id,
-        orderNumber: order.orderNumber,
-        userId: order.userId,
-        practiceId: order.practiceId,
-        status: order.status,
-        proofsCount: order.proofs.length
-      });
-      console.log('   Order proofs:', order.proofs.map(p => ({
-        id: p.id,
-        proofRound: p.proofRound,
-        status: p.status,
-        fileName: p.fileName
-      })));
-    } else {
-      console.log('   Order not found in database');
-    }
-
     if (!order) {
-      console.log('❌ PROOF REVIEW API - Order not found');
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
     // Check permissions (user owns the order or is admin)
-    console.log('🔍 PROOF REVIEW API - Authorization check:');
-    console.log('   Order User ID:', order.userId);
-    console.log('   Current User ID:', user.id);
-    console.log('   User Role:', user.role);
-    console.log('   User owns order:', order.userId === user.id);
-    console.log('   User is admin:', user.role === "ADMIN");
-    console.log('   Authorization will pass:', (order.userId === user.id) || (user.role === "ADMIN"));
-
     if (order.userId !== user.id && user.role !== "ADMIN") {
-      console.log('❌ PROOF REVIEW API - Authorization failed');
-      console.log('   User does not own order and is not admin');
       return NextResponse.json({ 
         error: "Unauthorized", 
         details: {
@@ -124,22 +59,9 @@ export async function GET(
       }, { status: 403 });
     }
 
-    console.log('✅ PROOF REVIEW API - Authorization passed');
-
     const proof = order.proofs[0];
-    console.log('🔍 PROOF REVIEW API - Proof extraction:');
-    console.log('   Proofs array length:', order.proofs.length);
-    console.log('   First proof:', proof ? {
-      id: proof.id,
-      proofRound: proof.proofRound,
-      status: proof.status,
-      fileName: proof.fileName
-    } : 'null');
 
     if (!proof) {
-      console.log('❌ PROOF REVIEW API - Proof not found');
-      console.log('   This means the proofId does not match any proof for this order');
-      console.log('   Available proofs for this order:', order.proofs.map(p => p.id));
       return NextResponse.json({ 
         error: "Proof not found",
         details: {
@@ -149,14 +71,6 @@ export async function GET(
         }
       }, { status: 404 });
     }
-
-    console.log('✅ PROOF REVIEW API - Proof found:', {
-      id: proof.id,
-      proofRound: proof.proofRound,
-      status: proof.status,
-      fileName: proof.fileName,
-      uploadedAt: proof.uploadedAt
-    });
 
     // Return proof data (excluding sensitive file data)
     const responseData = {
@@ -177,19 +91,13 @@ export async function GET(
       }
     };
 
-    console.log('✅ PROOF REVIEW API - Returning success response');
-    console.log('   Response data:', responseData);
-
     return NextResponse.json(responseData);
 
   } catch (err) {
-    console.error('❌ PROOF REVIEW API - Unexpected error:', err);
-    console.error('   Error message:', err.message);
-    console.error('   Error stack:', err.stack);
+    console.error("Error fetching proof:", err);
     return NextResponse.json({ 
       error: "Failed to fetch proof",
-      details: err.message,
-      stack: err.stack
+      details: err.message
     }, { status: 500 });
   }
 }
