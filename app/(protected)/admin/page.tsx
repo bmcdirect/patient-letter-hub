@@ -167,7 +167,7 @@ export default function AdminDashboardPage() {
     // Add multiple cache-busting parameters to prevent browser caching
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(7);
-    const res = await fetch(`/api/admin/orders?t=${timestamp}&r=${random}&cb=${Date.now()}`);
+    const res = await fetch(`/api/orders?t=${timestamp}&r=${random}&cb=${Date.now()}`);
     const data = await res.json();
     setOrders(data.orders || []);
     setOrdersLoading(false);
@@ -319,7 +319,7 @@ export default function AdminDashboardPage() {
       // Refresh orders to get updated data with cache-busting
       const timestamp = Date.now();
       const random = Math.random().toString(36).substring(7);
-      const res = await fetch(`/api/admin/orders?t=${timestamp}&r=${random}&cb=${Date.now()}`);
+      const res = await fetch(`/api/orders?t=${timestamp}&r=${random}&cb=${Date.now()}`);
       const data = await res.json();
       setOrders(data.orders || []);
 
@@ -643,7 +643,7 @@ export default function AdminDashboardPage() {
       }
 
       // Refresh orders
-      const res = await fetch("/api/admin/orders");
+      const res = await fetch("/api/orders");
       const data = await res.json();
       setOrders(data.orders || []);
       
@@ -865,7 +865,7 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       setInvoiceSuccess(true);
       // Refresh orders to show invoice status
-      const ordersRes = await fetch("/api/admin/orders");
+      const ordersRes = await fetch("/api/orders");
       const ordersData = await ordersRes.json();
       setOrders(ordersData.orders || []);
     } catch (err) {
