@@ -153,7 +153,7 @@ export default function AdminDashboardPage() {
     async function fetchQuotes() {
       setQuotesLoading(true);
       // Add cache-busting parameter to prevent browser caching
-      const res = await fetch(`/api/admin/quotes?t=${Date.now()}`);
+      const res = await fetch(`/api/quotes?t=${Date.now()}`);
       const data = await res.json();
       setQuotes(data.quotes || []);
       setQuotesLoading(false);
