@@ -30,24 +30,6 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  // Check profile completion for authenticated users accessing dashboard
-  if (userId && isProtected(req) && !isProfilePage(req)) {
-    try {
-      const user = await prisma.user.findUnique({
-        where: { clerkId: userId },
-        include: { practice: true }
-      });
-
-      // If user exists but has no practice (incomplete profile), redirect to profile
-      if (user && !user.practiceId) {
-        return NextResponse.redirect(new URL("/dashboard/profile", req.url));
-      }
-    } catch (error) {
-      console.error("Error checking profile completion:", error);
-      // Continue if there's an error - don't block user access
-    }
-  }
-
   return NextResponse.next();
 });
 

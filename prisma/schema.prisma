@@ -341,6 +341,9 @@ enum ProofStatus {
   ESCALATED
 }
 
+// ============================================
+// AUDIT LOGGING SYSTEM - HIPAA Tier 1.5
+// ============================================
 enum AuditAction {
   CREATE
   READ
