@@ -20,6 +20,7 @@
     "email": "email dev --dir emails --port 3333",
     "seed": "prisma db seed --preview-feature",
     "db:seed": "tsx prisma/seed.ts",
+    "seed:dev": "tsx prisma/seed-dev.ts",
     "migrate-clerk-users": "ts-node scripts/migrate-clerk-users.ts",
     "studio": "prisma studio",
     "test-smtp": "ts-node scripts/test-smtp.ts"
@@ -131,6 +132,7 @@
     "remark-gfm": "^4.0.0",
     "tailwindcss": "^3.4.6",
     "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
     "typescript": "^5.5.3",
     "unist-util-visit": "^5.0.0"
   }

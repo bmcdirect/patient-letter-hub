@@ -22,14 +22,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    console.log('🔍 Orders API - Current user:', {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      practiceId: user.practiceId,
-      practiceName: user.practice?.name
-    });
-
     let orders;
     
     if (user.role === 'ADMIN') {
@@ -46,7 +38,6 @@ export async function GET(req: NextRequest) {
           createdAt: "desc",
         },
       });
-      console.log('🔍 Orders API - Admin user, returning all orders:', orders.length);
     } else {
       // Regular user only sees orders from their practice
       if (user.practiceId) {
@@ -63,18 +54,10 @@ export async function GET(req: NextRequest) {
             createdAt: "desc",
           },
         });
-        console.log('🔍 Orders API - Regular user, returning practice orders:', orders.length);
       } else {
         orders = [];
-        console.log('🔍 Orders API - User has no practice, returning empty');
       }
     }
-
-    // Debug logging
-    console.log('🔍 Orders API - Found orders:', {
-      count: orders.length,
-      orderIds: orders.map(o => ({ id: o.id, orderNumber: o.orderNumber, status: o.status }))
-    });
 
     return NextResponse.json({ orders });
   } catch (error) {
@@ -105,7 +88,6 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     
     // Debug: Log all form data keys
-    console.log('🔍 Orders API - Form data keys:', Array.from(formData.keys()));
     
     // Extract form fields - only use fields that exist in the current Orders model
     const practiceId = formData.get('practiceId') as string;
@@ -126,13 +108,10 @@ export async function POST(req: NextRequest) {
           const parsedDate = new Date(cleanDate);
           if (!isNaN(parsedDate.getTime())) {
             preferredMailDate = parsedDate;
-            console.log('✅ Orders API - Valid date parsed:', preferredMailDate);
-          } else {
-            console.log('⚠️ Orders API - Invalid date format, ignoring:', preferredMailDateRaw);
           }
         }
       } catch (dateError) {
-        console.log('⚠️ Orders API - Date parsing error, ignoring:', preferredMailDateRaw, dateError);
+        // Invalid date format, ignore
       }
     }
     
@@ -145,26 +124,8 @@ export async function POST(req: NextRequest) {
     const costCenter = formData.get('costCenter') as string;
     const actualRecipients = parseInt(formData.get('actualRecipients') as string) || 0;
 
-    console.log('🔍 Orders API - Creating order with data:', {
-      practiceId,
-      subject,
-      totalCost,
-      status,
-      colorMode,
-      preferredMailDate,
-      fromQuoteId,
-      dataCleansing,
-      ncoaUpdate,
-      firstClassPostage,
-      notes,
-      purchaseOrder,
-      costCenter,
-      actualRecipients
-    });
-
     // Validate required fields
     if (!practiceId || practiceId.trim() === '') {
-      console.log('❌ Orders API - Practice ID validation failed:', { practiceId, isEmpty: !practiceId, isBlank: practiceId?.trim() === '' });
       return NextResponse.json({ error: "Practice ID is required" }, { status: 400 });
     }
 

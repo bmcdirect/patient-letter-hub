@@ -41,70 +41,40 @@ export default function ProofReviewPage() {
 
   useEffect(() => {
     const fetchProof = async () => {
-      try {
-        console.log('🔍 PROOF REVIEW PAGE - Starting fetchProof');
-        console.log('   Current URL:', window.location.href);
-        console.log('   Order ID from params:', orderId);
-        
-        const urlParams = new URLSearchParams(window.location.search);
-        const proofId = urlParams.get('proofId');
-        console.log('   Proof ID from URL:', proofId);
-        console.log('   All URL params:', Object.fromEntries(urlParams.entries()));
-        
-        if (!proofId) {
-          console.log('❌ PROOF REVIEW PAGE - No proofId in URL');
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          const proofId = urlParams.get('proofId');
+          
+          if (!proofId) {
+            toast({
+              title: "Error",
+              description: "Proof ID is required",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          const response = await fetch(`/api/orders/${orderId}/proof-review?proofId=${proofId}`);
+          
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch proof');
+          }
+
+          const data = await response.json();
+          setOrder(data.order);
+          setProof(data.proof);
+        } catch (error: any) {
           toast({
             title: "Error",
-            description: "Proof ID is required",
+            description: error.message || "Failed to load proof",
             variant: "destructive",
           });
-          return;
+        } finally {
+          setLoading(false);
         }
-
-        console.log('🔍 PROOF REVIEW PAGE - Making API call...');
-        console.log('   API URL:', `/api/orders/${orderId}/proof-review?proofId=${proofId}`);
-        
-        const response = await fetch(`/api/orders/${orderId}/proof-review?proofId=${proofId}`);
-        
-        console.log('🔍 PROOF REVIEW PAGE - API response received');
-        console.log('   Response status:', response.status);
-        console.log('   Response ok:', response.ok);
-        console.log('   Response headers:', Object.fromEntries(response.headers.entries()));
-        
-        if (!response.ok) {
-          const error = await response.json();
-          console.log('❌ PROOF REVIEW PAGE - API call failed');
-          console.log('   Error data:', error);
-          throw new Error(error.error || 'Failed to fetch proof');
-        }
-
-        const data = await response.json();
-        console.log('✅ PROOF REVIEW PAGE - API call successful');
-        console.log('   Response data:', data);
-        console.log('   Order data:', data.order);
-        console.log('   Proof data:', data.proof);
-        
-        setOrder(data.order);
-        setProof(data.proof);
-      } catch (error: any) {
-        console.error('❌ PROOF REVIEW PAGE - Unexpected error:', error);
-        console.error('   Error message:', error.message);
-        console.error('   Error stack:', error.stack);
-        toast({
-          title: "Error",
-          description: error.message || "Failed to load proof",
-          variant: "destructive",
-        });
-      } finally {
-        console.log('🔍 PROOF REVIEW PAGE - Setting loading to false');
-        setLoading(false);
-      }
     };
 
-    console.log('🔍 PROOF REVIEW PAGE - useEffect triggered');
-    console.log('   orderId:', orderId);
-    console.log('   window.location.href:', window.location.href);
-    
     fetchProof();
   }, [orderId]);
 

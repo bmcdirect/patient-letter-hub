@@ -59,7 +59,7 @@ import {
 // Types
 
 interface QuotesTableProps {
-  quotes: any[]; // TODO: Replace with correct type
+  quotes: any[];
   isLoading: boolean;
   onRefresh: () => void;
   onConvert: (quoteId: string) => void;

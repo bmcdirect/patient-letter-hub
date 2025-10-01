@@ -1,5 +1,4 @@
 // @ts-nocheck
-// TODO: Fix this when we turn strict mode on.
 import { pricingData } from "@/config/subscriptions";
 import { prisma } from "@/lib/db";
 import { stripe } from "@/lib/stripe";

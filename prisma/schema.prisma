@@ -116,19 +116,19 @@ model Orders {
   templateType        String?
   colorMode           String?
   cost                Float?
-  purchaseOrder       String?
-  costCenter          String?
-  actualRecipients    Int?
-  dataCleansing       Boolean              @default(false)
-  ncoaUpdate          Boolean              @default(false)
-  firstClassPostage   Boolean              @default(false)
-  notes               String?
   createdAt           DateTime             @default(now()) @map("created_at")
   updatedAt           DateTime             @default(now()) @map("updated_at")
   fulfilledAt         DateTime?
   preferredMailDate   DateTime?
   productionEndDate   DateTime?
   productionStartDate DateTime?
+  actualRecipients    Int?
+  costCenter          String?
+  dataCleansing       Boolean              @default(false)
+  firstClassPostage   Boolean              @default(false)
+  ncoaUpdate          Boolean              @default(false)
+  notes               String?
+  purchaseOrder       String?
   emails              EmailNotifications[] @relation("OrderEmails")
   invoices            Invoices[]           @relation("OrderInvoices")
   approvals           OrderApprovals[]
@@ -146,10 +146,10 @@ model OrderFiles {
   orderId    String
   fileName   String
   fileType   String?
-  fileSize   Int?
-  fileData   Bytes?   // BYTEA column for binary file data
   uploadedBy String
   createdAt  DateTime @default(now()) @map("created_at")
+  fileData   Bytes?
+  fileSize   Int?
   order      Orders   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   uploader   User     @relation("UserUploadedFiles", fields: [uploadedBy], references: [id], onDelete: Cascade)
 
@@ -183,10 +183,6 @@ model Proof {
   proofRound       Int
   fileUrl          String?
   filePath         String?
-  fileName         String?
-  fileType         String?
-  fileSize         Int?
-  fileData         Bytes?          // BYTEA column for binary file data
   status           ProofStatus     @default(PENDING)
   userFeedback     String?
   adminNotes       String?
@@ -194,6 +190,10 @@ model Proof {
   uploadedAt       DateTime        @default(now())
   respondedAt      DateTime?
   escalationReason String?
+  fileData         Bytes?
+  fileName         String?
+  fileSize         Int?
+  fileType         String?
   approval         OrderApprovals?
   order            Orders          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   uploader         User            @relation("UserProofs", fields: [uploadedBy], references: [id], onDelete: Cascade)
@@ -302,4 +302,96 @@ enum ProofStatus {
   APPROVED
   CHANGES_REQUESTED
   ESCALATED
+}
+
+// ============================================
+// AUDIT LOGGING SYSTEM - HIPAA Tier 1.5
+// ============================================
+
+enum AuditAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  UPLOAD
+  DOWNLOAD
+  APPROVE
+  REJECT
+  ACCESS
+  EXPORT
+}
+
+enum AuditResource {
+  ORDER
+  ORDER_FILE
+  PROOF
+  USER
+  PRACTICE
+  EMAIL
+  QUOTE
+  SESSION
+  SYSTEM
+}
+
+enum AuditSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model AuditLog {
+  id                    String          @id @default(cuid())
+  
+  // Who performed the action
+  userId                String?
+  userEmail             String?
+  userRole              UserRole?
+  userName              String?
+  
+  // What was done
+  action                AuditAction
+  resource              AuditResource
+  resourceId            String?
+  description           String
+  
+  // Context
+  practiceId            String?
+  ipAddress             String?
+  userAgent             String?
+  
+  // Technical details
+  method                String?
+  path                  String?
+  statusCode            Int?
+  
+  // Data changes (for UPDATE actions)
+  beforeData            Json?
+  afterData             Json?
+  
+  // Sensitive data flags
+  containsPatientData   Boolean         @default(false)
+  containsPHI           Boolean         @default(false)
+  
+  // Security
+  severity              AuditSeverity   @default(LOW)
+  success               Boolean         @default(true)
+  errorMessage          String?
+  
+  // Timestamps
+  timestamp             DateTime        @default(now())
+  retainUntil           DateTime?
+  
+  // Indexes for performance
+  @@index([userId, timestamp])
+  @@index([practiceId, timestamp])
+  @@index([action, resource])
+  @@index([timestamp])
+  @@index([containsPHI])
+  @@index([severity, timestamp])
+  @@index([retainUntil])
+  @@index([severity, success, timestamp])
+  @@map("audit_logs")
 }
