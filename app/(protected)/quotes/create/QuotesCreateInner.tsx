@@ -217,8 +217,25 @@ export default function QuotesCreateInner() {
       if (!res.ok) throw new Error(isEditing ? "Failed to update quote" : "Failed to create quote");
       toast({ title: isEditing ? "Quote updated!" : "Quote created!", description: isEditing ? "Your quote has been updated." : "Your quote has been created." });
       router.push("/quotes");
-    } catch (err) {
-      toast({ title: "Error", description: isEditing ? "Failed to update quote." : "Failed to create quote.", variant: "destructive" });
+    } catch (err: any) {
+      console.error("Quote creation error:", err);
+      
+      // Handle profile completion error
+      if (err.message && err.message.includes("Profile incomplete")) {
+        toast({ 
+          title: "Profile Setup Required", 
+          description: "Please complete your profile setup before creating quotes.",
+          variant: "destructive" 
+        });
+        router.push("/dashboard/profile");
+        return;
+      }
+      
+      toast({ 
+        title: "Error", 
+        description: err.message || (isEditing ? "Failed to update quote." : "Failed to create quote."), 
+        variant: "destructive" 
+      });
     }
   };
 

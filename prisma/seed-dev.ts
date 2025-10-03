@@ -166,11 +166,31 @@ async function main() {
     
     const users = [
       {
+        name: 'Super Admin',
+        email: 'superadmin@masscomminc.com',
+        clerkId: 'user_32VrjrZXuTCOfQjs9BEvkRcYGux',
+        role: UserRole.ADMIN,
+        practiceId: null, // Super user - no practice assignment
+        title: 'System Administrator',
+        npi1: '1234567890',
+        taxonomyCode: '122300000X',
+      },
+      {
+        name: 'Super Admin PLH',
+        email: 'superadmin@patientletterhub.com',
+        clerkId: 'user_331Upywb1e4bTSvPTW1ULTPr02J',
+        role: UserRole.ADMIN,
+        practiceId: null, // Super user - no practice assignment
+        title: 'System Administrator',
+        npi1: '9876543210',
+        taxonomyCode: '122300000X',
+      },
+      {
         name: 'Admin User One',
         email: 'admin1@test.com',
         role: UserRole.ADMIN,
-        practiceId: createdPractices[0].id,
-        title: 'Practice Administrator',
+        practiceId: null, // Super user - no practice assignment
+        title: 'System Administrator',
         npi1: '1234567890',
         taxonomyCode: '122300000X',
       },

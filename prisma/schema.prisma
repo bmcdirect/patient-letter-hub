@@ -292,6 +292,43 @@ model WebhookEvent {
   processedAt DateTime @default(now())
 }
 
+model AuditLog {
+  id                  String        @id @default(cuid())
+  userId              String?
+  userEmail           String?
+  userRole            UserRole?
+  userName            String?
+  action              AuditAction
+  resource            AuditResource
+  resourceId          String?
+  description         String
+  practiceId          String?
+  ipAddress           String?
+  userAgent           String?
+  method              String?
+  path                String?
+  statusCode          Int?
+  beforeData          Json?
+  afterData           Json?
+  containsPatientData Boolean       @default(false)
+  containsPHI         Boolean       @default(false)
+  severity            AuditSeverity @default(LOW)
+  success             Boolean       @default(true)
+  errorMessage        String?
+  timestamp           DateTime      @default(now())
+  retainUntil         DateTime?
+
+  @@index([userId, timestamp])
+  @@index([practiceId, timestamp])
+  @@index([action, resource])
+  @@index([timestamp])
+  @@index([containsPHI])
+  @@index([severity, timestamp])
+  @@index([retainUntil])
+  @@index([severity, success, timestamp])
+  @@map("audit_logs")
+}
+
 enum UserRole {
   ADMIN
   USER
@@ -303,10 +340,6 @@ enum ProofStatus {
   CHANGES_REQUESTED
   ESCALATED
 }
-
-// ============================================
-// AUDIT LOGGING SYSTEM - HIPAA Tier 1.5
-// ============================================
 
 enum AuditAction {
   CREATE
@@ -340,58 +373,4 @@ enum AuditSeverity {
   MEDIUM
   HIGH
   CRITICAL
-}
-
-model AuditLog {
-  id                    String          @id @default(cuid())
-  
-  // Who performed the action
-  userId                String?
-  userEmail             String?
-  userRole              UserRole?
-  userName              String?
-  
-  // What was done
-  action                AuditAction
-  resource              AuditResource
-  resourceId            String?
-  description           String
-  
-  // Context
-  practiceId            String?
-  ipAddress             String?
-  userAgent             String?
-  
-  // Technical details
-  method                String?
-  path                  String?
-  statusCode            Int?
-  
-  // Data changes (for UPDATE actions)
-  beforeData            Json?
-  afterData             Json?
-  
-  // Sensitive data flags
-  containsPatientData   Boolean         @default(false)
-  containsPHI           Boolean         @default(false)
-  
-  // Security
-  severity              AuditSeverity   @default(LOW)
-  success               Boolean         @default(true)
-  errorMessage          String?
-  
-  // Timestamps
-  timestamp             DateTime        @default(now())
-  retainUntil           DateTime?
-  
-  // Indexes for performance
-  @@index([userId, timestamp])
-  @@index([practiceId, timestamp])
-  @@index([action, resource])
-  @@index([timestamp])
-  @@index([containsPHI])
-  @@index([severity, timestamp])
-  @@index([retainUntil])
-  @@index([severity, success, timestamp])
-  @@map("audit_logs")
 }

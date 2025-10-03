@@ -414,8 +414,25 @@ export default function OrdersCreateInner() {
           (isFromQuote ? `Quote converted to order ${order.orderNumber}` : "Order created!") 
       });
       router.push("/orders");
-    } catch (err) {
-      toast({ title: "Error", description: "Failed to create order.", variant: "destructive" });
+    } catch (err: any) {
+      console.error("Order creation error:", err);
+      
+      // Handle profile completion error
+      if (err.message && err.message.includes("Profile incomplete")) {
+        toast({ 
+          title: "Profile Setup Required", 
+          description: "Please complete your profile setup before creating orders.",
+          variant: "destructive" 
+        });
+        router.push("/dashboard/profile");
+        return;
+      }
+      
+      toast({ 
+        title: "Error", 
+        description: err.message || "Failed to create order.", 
+        variant: "destructive" 
+      });
     }
   };
 

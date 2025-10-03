@@ -14,11 +14,21 @@ export async function POST(req: NextRequest) {
 
     // Get the user from our database
     const user = await prisma.user.findUnique({
-      where: { clerkId: userId }
+      where: { clerkId: userId },
+      include: { practice: true }
     });
     
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Check if user has completed their profile (has practice)
+    if (!user.practiceId) {
+      return NextResponse.json({ 
+        error: "Profile incomplete", 
+        message: "Please complete your profile setup before creating quotes",
+        redirectTo: "/dashboard/profile"
+      }, { status: 400 });
     }
 
   const data = await req.json();
