@@ -1,29 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
+import { auditLogger } from '@/lib/audit-service';
+import { getAuditContext, getCurrentUserForAudit } from '@/lib/audit-context';
+import { AuditAction, AuditResource } from '@prisma/client';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // ✅ ADD: Get audit context at the start
+  const auditContext = await getAuditContext(request);
+  const user = await getCurrentUserForAudit();
+  
   try {
     const { userId } = await auth();
     
     if (!userId) {
+      // ✅ ADD: Log unauthorized admin proof upload attempt
+      await auditLogger.logFailure(
+        AuditAction.UPLOAD,
+        AuditResource.PROOF,
+        undefined,
+        undefined,
+        'Unauthorized admin proof upload attempt',
+        'No authenticated user',
+        auditContext.ipAddress,
+        auditContext.userAgent
+      );
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
     // Get the user from our database
-    const user = await prisma.user.findUnique({
+    const dbUser = await prisma.user.findUnique({
       where: { clerkId: userId }
     });
     
-    if (!user) {
+    if (!dbUser) {
+      // ✅ ADD: Log user not found
+      await auditLogger.logFailure(
+        AuditAction.UPLOAD,
+        AuditResource.PROOF,
+        userId,
+        undefined,
+        'Admin proof upload failed - user not found in database',
+        'User not found',
+        auditContext.ipAddress,
+        auditContext.userAgent
+      );
       return new NextResponse("User not found", { status: 404 });
     }
 
     // Check if user is admin
-    if (user.role !== "ADMIN") {
+    if (dbUser.role !== "ADMIN") {
+      // ✅ ADD: Log unauthorized admin access attempt
+      await auditLogger.logFailure(
+        AuditAction.UPLOAD,
+        AuditResource.PROOF,
+        dbUser.id,
+        dbUser.email!,
+        'Non-admin user attempted admin proof upload',
+        'Forbidden - Admin access required',
+        auditContext.ipAddress,
+        auditContext.userAgent
+      );
       return new NextResponse("Forbidden - Admin access required", { status: 403 });
     }
 
@@ -35,6 +75,17 @@ export async function POST(
     });
 
     if (!order) {
+      // ✅ ADD: Log order not found
+      await auditLogger.logFailure(
+        AuditAction.UPLOAD,
+        AuditResource.PROOF,
+        dbUser.id,
+        dbUser.email!,
+        `Admin proof upload failed - order ${orderId} not found`,
+        'Order not found',
+        auditContext.ipAddress,
+        auditContext.userAgent
+      );
       return new NextResponse("Order not found", { status: 404 });
     }
 
@@ -45,6 +96,17 @@ export async function POST(
     const escalationReason = formData.get('escalationReason') as string || '';
 
     if (!proofFile) {
+      // ✅ ADD: Log missing proof file
+      await auditLogger.logFailure(
+        AuditAction.UPLOAD,
+        AuditResource.PROOF,
+        dbUser.id,
+        dbUser.email!,
+        `Admin proof upload failed - no file provided for order ${orderId}`,
+        'Proof file is required',
+        auditContext.ipAddress,
+        auditContext.userAgent
+      );
       return new NextResponse("Proof file is required", { status: 400 });
     }
 
@@ -107,6 +169,20 @@ export async function POST(
       }
     });
 
+    // ✅ ADD: Log successful admin proof upload
+    await auditLogger.logProofOperation(
+      AuditAction.UPLOAD,
+      newProof.id,
+      orderId,
+      dbUser.id,
+      dbUser.email!,
+      dbUser.role,
+      order.practiceId,
+      `Admin uploaded proof #${nextProofRound}: ${proofFile.name}`,
+      auditContext.ipAddress,
+      auditContext.userAgent
+    );
+
     console.log(`✅ Admin proof uploaded: ${proofFile.name} for order ${orderId} (Proof #${nextProofRound})`);
 
     return NextResponse.json({ 
@@ -116,7 +192,19 @@ export async function POST(
       fileName: proofFile.name,
       needsEscalation: nextProofRound >= 3
     });
-  } catch (error) {
+  } catch (error: any) {
+    // ✅ ADD: Log proof upload error
+    await auditLogger.logFailure(
+      AuditAction.UPLOAD,
+      AuditResource.PROOF,
+      user?.id,
+      user?.email || undefined,
+      `Admin proof upload failed: ${error.message}`,
+      error.message,
+      auditContext.ipAddress,
+      auditContext.userAgent
+    );
+
     console.error("Error uploading proof:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }

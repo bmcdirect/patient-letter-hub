@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
+import { auditLogger } from '@/lib/audit-service';
+import { getAuditContext, getCurrentUserForAudit } from '@/lib/audit-context';
+import { AuditAction, AuditResource } from '@prisma/client';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // ✅ ADD: Get audit context at the start
+  const auditContext = await getAuditContext(req);
+  const user = await getCurrentUserForAudit();
+  
   try {
     console.log(`🔍 Files API - Starting request for file: ${params.id}`);
     
@@ -19,6 +26,17 @@ export async function GET(
     console.log(`🔍 Files API - User ID: ${userId}`);
     
     if (!userId) {
+      // ✅ ADD: Log unauthorized file download attempt
+      await auditLogger.logFailure(
+        AuditAction.DOWNLOAD,
+        AuditResource.ORDER_FILE,
+        undefined,
+        undefined,
+        `Unauthorized file download attempt for file ${params.id}`,
+        'No authenticated user',
+        auditContext.ipAddress,
+        auditContext.userAgent
+      );
       console.log('❌ Files API - No user ID found');
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -42,6 +60,17 @@ export async function GET(
     const user = await Promise.race([userPromise, userTimeoutPromise]) as any;
     
     if (!user) {
+      // ✅ ADD: Log user not found
+      await auditLogger.logFailure(
+        AuditAction.DOWNLOAD,
+        AuditResource.ORDER_FILE,
+        userId,
+        undefined,
+        `File download failed - user not found in database for file ${params.id}`,
+        'User not found',
+        auditContext.ipAddress,
+        auditContext.userAgent
+      );
       console.log('❌ Files API - User not found in database');
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -76,6 +105,17 @@ export async function GET(
     const file = await Promise.race([filePromise, fileTimeoutPromise]) as any;
 
     if (!file) {
+      // ✅ ADD: Log file not found
+      await auditLogger.logFailure(
+        AuditAction.DOWNLOAD,
+        AuditResource.ORDER_FILE,
+        user.id,
+        user.email!,
+        `File download failed - file ${params.id} not found`,
+        'File not found',
+        auditContext.ipAddress,
+        auditContext.userAgent
+      );
       console.log(`❌ Files API - File not found: ${params.id}`);
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
@@ -98,6 +138,17 @@ export async function GET(
     });
 
     if (!hasAccess) {
+      // ✅ ADD: Log access denied
+      await auditLogger.logFailure(
+        AuditAction.DOWNLOAD,
+        AuditResource.ORDER_FILE,
+        user.id,
+        user.email!,
+        `File download access denied for file ${file.fileName} (${params.id})`,
+        'Access denied',
+        auditContext.ipAddress,
+        auditContext.userAgent
+      );
       console.log('❌ Files API - Access denied');
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
@@ -130,13 +181,39 @@ export async function GET(
 
     console.log(`📁 Files API - Serving file: ${file.fileName} (${fileBuffer.length} bytes, ${file.fileType})`);
 
+    // ✅ ADD: Log successful file download
+    await auditLogger.logFileOperation(
+      'DOWNLOAD',
+      file.id,
+      file.fileName,
+      file.orderId,
+      user.id,
+      user.email!,
+      user.role,
+      file.order.practiceId,
+      auditContext.ipAddress,
+      auditContext.userAgent
+    );
+
     // Return the file data as a response
     return new NextResponse(fileBuffer, {
       status: 200,
       headers,
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    // ✅ ADD: Log file download error
+    await auditLogger.logFailure(
+      AuditAction.DOWNLOAD,
+      AuditResource.ORDER_FILE,
+      user?.id,
+      user?.email || undefined,
+      `File download failed for file ${params.id}: ${error.message}`,
+      error.message,
+      auditContext.ipAddress,
+      auditContext.userAgent
+    );
+
     console.error("❌ Files API - Error serving file:", {
       error: error,
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -154,20 +231,46 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // ✅ ADD: Get audit context at the start
+  const auditContext = await getAuditContext(req);
+  const user = await getCurrentUserForAudit();
+  
   try {
     // Get the current user's Clerk session
     const { userId } = await auth();
     
     if (!userId) {
+      // ✅ ADD: Log unauthorized file delete attempt
+      await auditLogger.logFailure(
+        AuditAction.DELETE,
+        AuditResource.ORDER_FILE,
+        undefined,
+        undefined,
+        `Unauthorized file delete attempt for file ${params.id}`,
+        'No authenticated user',
+        auditContext.ipAddress,
+        auditContext.userAgent
+      );
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Get the user from our database
-    const user = await prisma.user.findUnique({
+    const dbUser = await prisma.user.findUnique({
       where: { clerkId: userId }
     });
     
-    if (!user) {
+    if (!dbUser) {
+      // ✅ ADD: Log user not found
+      await auditLogger.logFailure(
+        AuditAction.DELETE,
+        AuditResource.ORDER_FILE,
+        userId,
+        undefined,
+        `File delete failed - user not found in database for file ${params.id}`,
+        'User not found',
+        auditContext.ipAddress,
+        auditContext.userAgent
+      );
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
@@ -180,15 +283,37 @@ export async function DELETE(
     });
 
     if (!file) {
+      // ✅ ADD: Log file not found
+      await auditLogger.logFailure(
+        AuditAction.DELETE,
+        AuditResource.ORDER_FILE,
+        dbUser.id,
+        dbUser.email!,
+        `File delete failed - file ${params.id} not found`,
+        'File not found',
+        auditContext.ipAddress,
+        auditContext.userAgent
+      );
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
     // Check if user has permission to delete this file
     const canDelete = 
-      user.role === 'ADMIN' || // Admin can delete all files
-      file.uploadedBy === user.id; // User uploaded the file
+      dbUser.role === 'ADMIN' || // Admin can delete all files
+      file.uploadedBy === dbUser.id; // User uploaded the file
 
     if (!canDelete) {
+      // ✅ ADD: Log permission denied
+      await auditLogger.logFailure(
+        AuditAction.DELETE,
+        AuditResource.ORDER_FILE,
+        dbUser.id,
+        dbUser.email!,
+        `File delete permission denied for file ${file.fileName} (${params.id})`,
+        'Permission denied',
+        auditContext.ipAddress,
+        auditContext.userAgent
+      );
       return NextResponse.json({ error: "Permission denied" }, { status: 403 });
     }
 
@@ -197,11 +322,37 @@ export async function DELETE(
       where: { id: params.id }
     });
 
+    // ✅ ADD: Log successful file deletion
+    await auditLogger.logFileOperation(
+      'DELETE',
+      file.id,
+      file.fileName,
+      file.orderId,
+      dbUser.id,
+      dbUser.email!,
+      dbUser.role,
+      file.order.practiceId,
+      auditContext.ipAddress,
+      auditContext.userAgent
+    );
+
     console.log(`🗑️ Files API - Deleted file: ${file.fileName}`);
 
     return NextResponse.json({ message: "File deleted successfully" });
 
-  } catch (error) {
+  } catch (error: any) {
+    // ✅ ADD: Log file deletion error
+    await auditLogger.logFailure(
+      AuditAction.DELETE,
+      AuditResource.ORDER_FILE,
+      user?.id,
+      user?.email || undefined,
+      `File delete failed for file ${params.id}: ${error.message}`,
+      error.message,
+      auditContext.ipAddress,
+      auditContext.userAgent
+    );
+
     console.error("❌ Files API - Error deleting file:", error);
     return NextResponse.json({ error: "Failed to delete file" }, { status: 500 });
   }
